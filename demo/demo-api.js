@@ -1,19 +1,19 @@
 /* ==========================================================================
-   SSV GYM — DEMO API (replaces js/api.js on the demo pages)          v1.4.0
+   SSV GYM — DEMO API (replaces js/api.js on the demo pages)          v1.5.0
    Same functions as js/api.js, but everything is kept in this browser
    (localStorage), so the demo website and demo admin share the same data.
    Nothing reaches the real Google Sheet or Cloudinary. Any password signs in.
    ========================================================================== */
 const API = (() => {
-  const STATE_KEY = 'ssv_demo_state';
+  const STATE_KEY = 'ssv_demo_state_v2';
   const TOKEN_KEY = 'ssv_demo_token';
   const BASE = 'SSV-Gym';
-  const SECTIONS = { general: `${BASE}/Home`, facilities: `${BASE}/Facilities`, trainers: `${BASE}/Trainers`, gallery: `${BASE}/Gallery` };
-  const TABS = { facilities: 'Facilities', plans: 'Membership Plans', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements' };
-  const PREFIX = { facilities: 'fac', plans: 'plan', trainers: 'tr', gallery: 'img', reviews: 'rev', announcements: 'ann', enquiries: 'enq' };
+  const SECTIONS = { general: `${BASE}/Home`, facilities: `${BASE}/Facilities`, trainers: `${BASE}/Trainers`, gallery: `${BASE}/Gallery`, announcements: `${BASE}/Events` };
+  const TABS = { facilities: 'Facilities', plans: 'Membership Plans', services: 'Services', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements' };
+  const PREFIX = { facilities: 'fac', plans: 'plan', services: 'svc', trainers: 'tr', gallery: 'img', reviews: 'rev', announcements: 'ann', enquiries: 'enq' };
   const REQUIRED = {
-    facilities: { name: 'Name' }, plans: { name: 'Plan name', duration: 'Duration' }, trainers: { name: 'Name' },
-    gallery: { image_url: 'Image' }, reviews: { name: 'Name', review: 'Review' }, announcements: { title: 'Title' }
+    facilities: { name: 'Name' }, plans: { name: 'Plan name', duration: 'Duration' }, services: { name: 'Name' }, trainers: { name: 'Name' },
+    gallery: { image_url: 'Photo or video' }, reviews: { name: 'Name', review: 'Review' }, announcements: { title: 'Title' }
   };
   const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
 
@@ -30,6 +30,7 @@ const API = (() => {
   const slug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
   const orderOf = v => (v === '' || v === null || v === undefined || isNaN(Number(v)) ? Infinity : Number(v));
   const byOrder = (a, b) => (orderOf(a.display_order) - orderOf(b.display_order)) || 0;
+  const isVideoFile = file => Boolean(file) && /^video\//.test(file.type);
 
   /* ---------- stored data ---------- */
   function read() {
@@ -45,9 +46,10 @@ const API = (() => {
     catch { throw new ApiError('The demo storage in this browser is full. Use Reset to start again.', 'STORAGE_FULL'); }
   }
   function reset() {
-    try { localStorage.removeItem(STATE_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(STATE_KEY); localStorage.removeItem('ssv_demo_state'); sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
     db = clone(DEMO_DATA);
   }
+  try { localStorage.removeItem('ssv_demo_state'); } catch { /* data saved by the previous demo */ }
   window.addEventListener('storage', e => { if (e.key === STATE_KEY) db = read(); });
 
   const getToken = () => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } };
@@ -78,8 +80,8 @@ const API = (() => {
     const active = key => clone((db[key] || []).filter(r => truthy(r.active)).sort(byOrder));
     return {
       general: clone(db.general),
-      facilities: active('facilities'), plans: active('plans'), trainers: active('trainers'), gallery: active('gallery'),
-      announcements: clone(db.announcements.filter(a => truthy(a.active) && (!a.expiry || String(a.expiry).slice(0, 10) >= t))
+      facilities: active('facilities'), plans: active('plans'), services: active('services'), trainers: active('trainers'), gallery: active('gallery'),
+      announcements: clone((db.announcements || []).filter(a => truthy(a.active) && (!a.expiry || String(a.expiry).slice(0, 10) >= t))
         .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date)))),
       reviews: db.reviews.filter(r => r.status === 'Published' && String(r.review || '').trim())
         .map(r => ({ id: r.id, name: r.name, rating: Number(r.rating) || 0, review: r.review, likes: Number(r.likes) || 0, date: r.date }))
@@ -139,10 +141,10 @@ const API = (() => {
   function adminData() {
     return {
       general: clone(db.general), enquiries: clone(db.enquiries),
-      facilities: clone(db.facilities), plans: clone(db.plans), trainers: clone(db.trainers),
+      facilities: clone(db.facilities), plans: clone(db.plans), services: clone(db.services || []), trainers: clone(db.trainers),
       gallery: clone(db.gallery), reviews: clone(db.reviews), announcements: clone(db.announcements),
       meta: {
-        version: '1.4.1', timeZone: 'Asia/Kolkata', sheetUrl: '', cloudinaryConfigured: true,
+        version: '1.5.0', timeZone: 'Asia/Kolkata', sheetUrl: '', cloudinaryConfigured: true,
         notifyEmail: 'owner@example.com (demo: no emails are sent)', media: { base: BASE, sections: SECTIONS }
       }
     };
@@ -150,11 +152,13 @@ const API = (() => {
 
   function saveRecord(collection, input) {
     if (!TABS[collection]) throw new ApiError('Unknown collection.', 'BAD_REQUEST');
+    if (!Array.isArray(db[collection])) db[collection] = [];
     const rows = db[collection];
     const rec = { ...(input || {}) };
     ['active', 'featured'].forEach(k => { if (k in rec) rec[k] = truthy(rec[k]); });
     if ('rating' in rec) rec.rating = Number(rec.rating) || '';
     if ('price' in rec && /^\d+(\.\d+)?$/.test(String(rec.price))) rec.price = Number(rec.price);
+    if ('category' in rec) rec.category = String(rec.category || '').trim().toLowerCase();
     const existing = rec.id ? rows.find(r => r.id === rec.id) : null;
     if (rec.id && !existing) throw new ApiError('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
     if (collection === 'reviews') { delete rec.likes; delete rec.source; delete rec.date; }
@@ -172,7 +176,7 @@ const API = (() => {
     const position = {};
     ids.forEach((id, i) => { position[id] = i + 1; });
     let next = ids.length;
-    db[collection].slice().sort(byOrder).forEach(r => { r.display_order = position[r.id] || ++next; });
+    (db[collection] || []).slice().sort(byOrder).forEach(r => { r.display_order = position[r.id] || ++next; });
     persist();
     return { reordered: ids.length };
   }
@@ -182,7 +186,7 @@ const API = (() => {
     const entries = [];
     const friendly = { hero_image: 'Top photo', about_image: 'About photo' };
     Object.keys(db.general).forEach(k => { const v = db.general[k]; if (typeof v === 'string' && v) entries.push([v, `General information: ${friendly[k] || k}`]); });
-    ['facilities', 'trainers', 'gallery'].forEach(key => (db[key] || []).forEach(r => {
+    ['facilities', 'trainers', 'gallery', 'announcements'].forEach(key => (db[key] || []).forEach(r => {
       if (r.image_url) entries.push([r.image_url, `${TABS[key]}: ${r.name || r.title || r.id}${truthy(r.active) ? '' : ' (hidden)'}`]);
     }));
     return url => entries.filter(([v]) => v === url).map(([, label]) => label);
@@ -211,8 +215,9 @@ const API = (() => {
     return { url: canvas.toDataURL('image/jpeg', 0.8), width: canvas.width, height: canvas.height };
   }
 
-  async function uploadImage(file, { folder = SECTIONS.general, onProgress = null } = {}) {
+  async function uploadMedia(file, { folder = SECTIONS.general, onProgress = null } = {}) {
     if (!getToken()) throw new ApiError('Please sign in.', 'AUTH_REQUIRED');
+    if (isVideoFile(file)) throw new ApiError('Videos can\'t be uploaded in the demo (the real admin panel sends them to Cloudinary). Try "Add by link" with a YouTube link.', 'INVALID_FILE');
     if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) throw new ApiError('Choose a JPG, PNG or WebP photo.', 'INVALID_FILE');
     for (const p of [15, 45, 80]) { if (onProgress) onProgress(p); await pause(120); }
     let img;
@@ -220,10 +225,10 @@ const API = (() => {
     const name = slug(String(file.name || '').replace(/\.[^.]+$/, '')) || 'photo';
     const id = `${folder}/${name}-${Date.now().toString(36)}`;
     db = read();
-    db.media.images.push({ id, url: img.url, folder, bytes: Math.round(img.url.length * 0.75), width: img.width, height: img.height, created: new Date().toISOString() });
+    db.media.images.push({ id, type: 'image', url: img.url, folder, bytes: Math.round(img.url.length * 0.75), width: img.width, height: img.height, created: new Date().toISOString() });
     persist();
     if (onProgress) onProgress(100);
-    return { url: img.url, publicId: id, width: img.width, height: img.height };
+    return { url: img.url, publicId: id, width: img.width, height: img.height, kind: 'image' };
   }
 
   const folderList = () => db.media.folders.slice().sort();
@@ -232,7 +237,7 @@ const API = (() => {
   function deleteFolder(path) {
     const section = sectionOf(path);
     if (!section || path === section) throw new ApiError('The main website folders can\'t be deleted.', 'VALIDATION');
-    if (db.media.images.some(i => i.folder === path || i.folder.startsWith(path + '/'))) throw new ApiError('This folder still has photos. Delete them first.', 'VALIDATION');
+    if (db.media.images.some(i => i.folder === path || i.folder.startsWith(path + '/'))) throw new ApiError('This folder still has files. Delete them first.', 'VALIDATION');
     db.media.folders = db.media.folders.filter(f => f !== path && !f.startsWith(path + '/'));
     persist();
     return { deleted: path };
@@ -248,19 +253,19 @@ const API = (() => {
   }
 
   return {
-    ApiError, getToken, setToken, reset,
+    ApiError, getToken, setToken, reset, isVideoFile,
     isConfigured: () => true,
     clearCache: () => {},
 
     /* website */
     getContent, submitEnquiry, submitReview, likeReview,
     setReviewLikes: () => {}, addReview: () => {},
-    health: async () => ({ status: 'ok', version: '1.4.0 (demo)' }),
+    health: async () => ({ status: 'ok', version: '1.5.0 (demo)' }),
 
     /* admin */
     login,
     logout: async () => { setToken(null); },
-    verifySession: () => admin(() => ({ valid: true, version: '1.4.0' })),
+    verifySession: () => admin(() => ({ valid: true, version: '1.5.0' })),
     getAdminData: () => admin(adminData),
     getInbox: () => admin(() => ({ enquiries: clone(db.enquiries), reviews: clone(db.reviews) })),
     updateEnquiryStatus: (id, status) => admin(() => {
@@ -288,11 +293,12 @@ const API = (() => {
       return { deleted: id };
     }),
     reorder: (collection, ids) => admin(() => reorder(collection, ids)),
-    uploadImage,
+    uploadMedia,
+    uploadImage: uploadMedia,
     mediaFolders: () => admin(() => ({ base: BASE, sections: SECTIONS, folders: folderList() })),
     mediaLibrary: () => admin(() => {
       const used = usage();
-      return { base: BASE, sections: SECTIONS, legacy: [], folders: folderList(), images: db.media.images.map(i => ({ ...i, usedIn: used(i.url) })), truncated: false };
+      return { base: BASE, sections: SECTIONS, legacy: [], folders: folderList(), images: db.media.images.map(i => ({ type: 'image', ...i, usedIn: used(i.url) })), truncated: false };
     }),
     deleteFolder: path => admin(() => deleteFolder(path)),
     deleteImages: images => admin(() => removeImages(images)),

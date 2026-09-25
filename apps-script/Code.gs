@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.4.1
+ *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.5.0
  * ===========================================================================
  *  First time
  *    1. Open the "SSV Gym CMS" spreadsheet > Extensions > Apps Script.
@@ -24,16 +24,17 @@
  * ===========================================================================
  */
 
-const VERSION = '1.4.1';
-const SEED_LEVEL = '1.4.0';            // level of the starting content (see setupSheets)
+const VERSION = '1.5.0';
+const SEED_LEVEL = '1.5.0';            // level of the starting content (see setupSheets)
 const NOTIFY_DEFAULT = 'ssvgym2021@gmail.com, laxman19.sawant@gmail.com';
 const SESSION_SECONDS = 6 * 60 * 60;   // admin session, extended on each use (CacheService maximum)
 const CONTENT_CACHE_SECONDS = 300;     // public content cache
 const CONTENT_CACHE_KEY = 'public_content_v2';
 const MAX_LOGIN_FAILURES = 5;
 const LOCK_SECONDS = 15 * 60;
-const UPLOAD_FORMATS = 'jpg,png,webp'; // Cloudinary refuses any other file type
-const MAX_FOLDER_DEPTH = 4;            // a section folder plus up to 3 levels of subfolders
+const UPLOAD_FORMATS = 'jpg,png,webp'; // photos: Cloudinary refuses any other file type
+const VIDEO_FORMATS = 'mp4,mov,webm';  // videos (gallery)
+const MAX_FOLDER_DEPTH = 4;            // folders listed: a section folder plus up to 3 levels made in Cloudinary
 const FOLDER_CACHE_SECONDS = 600;      // folder list cache for the admin panel
 const MAX_PUBLIC_REVIEWS = 300;
 const REVIEW_MAX_CHARS = 800;
@@ -42,8 +43,8 @@ const SECRET_KEY_PATTERN = /pass|secret|api.?key|token/i;
 /** Links in reviews are almost always spam. */
 const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
 
-/** Photos are filed as <CLOUDINARY_FOLDER>/<section>/…, e.g. SSV-Gym/Trainers. */
-const MEDIA_SECTIONS = { general: 'Home', facilities: 'Facilities', trainers: 'Trainers', gallery: 'Gallery' };
+/** Uploads are filed as <CLOUDINARY_FOLDER>/<section>, e.g. SSV-Gym/Trainers. */
+const MEDIA_SECTIONS = { general: 'Home', facilities: 'Facilities', trainers: 'Trainers', gallery: 'Gallery', announcements: 'Events' };
 /** Main folders used by earlier versions. Their photos still show in the media library. */
 const LEGACY_FOLDERS = ['ssv-gym'];
 
@@ -52,10 +53,11 @@ const SCHEMA = {
   General:            ['key', 'value', 'notes'],
   Facilities:         ['id', 'name', 'tags', 'description', 'image_url', 'category', 'active', 'display_order'],
   'Membership Plans': ['id', 'name', 'duration', 'price', 'description', 'features', 'featured', 'active', 'display_order'],
+  Services:           ['id', 'name', 'price', 'price_note', 'description', 'active', 'display_order'],
   Trainers:           ['id', 'name', 'role', 'specialization', 'bio', 'image_url', 'active', 'display_order'],
   Gallery:            ['id', 'image_url', 'title', 'category', 'caption', 'active', 'display_order'],
   Reviews:            ['id', 'name', 'rating', 'review', 'likes', 'date', 'source', 'status'],
-  Announcements:      ['id', 'title', 'description', 'date', 'expiry', 'active', 'priority'],
+  Announcements:      ['id', 'title', 'description', 'image_url', 'date', 'expiry', 'active', 'priority'],
   Enquiries:          ['id', 'name', 'phone', 'message', 'date', 'status'],
   Config:             ['key', 'value', 'notes']
 };
@@ -63,8 +65,8 @@ const SCHEMA = {
 const LABELS = {
   id: 'ID', key: 'Key', value: 'Value', notes: 'Notes', name: 'Name', tags: 'Tags', description: 'Description',
   image_url: 'Image URL', category: 'Category', active: 'Active', display_order: 'Display Order', duration: 'Duration',
-  price: 'Price', features: 'Features', featured: 'Featured', role: 'Role', specialization: 'Specialization', bio: 'Bio',
-  title: 'Title', caption: 'Caption', rating: 'Rating', review: 'Review', likes: 'Likes', date: 'Date', source: 'Source',
+  price: 'Price', price_note: 'Price Note', features: 'Features', featured: 'Featured', role: 'Role', specialization: 'Specialization',
+  bio: 'Bio', title: 'Title', caption: 'Caption', rating: 'Rating', review: 'Review', likes: 'Likes', date: 'Date', source: 'Source',
   status: 'Status', expiry: 'Expiry', priority: 'Priority', phone: 'Phone', message: 'Message'
 };
 /** Column width in pixels and alignment. All text is clipped to one line; click a cell to read it all. */
@@ -72,14 +74,14 @@ const COLUMN_STYLE = {
   id: [170, 'left'], key: [190, 'left'], value: [420, 'left'], notes: [380, 'left'],
   name: [190, 'left'], title: [230, 'left'], tags: [220, 'left'], description: [340, 'left'],
   image_url: [240, 'left'], category: [110, 'center'], active: [80, 'center'], featured: [90, 'center'],
-  display_order: [120, 'center'], duration: [110, 'center'], price: [100, 'center'], features: [300, 'left'],
-  role: [170, 'left'], specialization: [220, 'left'], bio: [340, 'left'], caption: [280, 'left'],
+  display_order: [120, 'center'], duration: [110, 'center'], price: [100, 'center'], price_note: [150, 'left'],
+  features: [300, 'left'], role: [170, 'left'], specialization: [220, 'left'], bio: [340, 'left'], caption: [280, 'left'],
   rating: [80, 'center'], review: [400, 'left'], likes: [80, 'center'], date: [150, 'center'],
   expiry: [120, 'center'], priority: [90, 'center'], source: [100, 'center'], status: [120, 'center'],
   phone: [150, 'left'], message: [360, 'left']
 };
-const COLLECTIONS = { facilities: 'Facilities', plans: 'Membership Plans', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements' };
-const ID_PREFIX = { Facilities: 'fac', 'Membership Plans': 'plan', Trainers: 'tr', Gallery: 'img', Reviews: 'rev', Announcements: 'ann', Enquiries: 'enq' };
+const COLLECTIONS = { facilities: 'Facilities', plans: 'Membership Plans', services: 'Services', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements' };
+const ID_PREFIX = { Facilities: 'fac', 'Membership Plans': 'plan', Services: 'svc', Trainers: 'tr', Gallery: 'img', Reviews: 'rev', Announcements: 'ann', Enquiries: 'enq' };
 const BOOLEAN_COLUMNS = ['active', 'featured'];
 const BOOLEAN_KEYS = ['review_form', 'review_approval'];
 const DATE_COLUMNS = ['date', 'expiry'];
@@ -89,8 +91,9 @@ const REVIEW_STATUSES = ['Published', 'Pending', 'Hidden'];
 const REQUIRED = {
   Facilities: { name: 'Name' },
   'Membership Plans': { name: 'Plan name', duration: 'Duration' },
+  Services: { name: 'Name' },
   Trainers: { name: 'Name' },
-  Gallery: { image_url: 'Image' },
+  Gallery: { image_url: 'Photo or video' },
   Reviews: { name: 'Name', review: 'Review' },
   Announcements: { title: 'Title' }
 };
@@ -162,7 +165,7 @@ function adminAction_(action, body) {
     }
     case 'reorder':             return write_(() => reorder_(tabFor_(body.collection), body.ids));
     case 'updateEnquiryStatus': return withLock_(() => updateEnquiryStatus_(body.id, body.status));
-    case 'getUploadSignature':  return getUploadSignature_(body.folder);
+    case 'getUploadSignature':  return getUploadSignature_(body.folder, body.kind);
     case 'mediaFolders':        return mediaFolders_(Boolean(body.fresh));
     case 'mediaLibrary':        return mediaLibrary_(Boolean(body.fresh));
     case 'deleteFolder':        return deleteFolder_(body.path);
@@ -530,7 +533,7 @@ function cleanImageUrl_(v) {
   const s = String(v || '').trim();
   if (!s || /^https?:\/\//i.test(s)) return s;
   if (!/^[a-z][\w+.-]*:/i.test(s) && /^(\.{0,2}\/|[\w-]+\/)/.test(s)) return s; // a file on the website, e.g. assets/hero.jpg
-  throw apiError_('Image links must start with https://', 'VALIDATION');
+  throw apiError_('Links must start with https://', 'VALIDATION');
 }
 
 /**
@@ -910,27 +913,28 @@ function folderCacheKey_(base) { return 'cld_folders_v2:' + base; }
 
 /**
  * The folder an upload goes into: exactly one of the section folders
- * (<base>/Home, Facilities, Trainers or Gallery). The admin panel can't
- * create any other folder.
+ * (<base>/Home, Facilities, Trainers, Gallery or Events). The admin panel
+ * can't create any other folder.
  */
 function uploadFolder_(requested, base) {
   const path = cleanFolderPath_(requested);
   const allowed = sectionNames_().map(s => base + '/' + s);
-  if (allowed.indexOf(path) < 0) throw apiError_('Photos go into one of the website folders: ' + allowed.join(', ') + '.', 'VALIDATION');
+  if (allowed.indexOf(path) < 0) throw apiError_('Uploads go into one of the website folders: ' + allowed.join(', ') + '.', 'VALIDATION');
   return path;
 }
 
-/** Signs one upload (JPG, PNG or WebP only) into a section folder. */
-function getUploadSignature_(requested) {
+/** Signs one upload into a section folder: a photo (JPG, PNG, WebP) or, with kind "video", a video (MP4, MOV, WebM). */
+function getUploadSignature_(requested, kind) {
   const cld = requireCloudinary_();
   const folder = uploadFolder_(requested || cld.base + '/' + MEDIA_SECTIONS.general, cld.base);
-  const params = { allowed_formats: UPLOAD_FORMATS, folder: folder, timestamp: Math.floor(Date.now() / 1000), unique_filename: 'true', use_filename: 'true' };
+  const video = kind === 'video';
+  const params = { allowed_formats: video ? VIDEO_FORMATS : UPLOAD_FORMATS, folder: folder, timestamp: Math.floor(Date.now() / 1000), unique_filename: 'true', use_filename: 'true' };
   const toSign = Object.keys(params).sort().map(k => k + '=' + params[k]).join('&');
   const signature = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, toSign + cld.secret, Utilities.Charset.UTF_8));
-  return { cloudName: cld.cloud, apiKey: cld.apiKey, params: params, signature: signature };
+  return { cloudName: cld.cloud, apiKey: cld.apiKey, params: params, signature: signature, resourceType: video ? 'video' : 'image' };
 }
 
-/** The main folder, the section folders (which exist once used) and every subfolder. Cached 10 minutes. */
+/** The main folder, the section folders (which exist once used) and any subfolders made in Cloudinary. Cached 10 minutes. */
 function mediaFolders_(fresh) {
   const cld = requireCloudinary_();
   const cache = CacheService.getScriptCache(), key = folderCacheKey_(cld.base);
@@ -957,7 +961,7 @@ function mediaFolders_(fresh) {
   return out;
 }
 
-/** Folders and photos, each photo with the places in the sheet that use it. Includes older uploads. */
+/** Folders, photos and videos, each file with the places in the sheet that use it. Includes older uploads. */
 function mediaLibrary_(fresh) {
   const cld = requireCloudinary_();
   const tree = mediaFolders_(fresh);
@@ -965,19 +969,21 @@ function mediaLibrary_(fresh) {
   const images = [], seen = {}, legacy = [];
   let truncated = false;
   cld.roots.forEach(root => {
-    let cursor = null, pages = 0;
-    do {
-      const res = cloudinaryApi_(cld, 'get', 'resources/image/upload', { prefix: root + '/', max_results: 500, next_cursor: cursor });
-      (res.resources || []).forEach(r => {
-        const id = String(r.public_id || '');
-        if (seen[id] || id.indexOf(root + '/') !== 0) return;
-        seen[id] = true;
-        const folder = typeof r.asset_folder === 'string' && r.asset_folder.indexOf(root) === 0 ? r.asset_folder : id.slice(0, id.lastIndexOf('/'));
-        images.push({ id: id, url: r.secure_url || r.url || '', folder: folder, bytes: r.bytes || 0, width: r.width || 0, height: r.height || 0, created: r.created_at || '', usedIn: usedIn(id) });
-      });
-      cursor = res.next_cursor || null;
-    } while (cursor && ++pages < 4);
-    if (cursor) truncated = true;
+    ['image', 'video'].forEach(type => {
+      let cursor = null, pages = 0;
+      do {
+        const res = cloudinaryApi_(cld, 'get', 'resources/' + type + '/upload', { prefix: root + '/', max_results: 500, next_cursor: cursor });
+        (res.resources || []).forEach(r => {
+          const id = String(r.public_id || '');
+          if (seen[type + ':' + id] || id.indexOf(root + '/') !== 0) return;
+          seen[type + ':' + id] = true;
+          const folder = typeof r.asset_folder === 'string' && r.asset_folder.indexOf(root) === 0 ? r.asset_folder : id.slice(0, id.lastIndexOf('/'));
+          images.push({ id: id, type: type, url: r.secure_url || r.url || '', folder: folder, bytes: r.bytes || 0, width: r.width || 0, height: r.height || 0, duration: r.duration || 0, created: r.created_at || '', usedIn: usedIn(id) });
+        });
+        cursor = res.next_cursor || null;
+      } while (cursor && ++pages < 4);
+      if (cursor) truncated = true;
+    });
     if (root !== cld.base && images.some(i => i.id.indexOf(root + '/') === 0)) legacy.push(root);
   });
   const folders = tree.folders.slice();
@@ -999,68 +1005,77 @@ function deleteFolder_(path) {
   const legacy = cld.roots.some(r => r !== cld.base && (clean === r || clean.indexOf(r + '/') === 0));
   const inSection = sectionNames_().some(s => clean.indexOf(cld.base + '/' + s + '/') === 0);
   if (!legacy && !inSection) throw apiError_('The main website folders can\'t be deleted.', 'VALIDATION');
-  const inside = cloudinaryApi_(cld, 'get', 'resources/image/upload', { prefix: clean + '/', max_results: 1 });
-  if ((inside.resources || []).length) throw apiError_('This folder still has photos. Delete them first.', 'VALIDATION');
+  const inside = ['image', 'video'].some(type => (cloudinaryApi_(cld, 'get', 'resources/' + type + '/upload', { prefix: clean + '/', max_results: 1 }).resources || []).length > 0);
+  if (inside) throw apiError_('This folder still has files. Delete them first.', 'VALIDATION');
   try { cloudinaryApi_(cld, 'delete', 'folders/' + encodePath_(clean)); }
   catch (err) { if (err.code !== 'CLOUDINARY_NOT_FOUND') throw err; }
   CacheService.getScriptCache().remove(folderCacheKey_(cld.base));
   return { deleted: clean };
 }
 
-/** Deletes photos (links or public IDs) that nothing in the sheet uses. Photos in use are kept and reported. */
+/** Deletes files (links or public IDs) that nothing in the sheet uses. Files in use are kept and reported. */
 function deleteImages_(list) {
   const cld = requireCloudinary_();
-  if (!Array.isArray(list) || !list.length) throw apiError_('No photos to delete.', 'BAD_REQUEST');
-  const ids = unique_(list.slice(0, 500).map(v => publicIdOf_(v, cld)).filter(Boolean));
+  if (!Array.isArray(list) || !list.length) throw apiError_('Nothing to delete.', 'BAD_REQUEST');
+  const assets = uniqueAssets_(list.slice(0, 500).map(v => assetOf_(v, cld)).filter(Boolean));
   const usedIn = imageUsage_(cld.roots);
-  const kept = ids.filter(id => usedIn(id).length > 0);
-  const deleted = ids.filter(id => kept.indexOf(id) < 0);
-  deleteAssets_(cld, deleted);
-  return { deleted: deleted, kept: kept };
+  const kept = assets.filter(a => usedIn(a.id).length > 0);
+  const gone = assets.filter(a => kept.indexOf(a) < 0);
+  deleteAssets_(cld, gone);
+  return { deleted: gone.map(a => a.id), kept: kept.map(a => a.id) };
 }
 
-/** After a save or delete: removes the photos it replaced if nothing else uses them. Never fails the save. */
+/** After a save or delete: removes the files it replaced if nothing else uses them. Never fails the save. */
 function removeUnusedImages_(urls) {
   if (!urls || !urls.length) return;
   try {
     const cld = cloudinary_();
     if (!cld) return;
-    const ids = unique_(urls.map(u => publicIdOf_(u, cld)).filter(Boolean));
-    if (!ids.length) return;
+    const assets = uniqueAssets_(urls.map(u => assetOf_(u, cld)).filter(Boolean));
+    if (!assets.length) return;
     const usedIn = imageUsage_(cld.roots);
-    const unused = ids.filter(id => usedIn(id).length === 0);
+    const unused = assets.filter(a => usedIn(a.id).length === 0);
     if (unused.length) deleteAssets_(cld, unused);
   } catch (err) {
-    console.warn('Photo clean-up skipped: ' + (err && err.message));
+    console.warn('Clean-up skipped: ' + (err && err.message));
   }
 }
 
-function deleteAssets_(cld, ids) {
-  for (let i = 0; i < ids.length; i += 100) {
-    cloudinaryApi_(cld, 'delete', 'resources/image/upload', { 'public_ids[]': ids.slice(i, i + 100), invalidate: 'true' });
-  }
+function uniqueAssets_(list) {
+  const seen = {};
+  return list.filter(a => { const k = a.type + ':' + a.id; if (seen[k]) return false; seen[k] = true; return true; });
 }
 
-/** Public ID of a photo in this Cloudinary account inside the website's folders, or '' for anything else. */
-function publicIdOf_(value, cld) {
-  let id = String(value || '').trim();
-  const m = id.match(/^https?:\/\/res\.cloudinary\.com\/([^/]+)\/image\/upload\/([^?#]+)/i);
+function deleteAssets_(cld, assets) {
+  ['image', 'video'].forEach(type => {
+    const ids = assets.filter(a => a.type === type).map(a => a.id);
+    for (let i = 0; i < ids.length; i += 100) {
+      cloudinaryApi_(cld, 'delete', 'resources/' + type + '/upload', { 'public_ids[]': ids.slice(i, i + 100), invalidate: 'true' });
+    }
+  });
+}
+
+/** { id, type } of a photo or video in this Cloudinary account inside the website's folders, or null. */
+function assetOf_(value, cld) {
+  let id = String(value || '').trim(), type = 'image';
+  const m = id.match(/^https?:\/\/res\.cloudinary\.com\/([^/]+)\/(image|video)\/upload\/([^?#]+)/i);
   if (m) {
-    if (m[1] !== cld.cloud) return '';
-    const parts = m[2].split('/');
+    if (m[1] !== cld.cloud) return null;
+    type = m[2].toLowerCase();
+    const parts = m[3].split('/');
     const v = parts.findIndex(p => /^v\d+$/.test(p));
-    try { id = decodeURIComponent((v >= 0 ? parts.slice(v + 1) : parts).join('/')); } catch (err) { return ''; }
+    try { id = decodeURIComponent((v >= 0 ? parts.slice(v + 1) : parts).join('/')); } catch (err) { return null; }
     id = id.replace(/\.[a-z0-9]{2,5}$/i, '');
   } else if (/^[a-z][\w+.-]*:/i.test(id)) {
-    return '';
+    return null;
   }
-  return id.indexOf('..') < 0 && cld.roots.some(r => id.indexOf(r + '/') === 0) ? id : '';
+  return id.indexOf('..') < 0 && cld.roots.some(r => id.indexOf(r + '/') === 0) ? { id: id, type: type } : null;
 }
 
 /**
- * Where each photo is used. Returns a lookup: public ID -> labels such as
+ * Where each file is used. Returns a lookup: public ID -> labels such as
  * "Trainers: Rahul" or "General information: Top photo". Hidden rows count
- * too, so a photo in use is never deleted.
+ * too, so a file in use is never deleted.
  */
 function imageUsage_(roots) {
   const ss = ss_(), entries = [];
@@ -1124,8 +1139,9 @@ function onEdit(e) {
 
 /**
  * Creates, repairs and styles every tab. Safe to run any time.
- * One-time steps for older sheets: 1.1 sample content is upgraded (1.3), and
- * empty sections get sample content to replace later (1.4).
+ * One-time steps for older sheets: 1.1 sample content is upgraded (1.3), empty
+ * sections get sample content (1.4), and the new address, opening hours,
+ * phone numbers and settings are added (1.5). Values you changed are kept.
  */
 function setupSheets() {
   const ss = ss_();
@@ -1153,6 +1169,7 @@ function setupSheets() {
   });
   if (olderThan_(level, '1.3.0')) upgradeSampleContent_(ss, seeds);
   if (olderThan_(level, '1.4.0')) fillSamples_(ss, seeds);
+  if (olderThan_(level, '1.5.0')) upgradeTo150_(ss, seeds);
   props.setProperty('SEED_VERSION', SEED_LEVEL);
   fillNotes_(ss.getSheetByName('General'), noteFor_);
   fillNotes_(ss.getSheetByName('Config'), configNoteFor_);
@@ -1321,6 +1338,27 @@ function fillSamples_(ss, seeds) {
   const config = ss.getSheetByName('Config');
   updateKeyValues_(config, (key, value) => (key === 'NOTIFY_EMAIL' && isBlank_(value) ? NOTIFY_DEFAULT : undefined));
   appendMissingKeys_(config, seeds.Config.filter(r => r[0] === 'NOTIFY_EMAIL'));
+}
+
+/**
+ * One-time step (1.5): the gym's new address, opening hours (Sunday differs)
+ * and phone numbers (gym and owner), plus the new settings. Only values still
+ * equal to the old starting content are replaced; anything you edited stays.
+ * The Services tab (personal training, diet plans) is created with its rows
+ * like any new tab.
+ */
+function upgradeTo150_(ss, seeds) {
+  const general = ss.getSheetByName('General');
+  if (!general) return;
+  const fresh = {};
+  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
+  const old = {
+    phone: '+91 75586 08585',
+    address: 'Kamanwala Nagar, Sheetal Nagar | Virar West, Maharashtra 401303',
+    opening_hours: 'Open all 7 days | 6:00 AM – 11:00 PM'
+  };
+  updateKeyValues_(general, (key, value) => (key in old && sameText_(value, old[key]) ? fresh[key] : undefined));
+  appendMissingKeys_(general, seeds.General.filter(r => ['phone_2', 'services_heading', 'gallery_categories'].indexOf(r[0]) >= 0));
 }
 
 /** fn(key, value) for each key/value row: a returned value replaces the cell, null deletes the row, undefined leaves it. */
@@ -1509,7 +1547,7 @@ function setCloudinaryKeys() {
   }
   PropertiesService.getScriptProperties().setProperties({ CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: secret });
   CacheService.getScriptCache().remove(folderCacheKey_(baseFolder_(cfg)));
-  ui.alert('Cloudinary keys saved. Photo uploads and the media library in the admin panel are ready.');
+  ui.alert('Cloudinary keys saved. Uploads and the media library in the admin panel are ready.');
   removeSecretRows_(ui);
 }
 
@@ -1531,21 +1569,20 @@ function signOutAllSessions() {
 function toast_(message) { try { ss_().toast(message, 'SSV Admin', 8); } catch (err) { console.log(message); } }
 
 /* ================================ starting content ================================
-   Written by setupSheets() into empty tabs. Contact details, services, Facebook
-   and Instagram are the gym's own. Trainers, prices, statistics and photos are
-   SAMPLE content (photos from Unsplash) for the owner to replace. Reviews are
-   left to real visitors. */
+   Written by setupSheets() into empty tabs. Contact details, hours, services,
+   Facebook and Instagram are the gym's own. Trainers, statistics and most
+   photos are SAMPLE content (photos from Unsplash) for the owner to replace.
+   Reviews are left to real visitors. */
 
 function seedRows_() {
   const stock = id => 'https://images.unsplash.com/' + id;   // stand-in photos until photos of SSV are uploaded
-  const phone = '+91 75586 08585';
   const features = 'Full gym access | Cardio equipment | Complimentary locker';
   return {
     General: [
       ['gym_name', 'SSV Gym'],
       ['full_name', 'Shree Siddhi Vinayak Gym'],
       ['tagline', 'Train strong. Live strong.'],
-      ['description', 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, weight loss and weight gain programmes, and a steam room.'],
+      ['description', 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.'],
       ['hero_heading', 'Train strong. | Live strong.'],
       ['hero_subtitle', 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.'],
       ['hero_image', stock('photo-1623874514711-0f321325f318')],
@@ -1559,15 +1596,18 @@ function seedRows_() {
       ['about_image', stock('photo-1534438327276-14e5300c3a48')],
       ['about_highlights', 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers'],
       ['facilities_intro', 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.'],
-      ['phone', phone],
-      ['whatsapp', phone],
-      ['address', 'Kamanwala Nagar, Sheetal Nagar | Virar West, Maharashtra 401303'],
-      ['opening_hours', 'Open all 7 days | 6:00 AM – 11:00 PM'],
+      ['services_heading', 'Personal training and diet plans'],
+      ['phone', '+91 77588 78588'],
+      ['phone_2', '+91 75586 08585'],
+      ['whatsapp', '+91 75586 08585'],
+      ['address', 'Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303'],
+      ['opening_hours', 'Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM'],
       ['maps_url', 'https://maps.app.goo.gl/EX4aAEYxKCztUjqv6'],
       ['maps_embed_url', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin'],
       ['instagram_url', 'https://www.instagram.com/ssvgym2021/'],
       ['facebook_url', 'https://www.facebook.com/p/SSV-GYM-100069942823280/'],
       ['featured_badge_text', 'Best value'],
+      ['gallery_categories', 'Gym | CrossFit | Training | Equipment | Events'],
       ['review_form', true],
       ['review_approval', false]
     ].map(r => [r[0], r[1], noteFor_(r[0])]),
@@ -1586,6 +1626,10 @@ function seedRows_() {
       { id: 'plan-quarterly', name: 'Quarterly', duration: '3 Months', price: 3000, description: 'Three months to build a steady routine.', features: features, featured: false, active: true, display_order: 2 },
       { id: 'plan-half-yearly', name: 'Half Yearly', duration: '6 Months', price: 5500, description: 'Six months of consistent training.', features: features, featured: false, active: true, display_order: 3 },
       { id: 'plan-yearly', name: 'Yearly', duration: '12 Months', price: 9000, description: 'A full year of training.', features: features + ' | Diet guidance', featured: true, active: true, display_order: 4 }
+    ],
+    Services: [
+      { id: 'svc-personal-training', name: 'Personal Training', price: 5000, price_note: 'Starting price', description: 'One-on-one personal training sessions built around your goal.', active: true, display_order: 1 },
+      { id: 'svc-diet-plan', name: 'Diet Plan', price: 1250, price_note: 'Per session', description: 'A personalised diet plan to support your training.', active: true, display_order: 2 }
     ],
     Trainers: [
       { id: 'tr-aman-verma', name: 'Aman Verma', role: 'Head Trainer', specialization: 'Strength training and bodybuilding', bio: 'Helps members build strength with sound technique and a clear plan.', image_url: stock('photo-1567013127542-490d757e51fc'), active: true, display_order: 1 },
@@ -1608,7 +1652,7 @@ function seedRows_() {
     ].map((g, i) => ({ id: 'img-' + g[0], image_url: stock('photo-' + g[1]), title: g[2], category: g[3], caption: g[4], active: true, display_order: i + 1 })),
     Reviews: [],
     Announcements: [
-      { id: 'ann-welcome', title: 'Welcome to the new SSV Gym website', description: 'Membership plans, photos and reviews are all here. Questions? Call or WhatsApp us.', date: today_(), expiry: '', active: true, priority: 1 }
+      { id: 'ann-welcome', title: 'Welcome to the new SSV Gym website', description: 'Membership plans, photos and reviews are all here. Questions? Call or WhatsApp us.', image_url: '', date: today_(), expiry: '', active: true, priority: 1 }
     ],
     Enquiries: [],
     Config: [
@@ -1634,16 +1678,19 @@ function noteFor_(key) {
     about_text: 'About section text. A | starts a new paragraph.',
     about_image: 'About section photo (sample until replaced).',
     about_highlights: 'Short points in the About section, separated by |.',
-    facilities_intro: 'Text under the Facilities heading. Empty = hidden.',
-    phone: 'Phone number with country code.',
-    whatsapp: 'WhatsApp number with country code. Empty = the phone number is used.',
+    facilities_intro: 'Text next to the Facilities heading. Empty = hidden.',
+    services_heading: 'Heading above personal training and diet plans (Services tab).',
+    phone: 'Gym phone number with country code. Used for the Call buttons.',
+    phone_2: "Owner's phone number, shown as a second number. Empty = hidden.",
+    whatsapp: 'WhatsApp number with country code. Empty = the gym phone is used.',
     address: 'Address. A | starts a new line.',
-    opening_hours: 'Opening hours. A | starts a new line.',
+    opening_hours: 'One line per group of days, e.g. "Monday – Saturday: 6:00 AM – 11:00 PM". A | starts a new line.',
     maps_url: 'Google Maps link to the gym (Share > Copy link).',
     maps_embed_url: 'Map on the website (Google Maps > Share > Embed a map).',
     instagram_url: 'Instagram profile link or @handle. Empty = hidden.',
     facebook_url: 'Facebook page link. Empty = hidden.',
-    featured_badge_text: 'Label on the highlighted membership plan.',
+    featured_badge_text: 'Label on highlighted membership plans.',
+    gallery_categories: 'Gallery categories in filter order, separated by |. Also editable in the admin panel (Gallery > Categories).',
     review_form: 'Ticked: visitors can write reviews on the website.',
     review_approval: 'Ticked: new reviews wait for your approval before they appear.'
   };
@@ -1657,7 +1704,7 @@ function configNoteFor_(key) {
   return {
     APPS_SCRIPT_URL: 'For reference: the website\'s backend link (the same one is in js/config.js).',
     CLOUDINARY_CLOUD_NAME: 'Cloudinary cloud name. The API key and secret are set from SSV Admin > Set Cloudinary keys.',
-    CLOUDINARY_FOLDER: 'Main Cloudinary folder for website photos.',
+    CLOUDINARY_FOLDER: 'Main Cloudinary folder for website photos and videos.',
     NOTIFY_EMAIL: 'Who gets an email for each new enquiry and review. Separate several addresses with commas. This does not give access to the admin panel.'
   }[key] || '';
 }

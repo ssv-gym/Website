@@ -1,4 +1,4 @@
-/* SSV GYM — sample data for the demo pages (demo/index.html and demo/admin.html). */
+/* SSV GYM — sample data for the demo pages (demo/index.html and demo/admin.html). v1.5.0 */
 const DEMO_DATA = (() => {
   const stock = id => `https://images.unsplash.com/photo-${id}`;
   const day = n => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -34,20 +34,27 @@ const DEMO_DATA = (() => {
     { id: 'fac-lockers', name: 'Complimentary Lockers', tags: '', description: 'Keep your things safe while you train.', image_url: '', category: 'additional', active: true, display_order: 8 }
   ];
 
+  const announcements = [
+    { id: 'ann-push-up-challenge', title: 'Push-up challenge', description: 'How many push-ups can you do in one minute? Open to members and friends, with prizes for the top three.', image_url: stock('1517836357463-d25dfeac3438'), date: day(-10), expiry: day(-11), active: true, priority: 2 },
+    { id: 'ann-turf-cricket', title: 'SSV turf cricket tournament', description: 'Six-a-side teams, one evening of cricket. Make a team with your gym friends and register at the front desk.', image_url: stock('1593079831268-3381b0db4a77'), date: day(-24), expiry: day(-25), active: true, priority: 1 },
+    { id: 'ann-demo', title: 'This is the demo website', description: 'Everything here is sample content. Try the demo admin panel: any password works.', image_url: '', date: day(0), expiry: '', active: true, priority: 2 }
+  ];
+
   const media = [
     ['Home', 'hero', stock('1623874514711-0f321325f318')],
     ['Home', 'about', stock('1534438327276-14e5300c3a48')],
     ...facilities.filter(f => f.image_url).map(f => ['Facilities', f.id.replace('fac-', ''), f.image_url]),
     ...trainers.map(t => ['Trainers', t.id.replace('tr-', ''), t.image_url]),
-    ...gallery.map(g => ['Gallery', g.id.replace('img-', ''), g.image_url])
-  ].map(([folder, name, url], i) => ({ id: `SSV-Gym/${folder}/${name}`, url, folder: `SSV-Gym/${folder}`, bytes: 180000 + i * 7919, width: 1600, height: 1067, created: `${day(30 - i)}T10:00:00Z` }));
+    ...gallery.map(g => ['Gallery', g.id.replace('img-', ''), g.image_url]),
+    ...announcements.filter(a => a.image_url).map(a => ['Events', a.id.replace('ann-', ''), a.image_url])
+  ].map(([folder, name, url], i) => ({ id: `SSV-Gym/${folder}/${name}`, type: 'image', url, folder: `SSV-Gym/${folder}`, bytes: 180000 + i * 7919, width: 1600, height: 1067, created: `${day(30 - i)}T10:00:00Z` }));
 
   return {
     general: {
       gym_name: 'SSV Gym',
       full_name: 'Shree Siddhi Vinayak Gym',
       tagline: 'Train strong. Live strong.',
-      description: 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, weight loss and weight gain programmes, and a steam room.',
+      description: 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.',
       hero_heading: 'Train strong. | Live strong.',
       hero_subtitle: 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.',
       hero_image: stock('1623874514711-0f321325f318'),
@@ -61,24 +68,31 @@ const DEMO_DATA = (() => {
       about_image: stock('1534438327276-14e5300c3a48'),
       about_highlights: 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers',
       facilities_intro: 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.',
-      phone: '+91 75586 08585',
+      services_heading: 'Personal training and diet plans',
+      phone: '+91 77588 78588',
+      phone_2: '+91 75586 08585',
       whatsapp: '+91 75586 08585',
-      address: 'Kamanwala Nagar, Sheetal Nagar | Virar West, Maharashtra 401303',
-      opening_hours: 'Open all 7 days | 6:00 AM – 11:00 PM',
+      address: 'Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303',
+      opening_hours: 'Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM',
       maps_url: 'https://maps.app.goo.gl/EX4aAEYxKCztUjqv6',
       maps_embed_url: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin',
       instagram_url: 'https://www.instagram.com/ssvgym2021/',
       facebook_url: 'https://www.facebook.com/p/SSV-GYM-100069942823280/',
       featured_badge_text: 'Best value',
+      gallery_categories: 'Gym | CrossFit | Training | Equipment | Events',
       review_form: true,
       review_approval: false
     },
     facilities,
     plans: [
-      { id: 'plan-monthly', name: 'Monthly', duration: '1 Month', price: 1200, description: 'Month-to-month membership.', features, featured: false, active: true, display_order: 1 },
-      { id: 'plan-quarterly', name: 'Quarterly', duration: '3 Months', price: 3000, description: 'Three months to build a steady routine.', features, featured: false, active: true, display_order: 2 },
-      { id: 'plan-half-yearly', name: 'Half Yearly', duration: '6 Months', price: 5500, description: 'Six months of consistent training.', features, featured: false, active: true, display_order: 3 },
-      { id: 'plan-yearly', name: 'Yearly', duration: '12 Months', price: 9000, description: 'A full year of training.', features: `${features} | Diet guidance`, featured: true, active: true, display_order: 4 }
+      { id: 'plan-monthly', name: 'Monthly', duration: '1 Month', price: 1800, description: 'Month-to-month membership.', features: 'Full gym access | Cardio equipment | Complimentary locker and steam | General trainer assistance', featured: false, active: true, display_order: 1 },
+      { id: 'plan-quarterly', name: 'Quarterly', duration: '3 Months', price: 4500, description: 'Three months to build a steady routine.', features, featured: false, active: true, display_order: 2 },
+      { id: 'plan-half-yearly', name: 'Half Yearly', duration: '6 Months', price: 6100, description: 'Six months of consistent training.', features, featured: false, active: true, display_order: 3 },
+      { id: 'plan-yearly', name: 'Yearly', duration: '12 Months', price: 8100, description: 'A full year of training.', features, featured: true, active: true, display_order: 4 }
+    ],
+    services: [
+      { id: 'svc-personal-training', name: 'Personal Training', price: 5000, price_note: 'Starting price', description: 'One-on-one personal training sessions built around your goal.', active: true, display_order: 1 },
+      { id: 'svc-diet-plan', name: 'Diet Plan', price: 1250, price_note: 'Per session', description: 'A personalised diet plan to support your training.', active: true, display_order: 2 }
     ],
     trainers,
     gallery,
@@ -91,10 +105,7 @@ const DEMO_DATA = (() => {
       { id: 'rev-nikhil', name: 'Nikhil R.', rating: 5, review: 'Open till 11 PM, which is perfect after work.', likes: 0, date: day(0), source: 'Website', status: 'Pending' },
       { id: 'rev-promo', name: 'Best Deals', rating: 1, review: 'Cheap supplements, message me for offers!!!', likes: 0, date: day(2), source: 'Website', status: 'Hidden' }
     ],
-    announcements: [
-      { id: 'ann-demo', title: 'This is the demo website', description: 'Everything here is sample content. Try the demo admin panel: any password works.', date: day(0), expiry: '', active: true, priority: 2 },
-      { id: 'ann-welcome', title: 'Welcome to the new SSV Gym website', description: 'Membership plans, photos and reviews are all here. Questions? Call or WhatsApp us.', date: day(4), expiry: '', active: true, priority: 1 }
-    ],
+    announcements,
     enquiries: [
       { id: 'enq-demo-1', name: 'Rahul Patil', phone: '+91 98200 00001', message: 'What are the timings for the CrossFit batch?', date: `${day(0)} 09:40`, status: 'New' },
       { id: 'enq-demo-2', name: 'Priya Naik', phone: '+91 98200 00002', message: 'Is there a trial session for new members?', date: `${day(1)} 18:15`, status: 'New' },
@@ -102,7 +113,7 @@ const DEMO_DATA = (() => {
       { id: 'enq-demo-4', name: 'Meera Joshi', phone: '+91 98200 00004', message: '', date: `${day(9)} 07:30`, status: 'Closed' }
     ],
     media: {
-      folders: ['SSV-Gym', 'SSV-Gym/Home', 'SSV-Gym/Facilities', 'SSV-Gym/Trainers', 'SSV-Gym/Gallery'],
+      folders: ['SSV-Gym', 'SSV-Gym/Home', 'SSV-Gym/Facilities', 'SSV-Gym/Trainers', 'SSV-Gym/Gallery', 'SSV-Gym/Events'],
       images: media
     }
   };

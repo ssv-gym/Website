@@ -11,16 +11,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
-  <link rel="stylesheet" href="../css/style.css?v=1.4.0">
+  <link rel="stylesheet" href="../css/style.css?v=1.5.0">
   <script>document.documentElement.classList.add('js');</script>
   <script type="application/json" id="fallback-general">
   {
     "gym_name": "SSV Gym",
     "full_name": "Shree Siddhi Vinayak Gym",
-    "phone": "+91 75586 08585",
+    "phone": "+91 77588 78588",
+    "phone_2": "+91 75586 08585",
     "whatsapp": "+91 75586 08585",
-    "address": "Kamanwala Nagar, Sheetal Nagar | Virar West, Maharashtra 401303",
-    "opening_hours": "Open all 7 days | 6:00 AM – 11:00 PM",
+    "address": "Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303",
+    "opening_hours": "Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM",
     "maps_url": "https://maps.app.goo.gl/EX4aAEYxKCztUjqv6",
     "instagram_url": "https://www.instagram.com/ssvgym2021/",
     "facebook_url": "https://www.facebook.com/p/SSV-GYM-100069942823280/",
@@ -62,7 +63,7 @@
           <span class="hero__brand"><b data-g="gym_name">SSV Gym</b><span data-g="full_name">Shree Siddhi Vinayak Gym</span></span>
           <span class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></span>
         </h1>
-        <p class="hero__sub" data-g="hero_subtitle" data-optional>Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.</p>
+        <p class="hero__sub" data-g="hero_subtitle" data-optional></p>
         <div class="hero__actions">
           <a class="btn btn--primary" href="#facilities" data-requires="facilities">View facilities</a>
           <a class="btn btn--ghost" href="#membership" data-requires="membership">Membership plans</a>
@@ -70,7 +71,7 @@
       </div>
       <div class="hero__strip">
         <div class="container">
-          <ul class="facility-strip" data-g-list="facility_strip" aria-label="Areas at SSV Gym"><li>Main Gym</li><li>CrossFit</li><li>Cardio</li><li>Steam Room</li></ul>
+          <ul class="facility-strip" data-g-list="facility_strip" aria-label="Areas at SSV Gym"></ul>
         </div>
       </div>
     </section>
@@ -105,11 +106,26 @@
       </div>
     </section>
 
+    <section class="section events" id="events" aria-labelledby="events-title" hidden>
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Events</p>
+            <h2 id="events-title">What's on at SSV</h2>
+          </div>
+          <p class="section-head__lead">Tournaments, competitions and special sessions at the gym. Tap Ask about this to register your interest.</p>
+        </header>
+        <div class="event-grid reveal" id="event-grid"></div>
+      </div>
+    </section>
+
     <section class="section facilities" id="facilities" aria-labelledby="facilities-title">
       <div class="container">
-        <header class="section-head reveal">
-          <p class="section-label">Facilities</p>
-          <h2 id="facilities-title">Strength, conditioning, recovery</h2>
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Facilities</p>
+            <h2 id="facilities-title">Strength, conditioning, recovery</h2>
+          </div>
           <p class="section-head__lead" data-g="facilities_intro" data-optional></p>
         </header>
         <div class="facility-grid reveal" id="facility-grid"></div>
@@ -130,7 +146,12 @@
           <p class="section-head__lead">Pick the duration that suits your routine, then tap Enquire to ask about joining.</p>
         </header>
         <div class="plan-board reveal" id="plan-grid"></div>
-        <p class="plans__note">Call or WhatsApp the gym to confirm current fees and offers.</p>
+        <p class="plans__note" id="plans-note">Call or WhatsApp the gym to confirm current fees and offers.</p>
+        <div class="services reveal" id="services" hidden>
+          <h3 class="services__title" data-g="services_heading">Personal training and diet plans</h3>
+          <div class="service-grid" id="service-grid"></div>
+          <p class="services__call" data-row="call">Call for assistance <a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></p>
+        </div>
       </div>
     </section>
 
@@ -154,7 +175,7 @@
           <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events.</p>
         </header>
         <div class="gallery__bar">
-          <div class="chips" id="gallery-filters" role="group" aria-label="Filter photos by category"></div>
+          <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
           <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
         </div>
         <div class="gallery-grid" id="gallery-grid"></div>
@@ -195,14 +216,15 @@
           <p class="contact__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
           <dl class="contact__list">
             <div data-row="address"><dt>Address</dt><dd data-g-lines="address"></dd></div>
-            <div data-row="phone"><dt>Phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917558608585">+91 75586 08585</a></dd></div>
+            <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
+            <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
             <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
-            <div data-row="hours"><dt>Opening hours</dt><dd data-g-lines="opening_hours"></dd></div>
+            <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
             <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
             <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
           </dl>
           <div class="contact__actions">
-            <a class="btn btn--primary" data-link="phone" href="tel:+917558608585">Call now</a>
+            <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
             <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
             <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
           </div>
@@ -234,11 +256,12 @@
         <p class="footer__tagline" data-g="tagline" data-optional></p>
         <ul class="facility-strip facility-strip--small" data-g-list="facility_strip"></ul>
       </div>
-      <nav aria-label="Footer">
+      <nav class="footer__col" aria-label="Footer">
         <h2 class="footer__title">Explore</h2>
         <ul class="footer__nav">
           <li><a href="#home">Home</a></li>
           <li><a href="#about">About</a></li>
+          <li><a href="#events">Events</a></li>
           <li><a href="#facilities">Facilities</a></li>
           <li><a href="#membership">Membership</a></li>
           <li><a href="#trainers">Trainers</a></li>
@@ -247,36 +270,42 @@
           <li><a href="#contact">Contact</a></li>
         </ul>
       </nav>
-      <div id="footer-connect">
+      <div class="footer__col">
+        <h2 class="footer__title">Visit</h2>
+        <p class="footer__address" data-g-lines="address"></p>
+        <ul class="hours hours--small" data-hours></ul>
+      </div>
+      <div class="footer__col" id="footer-connect">
         <h2 class="footer__title">Connect</h2>
         <ul class="footer__links">
-          <li><a data-link="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">Instagram</a></li>
-          <li><a data-link="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">Facebook</a></li>
-          <li><a data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a></li>
-          <li><a data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Google Maps</a></li>
+          <li><a data-link="phone" href="tel:+917758878588"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Call</a></li>
+          <li><a data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>WhatsApp</a></li>
+          <li><a data-link="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/><path d="M16.5 7.5v.01"/></svg>Instagram</a></li>
+          <li><a data-link="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v4h3v7h4v-7h3l1-4h-4V8a1 1 0 0 1 1-1h3V3h-3a5 5 0 0 0-5 5v2H7"/></svg>Facebook</a></li>
+          <li><a data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Directions</a></li>
         </ul>
       </div>
     </div>
     <div class="container footer__bottom">
       <p>&copy; <span id="year">2026</span> SSV Gym. Demo with sample content.</p>
-      <a href="#home">Back to top</a>
+      <a href="#home">Back to top ↑</a>
     </div>
   </footer>
 
   <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
-    <a class="btn btn--ghost" data-link="phone" href="tel:+917558608585">Call</a>
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
     <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
   </nav>
 
-  <dialog class="lightbox" id="lightbox" aria-label="Photo viewer">
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
     <div class="lightbox__inner">
-      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close photo viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
       <figure class="lightbox__figure">
         <div id="lb-media"></div>
         <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong><span id="lb-caption"></span></figcaption>
       </figure>
-      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </div>
   </dialog>
 
@@ -327,12 +356,12 @@
     </form>
   </dialog>
 
-  <script src="../js/config.js?v=1.4.0"></script>
-  <script src="../js/utils.js?v=1.4.0"></script>
-  <script src="demo-data.js?v=1.4.0"></script>
-  <script src="demo-api.js?v=1.4.0"></script>
-  <script src="../js/gallery.js?v=1.4.0"></script>
-  <script src="../js/main.js?v=1.4.0"></script>
+  <script src="../js/config.js?v=1.5.0"></script>
+  <script src="../js/utils.js?v=1.5.0"></script>
+  <script src="demo-data.js?v=1.5.0"></script>
+  <script src="demo-api.js?v=1.5.0"></script>
+  <script src="../js/gallery.js?v=1.5.0"></script>
+  <script src="../js/main.js?v=1.5.0"></script>
   <script>
     (function () {
       var small = window.matchMedia('(max-width: 760px)').matches;

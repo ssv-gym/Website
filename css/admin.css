@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SSV GYM — ADMIN PANEL STYLES (same palette as the website)         v1.4.0
+   SSV GYM — ADMIN PANEL STYLES (same palette as the website)         v1.5.0
    ========================================================================== */
 :root {
   color-scheme: dark;   /* dark scrollbars, date pickers and dropdowns */
@@ -134,7 +134,7 @@ code { padding: 1px 5px; border-radius: 4px; background: var(--bg-3); font-size:
 .table tbody tr:hover { background: rgba(245, 245, 242, .02); }
 .is-muted td:not(.col-actions):not(.col-order) { color: var(--muted-2); }
 .cell-main { display: flex; align-items: center; gap: 12px; }
-.thumb { flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: var(--radius); background: var(--bg-3); }
+.thumb { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: var(--radius); background: var(--bg-3); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
 .col-order { width: 88px; white-space: nowrap; }
 .col-order .icon-btn + .icon-btn { margin-left: 4px; }
@@ -148,6 +148,12 @@ code { padding: 1px 5px; border-radius: 4px; background: var(--bg-3); font-size:
 .stars-mini span { color: var(--line-2); }
 .stars-mini .is-on { color: var(--green); }
 .stars-mini svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* play sign on video thumbnails */
+.play-badge { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(13, 15, 14, .78); color: var(--text); pointer-events: none; }
+.play-badge svg { width: 18px; height: 18px; margin-left: 2px; fill: currentColor; }
+.thumb .play-badge { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+.thumb .play-badge svg { width: 9px; height: 9px; margin-left: 1px; }
 
 /* switches (review settings) */
 .switches { display: grid; gap: 12px; }
@@ -175,11 +181,11 @@ code { padding: 1px 5px; border-radius: 4px; background: var(--bg-3); font-size:
 .media-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 14px; }
 .media-card__actions .spacer { flex: 1; }
 
-/* folder picker, upload list */
+/* category picker next to "Add photos", upload list */
 .image-field__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .folder-pick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; color: var(--muted); font-size: .8125rem; }
 .folder-pick__label { white-space: nowrap; }
-.folder-pick select, .field .folder-pick select { width: auto; min-width: 160px; max-width: 100%; min-height: 32px; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: .8125rem; cursor: pointer; }
+.folder-pick select, .field .folder-pick select { width: auto; min-width: 150px; max-width: 100%; min-height: 32px; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: .8125rem; cursor: pointer; }
 .image-field__link summary { width: fit-content; color: var(--muted); font-size: .8125rem; cursor: pointer; }
 .image-field__link input { margin-top: 8px; }
 .upload-list { display: grid; gap: 6px; margin-top: 12px; }
@@ -243,7 +249,7 @@ code { padding: 1px 5px; border-radius: 4px; background: var(--bg-3); font-size:
 .form-actions { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 16px 0; background: linear-gradient(transparent, var(--bg) 35%); }
 .dirty-note { color: var(--warn); font-size: .875rem; font-weight: 600; }
 .image-field__row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: start; }
-.image-field__preview { display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; border: 1px dashed var(--line-2); border-radius: var(--radius); background: var(--bg-3); color: var(--muted-2); font-size: .75rem; text-align: center; }
+.image-field__preview { position: relative; display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; border: 1px dashed var(--line-2); border-radius: var(--radius); background: var(--bg-3); color: var(--muted-2); font-size: .75rem; text-align: center; }
 .image-field__preview img { width: 100%; height: 100%; object-fit: cover; }
 .image-field__preview:empty::before { content: "Photo unavailable"; }
 .image-field__controls { display: grid; gap: 10px; }

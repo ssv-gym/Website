@@ -1,4 +1,4 @@
-/* SSV GYM — small shared helpers used by the website and the admin panel. v1.4.0 */
+/* SSV GYM — small shared helpers used by the website and the admin panel. v1.5.0 */
 const Utils = (() => {
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ESC[c]);
@@ -69,6 +69,31 @@ const Utils = (() => {
     return /^https:\/\/(www\.)?google\.[a-z.]+\/maps\/embed\?/i.test(s) ? s : '';
   };
 
+  /* ---------- videos in the gallery: uploaded to Cloudinary, or YouTube links ---------- */
+  const youtubeId = v => {
+    const m = text(v).match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+    return m ? m[1] : '';
+  };
+  const CLD_VIDEO = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.+?)(\.[a-z0-9]{2,5})?$/i;
+  /* 'youtube', 'video' or 'image' */
+  const mediaKind = v => {
+    const s = text(v);
+    if (youtubeId(s)) return 'youtube';
+    return CLD_VIDEO.test(s) || /\.(mp4|webm|mov)(\?|#|$)/i.test(s) ? 'video' : 'image';
+  };
+  /* A still picture for a video: Cloudinary makes one from the first frame; YouTube has its own. */
+  const videoPoster = (v, width = 800) => {
+    const s = text(v), yt = youtubeId(s);
+    if (yt) return `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`;
+    const m = s.match(CLD_VIDEO);
+    return m ? `${m[1]}so_0,q_auto,c_limit,w_${width}/${m[2]}.jpg` : '';
+  };
+  /* A version every browser can play (MP4, H.264), made by Cloudinary from the upload. */
+  const videoSrc = v => {
+    const s = text(v), m = s.match(CLD_VIDEO);
+    return m ? `${m[1]}q_auto,vc_h264/${m[2]}.mp4` : safeUrl(s);
+  };
+
   const pad2 = n => String(n).padStart(2, '0');
   const toDate = v => {
     if (v instanceof Date) return isNaN(v) ? null : v;
@@ -79,9 +104,9 @@ const Utils = (() => {
   };
   /* yyyy-MM-dd for <input type="date">. Also accepts "2026-09-24 10:30" and other parseable dates. */
   const isoDate = v => {
-    const s = text(v), m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    const s = v instanceof Date ? '' : text(v), m = s.match(/^(\d{4}-\d{2}-\d{2})/);
     if (m) return m[1];
-    const d = s ? new Date(s) : null;
+    const d = v instanceof Date ? v : (s ? new Date(s) : null);
     return d && !isNaN(d) ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
   };
   const formatDate = v => {
@@ -172,7 +197,7 @@ const Utils = (() => {
 
   return {
     esc, text, truthy, isFalse, splitList, isPlaceholder, digits, intlPhone, isDummyPhone, realPhone, safeUrl, linkUrl,
-    instagramUrl, mapEmbedSrc, pad2, toDate, isoDate, formatDate, timeAgo, formatPrice, durationMonths, byOrder,
-    activeSorted, initials, cld, img, media
+    instagramUrl, mapEmbedSrc, youtubeId, mediaKind, videoPoster, videoSrc, pad2, toDate, isoDate, formatDate, timeAgo,
+    formatPrice, durationMonths, byOrder, activeSorted, initials, cld, img, media
   };
 })();

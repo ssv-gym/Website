@@ -10,14 +10,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
   <!-- ?v= makes browsers load the new file after an update. Change it whenever you edit a CSS or JS file. -->
-  <link rel="stylesheet" href="css/admin.css?v=1.4.0">
+  <link rel="stylesheet" href="css/admin.css?v=1.5.0">
 </head>
 <body>
   <!-- SIGN IN. No password is stored in this file: the backend verifies it. -->
   <main class="login" id="login-view">
     <div class="login__card">
       <div class="brand"><span class="brand__bar" aria-hidden="true"></span><div><strong>SSV Admin</strong><span>Website Manager</span></div></div>
-      <p class="login__intro">Manage the SSV Gym website: details, membership plans, trainers, photos, reviews and enquiries.</p>
+      <p class="login__intro">Manage the SSV Gym website: details, membership plans, trainers, photos, videos, events, reviews and enquiries.</p>
       <form id="login-form" novalidate hidden>
         <label class="field"><span class="field__label">Admin password</span><input type="password" name="password" autocomplete="current-password" required></label>
         <button class="btn btn--primary btn--block" type="submit">Sign in</button>
@@ -42,10 +42,11 @@
         <a href="#general" data-view="general">General information</a>
         <a href="#facilities" data-view="facilities">Facilities</a>
         <a href="#plans" data-view="plans">Membership plans</a>
+        <a href="#services" data-view="services">Personal training &amp; diet</a>
         <a href="#trainers" data-view="trainers">Trainers</a>
         <a href="#gallery" data-view="gallery">Gallery</a>
         <a href="#reviews" data-view="reviews">Reviews <span class="nav-badge" id="nav-reviews-badge" hidden></span></a>
-        <a href="#announcements" data-view="announcements">Announcements</a>
+        <a href="#announcements" data-view="announcements">Announcements &amp; events</a>
         <p class="sidebar__group">Photos</p>
         <a href="#media" data-view="media">Media library</a>
         <p class="sidebar__group">Members &amp; setup</p>
@@ -93,9 +94,9 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <input type="file" id="file-picker" accept="image/jpeg,image/png,image/webp" hidden>
 
-  <script src="js/config.js?v=1.4.0"></script>
-  <script src="js/utils.js?v=1.4.0"></script>
-  <script src="js/api.js?v=1.4.0"></script>
-  <script src="js/admin.js?v=1.4.1"></script>
+  <script src="js/config.js?v=1.5.0"></script>
+  <script src="js/utils.js?v=1.5.0"></script>
+  <script src="js/api.js?v=1.5.0"></script>
+  <script src="js/admin.js?v=1.5.0"></script>
 </body>
 </html>

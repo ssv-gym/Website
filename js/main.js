@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SSV GYM — WEBSITE LOGIC                                            v1.4.0
+   SSV GYM — WEBSITE LOGIC                                            v1.5.0
    Renders every section from the Google Sheet via API.getContent(). Saved
    content shows at once and is refreshed in the background. If the sheet
    can't be reached on a first visit, the details built into index.html stay.
@@ -7,14 +7,15 @@
 (() => {
   'use strict';
   const { esc, text, truthy, isFalse, splitList, isPlaceholder, realPhone, linkUrl, instagramUrl, mapEmbedSrc,
-    toDate, isoDate, formatDate, timeAgo, formatPrice, durationMonths, activeSorted, initials, img, media } = Utils;
+    pad2, toDate, isoDate, formatDate, timeAgo, formatPrice, durationMonths, activeSorted, initials, img, media } = Utils;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg>';
   const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3l-1.2-1.1C6 14.9 3 12.2 3 8.9 3 6.2 5.1 4.2 7.7 4.2c1.5 0 2.9.7 3.8 1.8l.5.6.5-.6c.9-1.1 2.3-1.8 3.8-1.8 2.6 0 4.7 2 4.7 4.7 0 3.3-3 6-7.8 10.3z"/></svg>';
   const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2.5" fill="currentColor"/></svg>';
   const RATING_WORDS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const GYM_TIME_ZONE = 'Asia/Kolkata';
   const LIKED_KEY = 'ssv_liked_reviews';
   const TOP_REVIEWS = 3, PAGE_SIZE = 10, CLAMP_CHARS = 280;
   const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
@@ -87,12 +88,100 @@
     try { return JSON.parse($('#fallback-general').textContent) || {}; } catch { return {}; }
   }
 
+  /* ---------- opening hours ----------
+     One line per group of days, "Monday – Saturday: 6:00 AM – 11:00 PM", lines separated by |.
+     A line without "Days: " is shown as it is. Times follow the gym's clock (India). */
+  const dayIndex = word => {
+    const s = String(word || '').trim().toLowerCase().slice(0, 3);
+    return s.length === 3 ? DAYS.findIndex(d => d.toLowerCase().startsWith(s)) : -1;
+  };
+  function parseDays(label) {
+    const s = label.toLowerCase();
+    if (/daily|every ?day|all (7|seven) days|7 days/.test(s)) return [0, 1, 2, 3, 4, 5, 6];
+    const days = new Set();
+    s.split(/,|&|\band\b/).forEach(part => {
+      const ends = part.split(/\s*(?:–|—|-|\bto\b)\s*/).map(x => x.trim()).filter(Boolean);
+      const a = dayIndex(ends[0]), b = ends.length > 1 ? dayIndex(ends[ends.length - 1]) : a;
+      if (a < 0 || b < 0) return;
+      for (let d = a; ; d = (d + 1) % 7) { days.add(d); if (d === b) break; }
+    });
+    return [...days];
+  }
+  const toMinutes = t => {
+    const m = String(t).trim().toLowerCase().replace(/\./g, '').match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+    if (!m) return null;
+    let h = Number(m[1]);
+    if (m[3]) { h %= 12; if (m[3] === 'pm') h += 12; }
+    return h * 60 + Number(m[2] || 0);
+  };
+  function parseTimes(value) {
+    if (/closed/i.test(value)) return { closed: true };
+    const parts = value.split(/\s*(?:–|—|-|\bto\b)\s*/i);
+    if (parts.length !== 2) return null;
+    const open = toMinutes(parts[0]), close = toMinutes(parts[1]);
+    return open === null || close === null ? null : { open, close };
+  }
+  function parseHours(value) {
+    return splitList(value).map(line => {
+      const i = line.indexOf(': ');
+      const label = i > 0 ? line.slice(0, i).trim() : '';
+      const time = i > 0 ? line.slice(i + 2).trim() : line.trim();
+      return { label, time, days: label ? parseDays(label) : [], times: label ? parseTimes(time) : null };
+    });
+  }
+  const clock = m => { const h = Math.floor(m / 60) % 24, mm = m % 60; return `${h % 12 || 12}:${pad2(mm)} ${h < 12 ? 'AM' : 'PM'}`; };
+  const hhmm = m => `${pad2(Math.floor(m / 60) % 24)}:${pad2(m % 60)}`;
+  function gymNow() {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: GYM_TIME_ZONE, weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
+      const get = type => (parts.find(p => p.type === type) || {}).value;
+      return { day: dayIndex(get('weekday')), minutes: (Number(get('hour')) % 24) * 60 + Number(get('minute')) };
+    } catch {
+      const d = new Date();
+      return { day: d.getDay(), minutes: d.getHours() * 60 + d.getMinutes() };
+    }
+  }
+  /* "Open now · until 11:00 PM", "Closed now · opens at 4:00 PM", or null when it can't be told. */
+  function openStatus(rows) {
+    const now = gymNow();
+    const rowFor = d => rows.find(r => r.days.includes(d) && r.times);
+    const today = rowFor(now.day);
+    if (!today) return null;
+    if (!today.times.closed) {
+      const { open, close } = today.times;
+      const isOpen = close > open ? now.minutes >= open && now.minutes < close : (now.minutes >= open || now.minutes < close);
+      if (isOpen) return { open: true, text: `Open now · until ${clock(close)}` };
+      if (now.minutes < open) return { open: false, text: `Closed now · opens at ${clock(open)}` };
+    }
+    for (let i = 1; i <= 7; i++) {
+      const d = (now.day + i) % 7, row = rowFor(d);
+      if (row && !row.times.closed) return { open: false, text: `Closed now · opens ${i === 1 ? 'tomorrow' : DAYS[d]} at ${clock(row.times.open)}` };
+    }
+    return { open: false, text: 'Closed now' };
+  }
+  function renderHours(g) {
+    const rows = parseHours(g.opening_hours);
+    const today = gymNow().day;
+    const html = rows.map(r => (r.label
+      ? `<li${r.days.includes(today) ? ' class="is-today"' : ''}><span>${esc(r.label)}${r.days.includes(today) ? '<em>Today</em>' : ''}</span><span>${esc(r.time)}</span></li>`
+      : `<li class="hours__note"><span>${esc(r.time)}</span></li>`)).join('');
+    $$('[data-hours]').forEach(el => { el.innerHTML = html; el.hidden = !rows.length; });
+    const row = $('[data-row="hours"]');
+    if (row) row.hidden = !rows.length;
+    const status = openStatus(rows);
+    $$('[data-hours-status]').forEach(el => {
+      el.hidden = !status;
+      if (status) { el.textContent = status.text; el.classList.toggle('is-open', status.open); }
+    });
+    return rows;
+  }
+
   /* ---------- general content ---------- */
   function renderGeneral(g) {
     state.general = g;
     state.gymName = text(g.gym_name) || 'SSV Gym';
-    ['gym_name', 'full_name', 'tagline', 'hero_subtitle', 'about_heading', 'facilities_intro'].forEach(k => setText(k, g[k]));
-    ['address', 'opening_hours'].forEach(k => setLines(k, g[k]));
+    ['gym_name', 'full_name', 'tagline', 'hero_subtitle', 'about_heading', 'facilities_intro', 'services_heading'].forEach(k => setText(k, g[k]));
+    setLines('address', g.address);
     setList('facility_strip', g.facility_strip);
 
     const heading = splitList(g.hero_heading);
@@ -105,17 +194,13 @@
     hlEl.hidden = !hl.length;
     if (hl.length) hlEl.innerHTML = hl.map(h => `<li>${esc(h)}</li>`).join('');
     const desc = text(g.description);
-    if (desc) {
-      $('meta[name="description"]').setAttribute('content', desc);
-      const og = $('meta[property="og:description"]');
-      if (og) og.setAttribute('content', desc);
-    }
-    document.title = `${state.gymName} | ${text(g.full_name) || 'Shree Siddhi Vinayak Gym'}${text(g.address) ? ', ' + (splitList(g.address).pop() || '').split(',')[0] : ''}`;
+    if (desc) $('meta[name="description"]').setAttribute('content', desc);
 
     renderStats(g);
+    const hours = renderHours(g);
     setupLinks(g);
     setupMap(g);
-    updateStructuredData(g);
+    updateStructuredData(g, hours);
   }
 
   /* Up to six figures from the General tab (stat_1_value / stat_1_label …). Hidden while empty. */
@@ -136,9 +221,11 @@
 
   function setupLinks(g) {
     const call = realPhone(g.phone);
+    const call2 = realPhone(g.phone_2);
     const wa = realPhone(g.whatsapp) || call;
     const L = {
       phone: call ? `tel:+${call}` : '',
+      phone2: call2 ? `tel:+${call2}` : '',
       whatsapp: wa ? `https://wa.me/${wa}?text=${encodeURIComponent(`Hi ${state.gymName}, I'd like to know more about membership.`)}` : '',
       maps: linkUrl(g.maps_url),
       instagram: instagramUrl(g.instagram_url),
@@ -156,6 +243,7 @@
     });
     const shown = {
       phone: call ? text(g.phone) : '',
+      phone2: call2 ? text(g.phone_2) : '',
       whatsapp: wa ? text(g.whatsapp) || text(g.phone) : '',
       instagram: L.instagram ? '@' + (L.instagram.match(/instagram\.com\/([^/?#]+)/i) || [])[1] : '',
       facebook: L.facebook ? `${state.gymName} on Facebook` : ''
@@ -199,7 +287,7 @@
   }
 
   /* Keeps the business details for search engines in step with the sheet. */
-  function updateStructuredData(g) {
+  function updateStructuredData(g, hours) {
     const el = $('#ld-business');
     if (!el) return;
     let data;
@@ -220,43 +308,68 @@
       data.address = { '@type': 'PostalAddress', streetAddress: lines.slice(0, -1).join(', ') || last, addressLocality: parts[0] || '', addressRegion: parts[1] || '', postalCode: pin || '', addressCountry: 'IN' };
       Object.keys(data.address).forEach(k => { if (!data.address[k]) delete data.address[k]; });
     }
+    const specs = (hours || []).filter(r => r.days.length && r.times && !r.times.closed)
+      .map(r => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: r.days.map(d => DAYS[d]), opens: hhmm(r.times.open), closes: hhmm(r.times.close) }));
+    set('openingHoursSpecification', specs.length ? specs : '');
     const same = [state.links.instagram, state.links.facebook].filter(Boolean);
     set('sameAs', same.length ? same : '');
     el.textContent = JSON.stringify(data, null, 2);
   }
 
-  /* ---------- collections ---------- */
+  /* ---------- announcements: short notices in the strip, photo ones as event cards ---------- */
+  const byPriority = (a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date));
+
   function renderAnnouncements(list) {
     const today = isoDate(new Date());
-    const items = list.filter(a => truthy(a.active) && (!text(a.expiry) || isoDate(a.expiry) >= today))
-      .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date)));
-    $('#announcements').hidden = !items.length;
-    $('#notice-list').innerHTML = items.map(a => `
+    const live = (Array.isArray(list) ? list : []).filter(a => truthy(a.active) && (!text(a.expiry) || isoDate(a.expiry) >= today));
+    const notices = live.filter(a => !text(a.image_url)).sort(byPriority);
+    $('#announcements').hidden = !notices.length;
+    $('#notice-list').innerHTML = notices.map(a => `
       <li class="notice__item">
         ${toDate(a.date) ? `<time datetime="${esc(isoDate(a.date))}">${esc(formatDate(a.date))}</time>` : '<span></span>'}
         <div><h3>${esc(a.title)}</h3>${text(a.description) ? `<p>${esc(a.description)}</p>` : ''}</div>
       </li>`).join('');
+
+    // Events: upcoming first (soonest first), then past ones (most recent first).
+    const upcoming = e => !toDate(e.date) || isoDate(e.date) >= today;
+    const events = live.filter(a => text(a.image_url)).sort((a, b) => {
+      const ua = upcoming(a) ? 0 : 1, ub = upcoming(b) ? 0 : 1;
+      if (ua !== ub) return ua - ub;
+      const da = String(isoDate(a.date) || '9999'), db = String(isoDate(b.date) || '9999');
+      return (ua === 0 ? da.localeCompare(db) : db.localeCompare(da)) || byPriority(a, b);
+    });
+    toggleSection('events', events.length > 0);
+    $('#event-grid').innerHTML = events.map((e, i) => {
+      const d = toDate(e.date), past = !upcoming(e);
+      const badge = d ? `<span class="event__date"><b>${d.getDate()}</b>${esc(d.toLocaleDateString('en-IN', { month: 'short' }))}</span>` : '';
+      return `<article class="event${past ? ' is-past' : ''}">
+        <div class="event__media">${media(e.image_url, e.title, e.title, { cls: `event__img tone-${(i % 3) + 1}`, sizes: '(min-width: 1024px) 33vw, (min-width: 700px) 50vw, 100vw', widths: [480, 800, 1200] })}${badge}</div>
+        <div class="event__body">
+          ${past ? '<p class="event__tag">Past event</p>' : (d ? `<p class="event__tag">${esc(d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))}</p>` : '')}
+          <h3 class="event__title">${esc(e.title)}</h3>
+          ${text(e.description) ? `<p class="event__desc">${esc(e.description)}</p>` : ''}
+          ${past ? '' : `<a class="btn btn--ghost btn--sm" href="#contact" data-enquire="${esc(`I'd like to know more about: ${text(e.title)}.`)}">Ask about this</a>`}
+        </div>
+      </article>`;
+    }).join('');
   }
 
-  function renderFacilities(list, hasGallery) {
+  /* ---------- facilities: information cards (no links) ---------- */
+  function renderFacilities(list) {
     const items = activeSorted(list);
     const major = items.filter(f => text(f.category).toLowerCase() !== 'additional');
     const extra = items.filter(f => text(f.category).toLowerCase() === 'additional');
     toggleSection('facilities', items.length > 0);
-    // A card only links to the gallery when there are photos to see.
     $('#facility-grid').innerHTML = major.map((f, i) => {
       const tags = splitList(f.tags).map(esc).join(' <i>/</i> ');
-      const body = `
+      return `<article class="facility-card">
         ${media(f.image_url, f.name, f.name, { cls: `facility-card__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1024px) 33vw, (min-width: 760px) 50vw, 100vw' })}
-        ${hasGallery ? `<span class="facility-card__arrow" aria-hidden="true">${ARROW}</span>` : ''}
         <div class="facility-card__body">
           <h3 class="facility-card__title">${esc(f.name)}</h3>
           ${tags ? `<p class="facility-card__tags">${tags}</p>` : ''}
           ${text(f.description) ? `<p class="facility-card__desc">${esc(f.description)}</p>` : ''}
-        </div>`;
-      return hasGallery
-        ? `<a class="facility-card" href="#gallery" data-filter-to="${esc(Gallery.categoryFor(f.name))}" aria-label="${esc(f.name)}: see photos">${body}</a>`
-        : `<article class="facility-card">${body}</article>`;
+        </div>
+      </article>`;
     }).join('');
     $('#facility-grid').hidden = !major.length;
     const tag = $('.about__tag');
@@ -265,10 +378,12 @@
     $('#facility-extra-list').innerHTML = extra.map(f => `<li><div><h4>${esc(f.name)}</h4>${text(f.description) ? `<p>${esc(f.description)}</p>` : ''}</div></li>`).join('');
   }
 
+  /* ---------- membership plans, then personal training and diet plans ---------- */
   function renderPlans(list, general) {
     const items = activeSorted(list);
-    toggleSection('membership', items.length > 0);
     const board = $('#plan-grid');
+    board.hidden = !items.length;
+    $('#plans-note').hidden = !items.length;
     board.style.setProperty('--cols', Math.min(Math.max(items.length, 1), 4));
     const badge = text(general.featured_badge_text) || 'Best value';
     board.innerHTML = items.map(p => {
@@ -290,6 +405,22 @@
         <a class="btn ${featured ? 'btn--primary' : 'btn--ghost'} btn--block" href="#contact" data-enquire="${esc(enquire)}">Enquire</a>
       </article>`;
     }).join('');
+    return items.length;
+  }
+
+  function renderServices(list) {
+    const items = activeSorted(list);
+    $('#services').hidden = !items.length;
+    $('#service-grid').innerHTML = items.map(s => {
+      const price = text(s.price);
+      return `<article class="service">
+        <h4 class="service__name">${esc(s.name)}</h4>
+        ${price ? `<p class="service__price">${esc(formatPrice(price))}${text(s.price_note) ? `<span>${esc(s.price_note)}</span>` : ''}</p>` : '<p class="service__price service__price--ask">Price on enquiry</p>'}
+        ${text(s.description) ? `<p class="service__desc">${esc(s.description)}</p>` : ''}
+        <a class="text-link" href="#contact" data-enquire="${esc(`I'm interested in ${text(s.name)}.`)}">Enquire</a>
+      </article>`;
+    }).join('');
+    return items.length;
   }
 
   function renderTrainers(list) {
@@ -307,10 +438,10 @@
       </article>`).join('');
   }
 
-  function renderGallery(list) {
+  function renderGallery(list, general) {
     const items = activeSorted(list).filter(i => text(i.image_url));
     toggleSection('gallery', items.length > 0);
-    Gallery.init(items);
+    Gallery.init(items, splitList(general.gallery_categories));
   }
 
   /* ---------- reviews ---------- */
@@ -526,15 +657,12 @@
       links.forEach(l => { const s = document.querySelector(l.getAttribute('href')); if (s) spy.observe(s); });
     }
 
-    // Facility cards open the gallery filtered to that facility; plan buttons prefill the enquiry.
+    // Plan, service and event buttons prefill the enquiry message.
     document.addEventListener('click', e => {
-      const card = e.target.closest('[data-filter-to]');
-      if (card && typeof Gallery !== 'undefined') Gallery.setFilter(card.dataset.filterTo);
-      const plan = e.target.closest('[data-enquire]');
-      if (plan) {
-        const msg = $('#enq-message');
-        if (msg && !msg.value.trim()) msg.value = plan.dataset.enquire;
-      }
+      const btn = e.target.closest('[data-enquire]');
+      if (!btn) return;
+      const msg = $('#enq-message');
+      if (msg && !msg.value.trim()) msg.value = btn.dataset.enquire;
     });
   }
 
@@ -592,11 +720,12 @@
     const g = offline ? readFallback() : { ...readFallback(), ...c.general };
     renderGeneral(g);
     renderAnnouncements(c.announcements);
-    const hasGallery = activeSorted(c.gallery).some(i => text(i.image_url));
-    renderFacilities(c.facilities, hasGallery);
-    renderPlans(c.plans, g);
+    renderFacilities(c.facilities);
+    const plans = renderPlans(c.plans, g);
+    const services = renderServices(c.services);
+    toggleSection('membership', plans + services > 0);
     renderTrainers(c.trainers);
-    renderGallery(c.gallery);
+    renderGallery(c.gallery, g);
     renderReviews(c.reviews, g);
   }
 
@@ -608,14 +737,15 @@
     document.body.classList.add('is-loading');
     let content;
     try {
-      content = await API.getContent({ onUpdate: fresh => { render(fresh); if (typeof setupReveal === 'function') $$('.reveal').forEach(el => el.classList.add('is-visible')); } });
+      content = await API.getContent({ onUpdate: fresh => { render(fresh); $$('.reveal').forEach(el => el.classList.add('is-visible')); } });
     } catch (err) {
       console.error('[SSV] Could not load content:', err);
-      content = { source: 'offline', general: {}, facilities: [], plans: [], trainers: [], gallery: [], reviews: [], announcements: [] };
+      content = { source: 'offline', general: {}, facilities: [], plans: [], services: [], trainers: [], gallery: [], reviews: [], announcements: [] };
     }
     document.body.classList.remove('is-loading');
     render(content);
     setupReveal();
+    setInterval(() => renderHours(state.general), 60000); // keeps "Open now" correct while the page is open
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

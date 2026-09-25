@@ -1,17 +1,20 @@
 /* ==========================================================================
-   SSV GYM — ADMIN PANEL                                              v1.4.1
+   SSV GYM — ADMIN PANEL                                              v1.5.0
    Signs in with the password checked by Apps Script, then edits the Google
    Sheet through the API: general information, collections, reviews, photos
-   (Cloudinary) and enquiries. Works on phones too. Photos always go into
-   their section's folder (Home, Facilities, Trainers, Gallery).
+   and videos (Cloudinary) and enquiries. Works on phones too. Uploads always
+   go into their section's folder (Home, Facilities, Trainers, Gallery, Events).
    ========================================================================== */
 (() => {
   'use strict';
-  const BACKEND_VERSION = '1.4.1';   // the Code.gs version this panel expects
-  const { esc, text, truthy, splitList, isoDate, formatDate, timeAgo, formatPrice, byOrder, cld, safeUrl, realPhone } = Utils;
+  const BACKEND_VERSION = '1.5.0';   // the Code.gs version this panel expects
+  const { esc, text, truthy, splitList, isoDate, formatDate, timeAgo, formatPrice, byOrder, cld, safeUrl, realPhone, mediaKind, videoPoster } = Utils;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg>';
+  const PLAY = '<span class="play-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>';
+  const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
+  const MEDIA_ACCEPT = 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm';
 
   /* Sample content written by the sheet setup, to be replaced with the gym's own. */
   const SAMPLE = {
@@ -20,7 +23,7 @@
     stats: { stat_1_value: '5+', stat_2_value: '40+', stat_3_value: '3', stat_4_value: '7' }
   };
   const isStock = url => /images\.unsplash\.com/i.test(String(url || ''));
-  const CATEGORY_OPTIONS = [['gym', 'Gym'], ['crossfit', 'CrossFit'], ['training', 'Training'], ['equipment', 'Equipment'], ['events', 'Events']];
+  const DEFAULT_CATEGORIES = ['Gym', 'CrossFit', 'Training', 'Equipment', 'Events'];
 
   /* Each collection: labels and the fields of its editor. */
   const COLLECTIONS = {
@@ -48,6 +51,17 @@
         { key: 'active', label: 'Show on the website', type: 'check' }
       ]
     },
+    services: {
+      one: 'service', many: 'services', ordered: true, media: 'general',
+      intro: 'Shown under the membership plans, for example personal training and diet plans. The heading above them is in General information › Membership.',
+      fields: [
+        { key: 'name', label: 'Name', required: true, placeholder: 'Personal Training' },
+        { key: 'price', label: 'Price (₹)', placeholder: '5000', hint: 'Numbers only. Empty shows "Price on enquiry".' },
+        { key: 'price_note', label: 'Under the price', placeholder: 'Starting price', hint: 'For example "Starting price" or "Per session".' },
+        { key: 'description', label: 'Description', type: 'textarea', full: true },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    },
     trainers: {
       one: 'trainer', many: 'trainers', ordered: true, media: 'trainers',
       fields: [
@@ -60,11 +74,11 @@
       ]
     },
     gallery: {
-      one: 'photo', many: 'photos', ordered: true, media: 'gallery',
+      one: 'item', many: 'items', ordered: true, media: 'gallery',
       fields: [
-        { key: 'image_url', label: 'Photo', type: 'image', required: true },
+        { key: 'image_url', label: 'Photo or video', type: 'image', video: true, required: true, hint: 'Upload a photo or a video (MP4, MOV or WebM, up to 100 MB), or paste a YouTube link under "Link".' },
         { key: 'title', label: 'Title' },
-        { key: 'category', label: 'Category', type: 'select', options: CATEGORY_OPTIONS },
+        { key: 'category', label: 'Category', type: 'category' },
         { key: 'caption', label: 'Caption', type: 'textarea', full: true },
         { key: 'active', label: 'Show on the website', type: 'check' }
       ]
@@ -79,12 +93,13 @@
       ]
     },
     announcements: {
-      one: 'announcement', many: 'announcements', media: 'general',
-      intro: 'Shown in a strip near the top of the website. Higher priority shows first.',
+      one: 'announcement', many: 'announcements', media: 'announcements',
+      intro: 'Without a photo, an announcement shows as a short notice near the top of the website. With a photo, it shows as an event card (tournaments, competitions) in the Events section.',
       fields: [
         { key: 'title', label: 'Title', required: true, full: true },
-        { key: 'description', label: 'Details', type: 'textarea', full: true },
-        { key: 'date', label: 'Date', type: 'date' },
+        { key: 'description', label: 'Details', type: 'textarea', full: true, rows: 4 },
+        { key: 'image_url', label: 'Photo (for events)', type: 'image', hint: 'A poster or photo of the event. Leave empty for a short notice.' },
+        { key: 'date', label: 'Date', type: 'date', hint: 'For events: the day of the event.' },
         { key: 'expiry', label: 'Show until', type: 'date', hint: 'Empty = no end date.' },
         { key: 'priority', label: 'Priority', type: 'number', placeholder: '1', hint: 'Higher shows first.' },
         { key: 'active', label: 'Show on the website', type: 'check' }
@@ -98,7 +113,6 @@
       { key: 'gym_name', label: 'Short name', required: true },
       { key: 'full_name', label: 'Full name' },
       { key: 'tagline', label: 'Footer line', hint: 'Empty = hidden.' },
-      { key: 'featured_badge_text', label: 'Label on the highlighted plan', placeholder: 'Best value' },
       { key: 'description', label: 'Summary for Google search', type: 'textarea', full: true }
     ] },
     { title: 'Top of the page', fields: [
@@ -118,13 +132,18 @@
       { key: 'about_text', label: 'Text', type: 'textarea', full: true, rows: 5, hint: 'A | starts a new paragraph.' },
       { key: 'about_highlights', label: 'Short points', type: 'list', hint: 'One point per line.' },
       { key: 'about_image', label: 'About photo', type: 'image' },
-      { key: 'facilities_intro', label: 'Text under the Facilities heading', type: 'textarea', full: true }
+      { key: 'facilities_intro', label: 'Text next to the Facilities heading', type: 'textarea', full: true }
+    ] },
+    { title: 'Membership', fields: [
+      { key: 'featured_badge_text', label: 'Label on highlighted plans', placeholder: 'Best value' },
+      { key: 'services_heading', label: 'Heading above personal training and diet plans', placeholder: 'Personal training and diet plans' }
     ] },
     { title: 'Contact', fields: [
-      { key: 'phone', label: 'Phone', placeholder: '+91 75586 08585' },
-      { key: 'whatsapp', label: 'WhatsApp', hint: 'Empty = the phone number is used.' },
-      { key: 'address', label: 'Address', type: 'textarea', hint: 'A | starts a new line.' },
-      { key: 'opening_hours', label: 'Opening hours', type: 'textarea', hint: 'A | starts a new line.' }
+      { key: 'phone', label: 'Gym phone', placeholder: '+91 77588 78588', hint: 'Used for the Call buttons.' },
+      { key: 'phone_2', label: "Owner's phone", placeholder: '+91 75586 08585', hint: 'Shown as a second number. Empty = hidden.' },
+      { key: 'whatsapp', label: 'WhatsApp', hint: 'Empty = the gym phone is used.' },
+      { key: 'address', label: 'Address', type: 'textarea', rows: 4, hint: 'A | starts a new line.' },
+      { key: 'opening_hours', label: 'Opening hours', type: 'textarea', full: true, rows: 3, hint: 'One line per group of days, separated by |, e.g. "Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM". The website highlights today and shows whether the gym is open now.' }
     ] },
     { title: 'Map and social links', fields: [
       { key: 'maps_url', label: 'Google Maps link', full: true, hint: 'Google Maps › Share › Copy link.' },
@@ -135,12 +154,13 @@
   ];
 
   const VIEWS = {
-    dashboard: 'Dashboard', general: 'General information', facilities: 'Facilities', plans: 'Membership plans', trainers: 'Trainers',
-    gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements', media: 'Media library', enquiries: 'Enquiries', settings: 'Settings'
+    dashboard: 'Dashboard', general: 'General information', facilities: 'Facilities', plans: 'Membership plans',
+    services: 'Personal training & diet', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews',
+    announcements: 'Announcements & events', media: 'Media library', enquiries: 'Enquiries', settings: 'Settings'
   };
 
   const state = {
-    data: null, view: 'dashboard', dirty: false, folders: null, foldersLoading: null, lib: null, libFolder: '',
+    data: null, view: 'dashboard', dirty: false, lib: null, libFolder: '',
     reviewFilter: 'all', enquiryFilter: 'all', pending: new Set(), lastHash: ''
   };
 
@@ -160,15 +180,33 @@
     for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
     return false;
   };
-  const thumb = (url, w = 200) => { const u = safeUrl(url); return u ? `<img src="${esc(cld(u, w))}" alt="" loading="lazy">` : ''; };
+  /* Small picture for a photo, video or YouTube link. */
+  const thumb = (url, w = 200) => {
+    const u = safeUrl(url);
+    if (!u) return '';
+    const kind = mediaKind(u);
+    const src = kind === 'image' ? cld(u, w) : videoPoster(u, w);
+    return (src ? `<img src="${esc(src)}" alt="" loading="lazy">` : '') + (kind === 'image' ? '' : PLAY);
+  };
   const pill = (label, kind = '') => `<span class="pill${kind ? ' pill--' + kind : ''}">${esc(label)}</span>`;
   const stars = n => {
     const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
     return `<span class="stars-mini" role="img" aria-label="${r} out of 5">${[1, 2, 3, 4, 5].map(i => `<span${i <= r ? ' class="is-on"' : ''}>${STAR}</span>`).join('')}</span>`;
   };
   const sizeText = b => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b || 0} B`);
-  const catLabel = c => (CATEGORY_OPTIONS.find(([k]) => k === text(c).toLowerCase()) || [null, text(c) || 'Photo'])[1];
   const statusText = s => { const v = text(s) || 'New'; return `<span class="status status--${esc(v.toLowerCase())}">${esc(v)}</span>`; };
+
+  /* Gallery categories: names in filter order, kept in General › gallery_categories. */
+  function galleryCategories() {
+    const names = splitList(general().gallery_categories);
+    return names.length ? names : DEFAULT_CATEGORIES.slice();
+  }
+  const categoryOptions = () => galleryCategories().map(n => [n.toLowerCase(), n]);
+  const catLabel = c => {
+    const k = text(c).toLowerCase();
+    const hit = galleryCategories().find(n => n.toLowerCase() === k);
+    return hit || (k ? k.replace(/\b[a-z]/g, ch => ch.toUpperCase()) : 'No category');
+  };
 
   function toast(message, type = 'ok') {
     const box = $('#modal').open ? $('#modal-toasts') : $('#toasts');
@@ -177,7 +215,7 @@
     el.setAttribute('role', type === 'error' ? 'alert' : 'status');
     el.textContent = message;
     box.appendChild(el);
-    setTimeout(() => { el.classList.add('is-out'); setTimeout(() => el.remove(), 350); }, type === 'error' ? 7000 : 3800);
+    setTimeout(() => { el.classList.add('is-out'); setTimeout(() => el.remove(), 350); }, type === 'error' ? 8000 : 3800);
   }
 
   function fail(err, fallback) {
@@ -185,7 +223,7 @@
     toast((err && err.message) || fallback || 'Something went wrong.', 'error');
   }
 
-  /* Photos uploaded in a form that hasn't been saved yet. They are deleted if the form is abandoned. */
+  /* Uploads made in a form that hasn't been saved yet. They are deleted if the form is abandoned. */
   function cleanupPending(keep = []) {
     const drop = [...state.pending].filter(u => !keep.includes(u));
     state.pending.clear();
@@ -205,7 +243,7 @@
 
   async function signOut(message = '') {
     cleanupPending();
-    state.data = null; state.dirty = false; state.lib = null; state.folders = null; state.foldersLoading = null;
+    state.data = null; state.dirty = false; state.lib = null;
     await API.logout();
     showLogin(message);
   }
@@ -309,7 +347,7 @@
         ${card('New enquiries', newCount, '#enquiries', newCount > 0)}
         ${card('Reviews waiting', waiting, '#reviews', waiting > 0)}
         ${card('Membership plans', list('plans').filter(p => truthy(p.active)).length, '#plans')}
-        ${card('Gallery photos', list('gallery').filter(p => truthy(p.active)).length, '#gallery')}
+        ${card('Gallery items', list('gallery').filter(p => truthy(p.active)).length, '#gallery')}
       </div>
       <div class="dash-grid">
         <section class="panel">
@@ -343,10 +381,13 @@
         return `<label class="field${full}" for="${id}">${label}<textarea id="${id}" name="${f.key}" rows="${f.rows || 3}"${f.max ? ` maxlength="${f.max}"` : ''}${ph}>${esc(v)}</textarea>${hint}</label>`;
       case 'list':
         return `<label class="field${full}" for="${id}">${label}<textarea id="${id}" name="${f.key}" rows="4">${esc(splitList(v).join('\n'))}</textarea>${hint}</label>`;
-      case 'select': {
-        const opts = f.options.slice();
-        if (text(v) && !opts.some(([k]) => String(k) === String(v))) opts.unshift([String(v), String(v)]);
-        return `<label class="field${full}" for="${id}">${label}<select id="${id}" name="${f.key}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>${hint}</label>`;
+      case 'select':
+      case 'category': {
+        const opts = f.type === 'category' ? categoryOptions() : f.options.slice();
+        if (text(v) && !opts.some(([k]) => String(k) === String(v).toLowerCase() || String(k) === String(v))) opts.unshift([String(v), catLabel(v)]);
+        const current = f.type === 'category' ? String(v).toLowerCase() : String(v);
+        const extra = f.type === 'category' ? '<option value="__new">+ New category…</option>' : '';
+        return `<label class="field${full}" for="${id}">${label}<select id="${id}" name="${f.key}"${f.type === 'category' ? ' data-category' : ''}>${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === current ? ' selected' : ''}>${esc(l)}</option>`).join('')}${extra}</select>${hint}</label>`;
       }
       case 'date':
         return `<label class="field${full}" for="${id}">${label}<input id="${id}" type="date" name="${f.key}" value="${esc(isoDate(v))}">${hint}</label>`;
@@ -361,16 +402,17 @@
 
   function imageFieldHtml(f, value, section) {
     const v = text(value);
-    return `<div class="field field--full image-field" data-image-field data-section="${esc(section)}">
+    const noun = f.video ? 'photo or video' : 'photo';
+    return `<div class="field field--full image-field" data-image-field data-section="${esc(section)}"${f.video ? ' data-video="1"' : ''}>
       <span class="field__label">${esc(f.label)}${f.required ? ' *' : ''}</span>
       <div class="image-field__row">
-        <div class="image-field__preview">${v ? thumb(v, 300) : '<span>No photo yet</span>'}</div>
+        <div class="image-field__preview">${v ? thumb(v, 300) : '<span>Nothing yet</span>'}</div>
         <div class="image-field__controls">
           <div class="image-field__actions">
-            <button class="btn btn--ghost btn--sm" type="button" data-upload${cloudinaryReady() ? '' : ' disabled title="Set up photo uploads in Settings first"'}>${v ? 'Replace photo' : 'Upload photo'}</button>
+            <button class="btn btn--ghost btn--sm" type="button" data-upload${cloudinaryReady() ? '' : ' disabled title="Set up photo uploads in Settings first"'}>${v ? `Replace ${noun}` : `Upload ${noun}`}</button>
           </div>
           <div class="progress" hidden><span></span></div>
-          <details class="image-field__link"${v && !/res\.cloudinary\.com/i.test(v) ? ' open' : ''}><summary>Photo link</summary><input type="url" name="${f.key}" value="${esc(v)}" placeholder="https://…" inputmode="url"></details>
+          <details class="image-field__link"${v && !/res\.cloudinary\.com/i.test(v) ? ' open' : ''}><summary>Link</summary><input type="url" name="${f.key}" value="${esc(v)}" placeholder="https://…" inputmode="url"></details>
           ${f.hint ? `<small class="field__hint">${esc(f.hint)}</small>` : ''}
           ${isStock(v) ? '<small class="field__warn">Stand-in photo. Replace it with a photo of SSV.</small>' : ''}
         </div>
@@ -388,6 +430,7 @@
       if (f.type === 'check') v = el.checked;
       else if (f.type === 'list') v = splitList(el.value).join(' | ');
       else v = text(el.value);
+      if (f.type === 'category' && v === '__new') v = '';
       if (f.required && v === '') {
         const details = el.closest && el.closest('details');
         if (details) details.open = true;
@@ -400,7 +443,7 @@
     return out;
   }
 
-  /* ------------------------------------------------------ folders & uploads */
+  /* ---------------------------------------------------------------- uploads */
   function sectionFolder(section) {
     const media = meta().media || {};
     const s = media.sections || {};
@@ -409,12 +452,13 @@
 
   /* One hidden file input serves every upload button. */
   let pickResolve = null;
-  function pickFiles(multiple) {
+  function pickFiles(multiple, accept = IMAGE_ACCEPT) {
     return new Promise(resolve => {
       if (pickResolve) pickResolve([]);   // an earlier picker was closed without a choice
       pickResolve = resolve;
       const picker = $('#file-picker');
       picker.multiple = Boolean(multiple);
+      picker.accept = accept;
       picker.value = '';
       picker.click();
     });
@@ -425,13 +469,14 @@
   function bindImageFields(root) {
     $$('[data-image-field]', root).forEach(box => {
       const input = $('input[type="url"]', box), preview = $('.image-field__preview', box), btn = $('[data-upload]', box);
+      const noun = box.dataset.video ? 'photo or video' : 'photo';
       input.addEventListener('input', () => {
         const v = text(input.value);
-        preview.innerHTML = v ? thumb(v, 300) : '<span>No photo yet</span>';
-        btn.textContent = v ? 'Replace photo' : 'Upload photo';
+        preview.innerHTML = v ? thumb(v, 300) : '<span>Nothing yet</span>';
+        btn.textContent = v ? `Replace ${noun}` : `Upload ${noun}`;
       });
       btn.addEventListener('click', async () => {
-        const files = await pickFiles(false);
+        const files = await pickFiles(false, box.dataset.video ? MEDIA_ACCEPT : IMAGE_ACCEPT);
         if (!files.length) return;
         uploadInto(box, files[0], sectionFolder(box.dataset.section));
       });
@@ -440,23 +485,56 @@
 
   async function uploadInto(box, file, folder) {
     const input = $('input[type="url"]', box), bar = $('.progress', box), fill = $('.progress span', box), btn = $('[data-upload]', box);
+    const noun = box.dataset.video ? 'photo or video' : 'photo';
     bar.hidden = false;
     fill.style.width = '0%';
     btn.disabled = true;
     btn.textContent = 'Uploading…';
     try {
-      const res = await API.uploadImage(file, { folder, onProgress: p => { fill.style.width = `${p}%`; } });
+      const res = await API.uploadMedia(file, { folder, onProgress: p => { fill.style.width = `${p}%`; } });
       state.pending.add(res.url);
       input.value = res.url;
       input.dispatchEvent(new Event('input', { bubbles: true }));
-      toast('Photo uploaded. Save to use it.');
+      toast(`${res.kind === 'video' ? 'Video' : 'Photo'} uploaded. Save to use it.`);
     } catch (err) {
       fail(err, 'Upload failed.');
     } finally {
       bar.hidden = true;
       btn.disabled = false;
-      btn.textContent = text(input.value) ? 'Replace photo' : 'Upload photo';
+      btn.textContent = text(input.value) ? `Replace ${noun}` : `Upload ${noun}`;
     }
+  }
+
+  /* Choosing "+ New category…" in a category list asks for the name and adds it. */
+  async function addCategory(select) {
+    const name = (prompt('Name of the new category:') || '').replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!name) { select.value = select.options[0] ? select.options[0].value : ''; return; }
+    const names = galleryCategories();
+    if (!names.some(n => n.toLowerCase() === name.toLowerCase())) {
+      names.push(name);
+      try { state.data.general = await API.saveGeneralData({ gallery_categories: names.join(' | ') }); }
+      catch (err) { fail(err, 'Could not save the new category.'); return; }
+    }
+    const key = name.toLowerCase();
+    if (![...select.options].some(o => o.value === key)) select.add(new Option(name, key), select.options[select.options.length - 1]);
+    select.value = key;
+    toast(`Category "${name}" added.`);
+  }
+
+  function editCategories() {
+    openModal({
+      title: 'Gallery categories',
+      body: `<div class="form-grid">${fieldHtml({ key: 'gallery_categories', label: 'Categories', type: 'list', hint: 'One per line, in the order of the filter buttons on the website. Renaming or removing one here does not change photos that already use it.' }, galleryCategories().join(' | '))}</div>`,
+      saveLabel: 'Save categories',
+      onSave: async form => {
+        const names = splitList(form.elements.gallery_categories.value.replace(/\|/g, '\n'));
+        if (!names.length) { toast('Add at least one category.', 'error'); return false; }
+        state.data.general = await API.saveGeneralData({ gallery_categories: names.join(' | ') });
+        toast('Categories saved.');
+        render();
+        return true;
+      }
+    });
   }
 
   /* ---------------------------------------------------- general information */
@@ -480,9 +558,8 @@
     </form>`;
     const form = $('#general-form');
     bindImageFields(form);
-    const mark = e => { if (!e.target.matches('[data-folder]')) setDirty(true); };
-    form.addEventListener('input', mark);
-    form.addEventListener('change', mark);
+    form.addEventListener('input', () => setDirty(true));
+    form.addEventListener('change', () => setDirty(true));
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const values = readForm(form, GENERAL.flatMap(s => s.fields));
@@ -521,6 +598,7 @@
 
   $('#modal').addEventListener('close', () => { cleanupPending(); modalSave = null; $('#modal-body').innerHTML = ''; });
   $('#modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
+  $('#modal').addEventListener('change', e => { if (e.target.matches('select[data-category]') && e.target.value === '__new') addCategory(e.target); });
   $('#modal-form').addEventListener('submit', async e => {
     e.preventDefault();
     if (!modalSave) return;
@@ -546,12 +624,15 @@
   }
 
   function columns(key) {
-    const name = r => `<div class="cell-main">${key === 'plans' || key === 'announcements' ? '' : `<span class="thumb">${thumb(r.image_url, 120)}</span>`}<div><strong>${esc(r.name || r.title || 'Untitled')}</strong>${isSample(key, r) ? ` ${pill('Sample', 'warn')}` : ''}</div></div>`;
+    const withThumb = ['facilities', 'trainers', 'announcements'].includes(key);
+    const name = r => `<div class="cell-main">${withThumb ? `<span class="thumb">${thumb(r.image_url, 120)}</span>` : ''}<div><strong>${esc(r.name || r.title || 'Untitled')}</strong>${isSample(key, r) ? ` ${pill('Sample', 'warn')}` : ''}</div></div>`;
+    const price = r => (text(r.price) ? esc(formatPrice(r.price)) : '<span class="muted">On enquiry</span>');
     switch (key) {
       case 'facilities': return [{ label: 'Name', cell: name }, { label: 'Shown as', cell: r => (text(r.category).toLowerCase() === 'additional' ? 'Also at SSV' : 'Main area') }];
-      case 'plans': return [{ label: 'Plan', cell: name }, { label: 'Duration', cell: r => esc(r.duration) }, { label: 'Price', cell: r => (text(r.price) ? esc(formatPrice(r.price)) : '<span class="muted">On enquiry</span>') }, { label: 'Highlight', cell: r => (truthy(r.featured) ? pill('Highlighted', 'on') : '') }];
+      case 'plans': return [{ label: 'Plan', cell: name }, { label: 'Duration', cell: r => esc(r.duration) }, { label: 'Price', cell: price }, { label: 'Highlight', cell: r => (truthy(r.featured) ? pill('Highlighted', 'on') : '') }];
+      case 'services': return [{ label: 'Name', cell: name }, { label: 'Price', cell: price }, { label: 'Under the price', cell: r => esc(r.price_note) }];
       case 'trainers': return [{ label: 'Name', cell: name }, { label: 'Role', cell: r => esc(r.role) }];
-      case 'announcements': return [{ label: 'Title', cell: name }, { label: 'Date', cell: r => esc(formatDate(r.date)) }, { label: 'Until', cell: r => (text(r.expiry) ? esc(formatDate(r.expiry)) : '<span class="muted">No end</span>') }, { label: 'Priority', cell: r => esc(r.priority) }];
+      case 'announcements': return [{ label: 'Title', cell: name }, { label: 'Shown as', cell: r => (text(r.image_url) ? pill('Event card') : pill('Notice')) }, { label: 'Date', cell: r => esc(formatDate(r.date)) }, { label: 'Until', cell: r => (text(r.expiry) ? esc(formatDate(r.expiry)) : '<span class="muted">No end</span>') }];
       default: return [{ label: 'Name', cell: name }];
     }
   }
@@ -581,7 +662,7 @@
 
   function openEditor(key, record) {
     const c = COLLECTIONS[key], isNew = !record;
-    const r = record || { active: true, category: key === 'facilities' ? 'major' : 'gym', status: 'Published', rating: '5', date: isoDate(new Date()), priority: 1 };
+    const r = record || { active: true, category: key === 'facilities' ? 'major' : (key === 'gallery' ? photoCategory : ''), status: 'Published', rating: '5', date: isoDate(new Date()), priority: 1 };
     openModal({
       title: isNew ? `Add ${c.one}` : `Edit ${c.one}`,
       body: `<div class="form-grid">${c.fields.map(f => fieldHtml(f, r[f.key], c.media)).join('')}</div>`,
@@ -630,20 +711,33 @@
     catch (err) { fail(err, 'Could not change the order.'); if (await loadData()) render(); }
   }
 
-  /* ---------------------------------------------------------------- gallery */
+  /* ------------------------------------------------- gallery (photos & videos) */
+  /* Category given to items added with "Add photos or videos" (remembered while the panel is open). */
+  let photoCategory = 'gym';
+
   function renderGallery(root) {
     const rows = sortedRows('gallery');
     const shown = rows.filter(r => truthy(r.active)).length;
+    if (!categoryOptions().some(([k]) => k === photoCategory)) photoCategory = (categoryOptions()[0] || ['gym'])[0];
     root.innerHTML = `
       <div class="toolbar">
-        <p class="toolbar__info">${rows.length} photo${rows.length === 1 ? '' : 's'} · ${shown} shown on the website</p>
-        <div class="toolbar__actions">${cloudinaryReady() ? `<label class="folder-pick"><span class="folder-pick__label">Category for new photos</span><select id="new-photo-category">${CATEGORY_OPTIONS.map(([k, l]) => `<option value="${k}"${k === photoCategory ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}<button class="btn btn--primary btn--sm" type="button" data-add-photos${cloudinaryReady() ? '' : ' disabled'}>Add photos</button><button class="btn btn--ghost btn--sm" type="button" data-add="gallery">Add by link</button></div>
+        <p class="toolbar__info">${rows.length} item${rows.length === 1 ? '' : 's'} · ${shown} shown on the website</p>
+        <div class="toolbar__actions">
+          ${cloudinaryReady() ? `<label class="folder-pick"><span class="folder-pick__label">Category for new items</span><select id="new-photo-category">${categoryOptions().map(([k, l]) => `<option value="${esc(k)}"${k === photoCategory ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>` : ''}
+          <button class="btn btn--primary btn--sm" type="button" data-add-photos${cloudinaryReady() ? '' : ' disabled'}>Add photos or videos</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-add="gallery">Add by link</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-action="edit-categories">Categories</button>
+        </div>
       </div>
-      ${cloudinaryReady() ? '' : '<p class="hint-box hint-box--warn">Photo uploads are not set up yet, so photos can only be added by link. See Settings.</p>'}
+      <p class="hint-box">Videos: upload MP4, MOV or WebM files up to 100 MB, or use <b>Add by link</b> with a YouTube link for longer videos.</p>
+      ${cloudinaryReady() ? '' : '<p class="hint-box hint-box--warn">Uploads are not set up yet, so items can only be added by link. See Settings.</p>'}
       <ul class="upload-list" id="upload-list"></ul>
-      ${rows.length ? `<div class="media-grid">${rows.map((r, i) => `<article class="media-card${truthy(r.active) ? '' : ' is-muted'}">
-          <div class="media-card__img">${thumb(r.image_url, 500) || 'No photo'}<span class="pill media-card__cat">${esc(catLabel(r.category))}</span>${!truthy(r.active) ? '<span class="pill media-card__state">Hidden</span>' : (isStock(r.image_url) ? '<span class="pill pill--warn media-card__state">Sample</span>' : '')}</div>
-          <div class="media-card__body"><strong>${esc(r.title || 'Untitled photo')}</strong>${text(r.caption) ? `<small>${esc(r.caption)}</small>` : ''}</div>
+      ${rows.length ? `<div class="media-grid">${rows.map((r, i) => {
+          const kind = mediaKind(r.image_url);
+          const state = !truthy(r.active) ? '<span class="pill media-card__state">Hidden</span>' : (isStock(r.image_url) ? '<span class="pill pill--warn media-card__state">Sample</span>' : (kind !== 'image' ? '<span class="pill media-card__state">Video</span>' : ''));
+          return `<article class="media-card${truthy(r.active) ? '' : ' is-muted'}">
+          <div class="media-card__img">${thumb(r.image_url, 500) || 'No photo'}<span class="pill media-card__cat">${esc(catLabel(r.category))}</span>${state}</div>
+          <div class="media-card__body"><strong>${esc(r.title || (kind === 'image' ? 'Untitled photo' : 'Untitled video'))}</strong>${text(r.caption) ? `<small>${esc(r.caption)}</small>` : ''}</div>
           <div class="media-card__actions">
             <button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move earlier"${i === 0 ? ' disabled' : ''}>←</button>
             <button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move later"${i === rows.length - 1 ? ' disabled' : ''}>→</button>
@@ -651,20 +745,19 @@
             <button class="btn btn--ghost btn--xs" type="button" data-edit="${esc(r.id)}">Edit</button>
             <button class="btn btn--danger btn--xs" type="button" data-delete="${esc(r.id)}">Delete</button>
           </div>
-        </article>`).join('')}</div>`
-        : '<div class="empty"><p>No photos yet. Add photos of the gym floor, the CrossFit zone, training and events.</p></div>'}`;
+        </article>`;
+        }).join('')}</div>`
+        : '<div class="empty"><p>Nothing in the gallery yet. Add photos and videos of the gym floor, the CrossFit zone, training and events.</p></div>'}`;
   }
 
-  const titleFromFile = name => String(name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, ch => ch.toUpperCase()).slice(0, 80) || 'Gallery photo';
-  /* Category given to photos added with "Add photos" (remembered while the panel is open). */
-  let photoCategory = 'gym';
+  const titleFromFile = name => String(name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, ch => ch.toUpperCase()).slice(0, 80) || 'Gallery item';
 
-  /* Uploads several photos into the Gallery folder and adds each one to the gallery. */
+  /* Uploads several photos or videos into the Gallery folder and adds each one to the gallery. */
   async function addPhotos() {
     const pick = $('#new-photo-category');
     if (pick) photoCategory = pick.value;
     const category = photoCategory;
-    const files = await pickFiles(true);
+    const files = await pickFiles(true, MEDIA_ACCEPT);
     if (!files.length) return;
     const folder = sectionFolder('gallery');
     const rows = list('gallery');
@@ -676,7 +769,7 @@
       if (box) box.appendChild(li);
       const status = $('em', li);
       try {
-        const up = await API.uploadImage(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
+        const up = await API.uploadMedia(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
         status.textContent = 'Saving…';
         rows.push(await API.saveRecord('gallery', { image_url: up.url, title: titleFromFile(file.name), category, caption: '', active: true, display_order: ++order }));
         li.classList.add('is-done');
@@ -693,7 +786,7 @@
       renderGallery($('#view'));
       $('#upload-list').innerHTML = log;
     }
-    toast(`${added} photo${added === 1 ? '' : 's'} added to the gallery.`);
+    toast(`${added} item${added === 1 ? '' : 's'} added to the gallery.`, added ? 'ok' : 'warn');
   }
 
   /* ---------------------------------------------------------------- reviews */
@@ -843,11 +936,11 @@
         <p class="panel__note">To change the addresses, edit NOTIFY_EMAIL in the Config tab of the Google Sheet. Separate several with commas. These addresses only receive alerts; they don't give access to this panel.</p>
       </section>
       <section class="panel">
-        <div class="panel__head"><h2>Photos</h2></div>
+        <div class="panel__head"><h2>Photos and videos</h2></div>
         ${m.cloudinaryConfigured
-          ? `<p>Photo uploads are ready. Photos are stored in Cloudinary, in the <strong>${esc(base)}</strong> folder.</p>`
-          : '<p>Photo uploads are not set up yet.</p><ul class="notes"><li>Put your Cloudinary cloud name next to CLOUDINARY_CLOUD_NAME in the Config tab.</li><li>In the Google Sheet, run SSV Admin › Set Cloudinary keys and paste the API key and secret.</li></ul>'}
-        <p class="panel__note">If the media library shows an error about permission, run SSV Admin › Set Cloudinary keys once and allow access when Google asks.</p>
+          ? `<p>Uploads are ready. Files are stored in Cloudinary, in the <strong>${esc(base)}</strong> folder.</p>`
+          : '<p>Uploads are not set up yet.</p><ul class="notes"><li>Put your Cloudinary cloud name next to CLOUDINARY_CLOUD_NAME in the Config tab.</li><li>In the Google Sheet, run SSV Admin › Set Cloudinary keys and paste the API key and secret.</li></ul>'}
+        <p class="panel__note">If an upload says "cloud_name is disabled", Cloudinary has switched the account off: sign in at cloudinary.com to see why. If the media library mentions permission, run SSV Admin › Set Cloudinary keys once and allow access when Google asks.</p>
       </section>
       <section class="panel">
         <div class="panel__head"><h2>Password and sign-in</h2></div>
@@ -869,11 +962,11 @@
 
   async function renderMedia(root, fresh = false) {
     if (!cloudinaryReady()) {
-      root.innerHTML = '<div class="empty"><p>Photo uploads are not set up yet, so there is no media library.</p><a class="btn btn--primary" href="#settings">Open Settings</a></div>';
+      root.innerHTML = '<div class="empty"><p>Uploads are not set up yet, so there is no media library.</p><a class="btn btn--primary" href="#settings">Open Settings</a></div>';
       return;
     }
     if (!state.lib || fresh) {
-      if (!fresh || !state.lib) root.innerHTML = '<p class="loading">Loading photos…</p>';
+      if (!fresh || !state.lib) root.innerHTML = '<p class="loading">Loading photos and videos…</p>';
       try {
         state.lib = await API.mediaLibrary(fresh);
       } catch (err) {
@@ -903,10 +996,10 @@
     const depthIn = section ? cur.split('/').length - section.split('/').length : -1;
     const isLegacy = legacy.includes(cur);
     const canDelete = (depthIn >= 1 || isLegacy) && !count(cur);
-    const title = cur === lib.base ? 'All photos' : (cur.startsWith(lib.base + '/') ? cur.slice(lib.base.length + 1) : cur);
+    const title = cur === lib.base ? 'All photos and videos' : (cur.startsWith(lib.base + '/') ? cur.slice(lib.base.length + 1) : cur);
     root.innerHTML = `<div class="media-lib">
       <nav class="folder-tree" aria-label="Folders">
-        <ul>${tree.map(p => item(p, p.split('/').length - baseDepth, p === lib.base ? 'All photos' : '')).join('')}</ul>
+        <ul>${tree.map(p => item(p, p.split('/').length - baseDepth, p === lib.base ? 'All' : '')).join('')}</ul>
         ${legacy.length ? `<p class="folder-tree__group">Older uploads</p><ul>${legacy.map(p => item(p, p.split('/').length - 1)).join('')}</ul>` : ''}
       </nav>
       <div class="media-lib__main">
@@ -918,37 +1011,41 @@
             <button class="btn btn--ghost btn--sm" type="button" data-action="media-refresh">Refresh</button>
           </div>
         </div>
-        ${lib.truncated ? '<p class="hint-box hint-box--warn">There are more photos than can be listed at once. Only the newest are shown.</p>' : ''}
-        ${section && depthIn === 0 ? '' : '<p class="panel__note panel__note--top">To upload photos here, choose Home, Facilities, Trainers or Gallery on the left.</p>'}
+        ${lib.truncated ? '<p class="hint-box hint-box--warn">There are more files than can be listed at once. Only the newest are shown.</p>' : ''}
+        ${section && depthIn === 0 ? '' : '<p class="panel__note panel__note--top">To upload here, choose Home, Facilities, Trainers, Gallery or Events on the left.</p>'}
         <ul class="upload-list" id="upload-list"></ul>
-        ${images.length ? `<div class="media-grid">${images.map(mediaCard).join('')}</div>` : '<div class="empty"><p>No photos in this folder yet.</p></div>'}
+        ${images.length ? `<div class="media-grid">${images.map(mediaCard).join('')}</div>` : '<div class="empty"><p>Nothing in this folder yet.</p></div>'}
       </div>
     </div>`;
   }
 
-  function mediaCard(photo) {
-    const used = photo.usedIn || [];
-    const where = photo.folder !== state.libFolder ? ` · ${esc(photo.folder.split('/').pop())}` : '';
+  function mediaCard(file) {
+    const used = file.usedIn || [];
+    const video = file.type === 'video';
+    const where = file.folder !== state.libFolder ? ` · ${esc(file.folder.split('/').pop())}` : '';
+    const size = file.width && file.height ? `${file.width} × ${file.height} · ` : '';
+    const length = video && file.duration ? `${Math.round(file.duration)} s · ` : '';
     return `<article class="media-card${used.length ? '' : ' is-unused'}">
-      <div class="media-card__img">${thumb(photo.url, 500)}${used.length ? '' : '<span class="pill pill--warn media-card__state">Not used</span>'}</div>
+      <div class="media-card__img">${thumb(file.url, 500)}${used.length ? (video ? '<span class="pill media-card__state">Video</span>' : '') : '<span class="pill pill--warn media-card__state">Not used</span>'}</div>
       <div class="media-card__body">
-        <strong title="${esc(photo.id)}">${esc(photo.id.split('/').pop())}</strong>
+        <strong title="${esc(file.id)}">${esc(file.id.split('/').pop())}</strong>
         <small class="media-card__use">${used.length ? `Used in: ${esc(used.join(', '))}` : 'Not used on the website'}</small>
-        <small>${photo.width && photo.height ? `${photo.width} × ${photo.height} · ` : ''}${sizeText(photo.bytes)}${where}</small>
+        <small>${size}${length}${sizeText(file.bytes)}${where}</small>
       </div>
       <div class="media-card__actions">
-        <button class="btn btn--ghost btn--xs" type="button" data-copy="${esc(photo.url)}">Copy link</button>
-        <a class="btn btn--ghost btn--xs" href="${esc(photo.url)}" target="_blank" rel="noopener">Open</a>
+        <button class="btn btn--ghost btn--xs" type="button" data-copy="${esc(file.url)}">Copy link</button>
+        <a class="btn btn--ghost btn--xs" href="${esc(file.url)}" target="_blank" rel="noopener">Open</a>
         <span class="spacer"></span>
-        ${used.length ? '' : `<button class="btn btn--danger btn--xs" type="button" data-delete-image="${esc(photo.id)}">Delete</button>`}
+        ${used.length ? '' : `<button class="btn btn--danger btn--xs" type="button" data-delete-image="${esc(file.url)}">Delete</button>`}
       </div>
     </article>`;
   }
 
   async function mediaUpload() {
-    const files = await pickFiles(true);
-    if (!files.length) return;
     const folder = state.libFolder;
+    const videosAllowed = /\/(Gallery|Events)$/.test(folder);
+    const files = await pickFiles(true, videosAllowed ? MEDIA_ACCEPT : IMAGE_ACCEPT);
+    if (!files.length) return;
     let done = 0;
     for (const file of files) {
       const li = document.createElement('li');
@@ -957,7 +1054,7 @@
       if (box) box.appendChild(li);
       const status = $('em', li);
       try {
-        await API.uploadImage(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
+        await API.uploadMedia(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
         li.classList.add('is-done');
         status.textContent = 'Uploaded';
         done++;
@@ -967,7 +1064,7 @@
         if (err.code === 'AUTH_REQUIRED') { fail(err); return; }
       }
     }
-    toast(`${done} photo${done === 1 ? '' : 's'} uploaded. Use Copy link to put a photo in a field.`);
+    toast(`${done} file${done === 1 ? '' : 's'} uploaded. Use Copy link to put one in a field.`, done ? 'ok' : 'warn');
     if (state.view === 'media') renderMedia($('#view'), true);
   }
 
@@ -983,14 +1080,14 @@
     } catch (err) { fail(err, 'Could not delete the folder.'); }
   }
 
-  async function deleteImage(id) {
-    if (!confirm('Delete this photo from Cloudinary? This can\'t be undone.')) return;
+  async function deleteImage(url) {
+    if (!confirm('Delete this file from Cloudinary? This can\'t be undone.')) return;
     try {
-      const res = await API.deleteImages([id]);
+      const res = await API.deleteImages([url]);
       const gone = res.deleted && res.deleted.length;
-      toast(gone ? 'Photo deleted.' : 'This photo is used on the website, so it was kept.', gone ? 'ok' : 'warn');
+      toast(gone ? 'Deleted.' : 'This file is used on the website, so it was kept.', gone ? 'ok' : 'warn');
       renderMedia($('#view'), true);
-    } catch (err) { fail(err, 'Could not delete the photo.'); }
+    } catch (err) { fail(err, 'Could not delete the file.'); }
   }
 
   async function copyLink(url) {
@@ -1014,9 +1111,10 @@
     else if (d.folderOpen) { state.libFolder = d.folderOpen; drawMedia($('#view')); }
     else if (d.copy) copyLink(d.copy);
     else if (d.deleteImage) deleteImage(d.deleteImage);
-    else if (d.action === 'retry') { loadData().then(ok => { if (ok) render(); }); }
+    else if (d.action === 'retry') { loadData().then(ok => { if (ok) route(); }); }
     else if (d.action === 'logout') confirmSignOut();
     else if (d.action === 'refresh-inbox') refreshInbox();
+    else if (d.action === 'edit-categories') editCategories();
     else if (d.action === 'media-refresh') renderMedia($('#view'), true);
     else if (d.action === 'media-upload') mediaUpload();
     else if (d.action === 'media-delete-folder') deleteFolder();
@@ -1026,6 +1124,7 @@
     const t = e.target;
     if (t.matches('[data-enquiry]')) setEnquiryStatus(t);
     else if (t.matches('[data-setting]')) saveSetting(t);
+    else if (t.id === 'new-photo-category') photoCategory = t.value;
   });
 
   window.addEventListener('hashchange', () => {
@@ -1042,7 +1141,7 @@
   window.addEventListener('beforeunload', e => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
   window.addEventListener('pagehide', () => { if (state.pending.size) API.deleteImagesOnExit([...state.pending]); });
 
-  /* A photo that fails to load leaves an empty box instead of a broken image. */
+  /* A picture that fails to load leaves an empty box instead of a broken image. */
   document.addEventListener('error', e => {
     const el = e.target;
     if (el && el.tagName === 'IMG' && el.closest('.image-field__preview, .thumb, .media-card__img')) el.remove();

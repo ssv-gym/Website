@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SSV GYM — API SERVICE LAYER                                        v1.3.0
+   SSV GYM — API SERVICE LAYER                                        v1.5.0
    All communication with the Google Apps Script backend and Cloudinary goes
    through this file. Visitors read content and send enquiries, reviews and
    likes. Everything else needs the admin session token that the backend
@@ -8,8 +8,10 @@
 const API = (() => {
   const CONTENT_KEY = 'ssv_content_v2';
   const TOKEN_KEY = 'ssv_admin_token';
-  const COLLECTIONS = ['facilities', 'plans', 'trainers', 'gallery', 'reviews', 'announcements'];
+  const COLLECTIONS = ['facilities', 'plans', 'services', 'trainers', 'gallery', 'reviews', 'announcements'];
   const PUBLIC_ACTIONS = ['submitEnquiry', 'submitReview', 'likeReview', 'login'];   // sent without the admin token
+  const IMAGE_TYPES = /^image\/(jpeg|png|webp)$/;
+  const VIDEO_TYPES = /^video\/(mp4|quicktime|webm)$/;
   let memo = null;
   try { localStorage.removeItem('ssv_content_v1'); } catch { /* copy saved by older versions */ }
 
@@ -18,6 +20,7 @@ const API = (() => {
   }
 
   const isConfigured = () => Boolean(CONFIG.API_URL) && !/^YOUR_/i.test(String(CONFIG.API_URL).trim());
+  const isVideoFile = file => Boolean(file) && VIDEO_TYPES.test(file.type);
 
   /* ---------- admin session token (kept for this browser tab only) ---------- */
   const getToken = () => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } };
@@ -153,21 +156,30 @@ const API = (() => {
     }
   }
 
-  /* A clean file name, so photo names in Cloudinary read well: "IMG 2041 (1).JPG" -> "img-2041-1.jpg". */
+  /* A clean file name, so names in Cloudinary read well: "IMG 2041 (1).JPG" -> "img-2041-1.jpg". */
   function cleanFile(file) {
-    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type] || 'jpg';
-    const name = String(file.name || '').replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'photo';
+    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' }[file.type] || 'jpg';
+    const name = String(file.name || '').replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'upload';
     try { return new File([file], `${name}.${ext}`, { type: file.type }); } catch { return file; }
   }
 
-  /* Uploads one photo into `folder`, e.g. "SSV-Gym/Gallery/Events". The backend checks the
-     folder belongs to the website and signs the upload; the API secret never reaches the browser. */
-  async function uploadImage(original, { folder = '', onProgress = null } = {}) {
-    if (!original || !/^image\/(jpeg|png|webp)$/.test(original.type)) throw new ApiError('Choose a JPG, PNG or WebP photo.', 'INVALID_FILE');
-    const file = cleanFile(await prepareImage(original));
-    const maxMb = CONFIG.MAX_UPLOAD_MB || 10;
-    if (file.size > maxMb * 1048576) throw new ApiError(`This photo is larger than ${maxMb} MB. Resize it and try again.`, 'FILE_TOO_LARGE');
-    const sig = await request('POST', 'getUploadSignature', { folder });
+  /* Cloudinary's own message for an account it has switched off. */
+  const cloudinaryMessage = msg => (/cloud_name is disabled/i.test(msg)
+    ? 'Cloudinary has switched this account off ("cloud_name is disabled"). Sign in at cloudinary.com to see why: usually an email address that isn\'t verified yet, or the free plan\'s limits.'
+    : msg);
+
+  /* Uploads one photo (JPG, PNG, WebP) or video (MP4, MOV, WebM) into `folder`, e.g.
+     "SSV-Gym/Gallery". The backend checks the folder and signs the upload; the API
+     secret never reaches the browser. */
+  async function uploadMedia(original, { folder = '', onProgress = null } = {}) {
+    const video = isVideoFile(original);
+    if (!original || (!video && !IMAGE_TYPES.test(original.type))) throw new ApiError('Choose a JPG, PNG or WebP photo, or an MP4, MOV or WebM video.', 'INVALID_FILE');
+    const file = cleanFile(video ? original : await prepareImage(original));
+    const maxMb = video ? (CONFIG.MAX_VIDEO_MB || 100) : (CONFIG.MAX_UPLOAD_MB || 10);
+    if (file.size > maxMb * 1048576) {
+      throw new ApiError(video ? `This video is larger than ${maxMb} MB. Trim or compress it, or upload it to YouTube and add the link.` : `This photo is larger than ${maxMb} MB. Resize it and try again.`, 'FILE_TOO_LARGE');
+    }
+    const sig = await request('POST', 'getUploadSignature', { folder, kind: video ? 'video' : 'image' });
     const form = new FormData();
     form.append('file', file);
     form.append('api_key', sig.apiKey);
@@ -176,13 +188,13 @@ const API = (() => {
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(sig.cloudName)}/image/upload`);
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(sig.cloudName)}/${video ? 'video' : 'image'}/upload`);
       xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100)); };
       xhr.onload = () => {
         let r = {};
         try { r = JSON.parse(xhr.responseText); } catch { /* keep empty */ }
-        if (xhr.status >= 200 && xhr.status < 300 && r.secure_url) resolve({ url: r.secure_url, publicId: r.public_id, width: r.width, height: r.height });
-        else reject(new ApiError((r.error && r.error.message) || 'Upload failed.', 'UPLOAD_FAILED'));
+        if (xhr.status >= 200 && xhr.status < 300 && r.secure_url) resolve({ url: r.secure_url, publicId: r.public_id, width: r.width, height: r.height, kind: video ? 'video' : 'image' });
+        else reject(new ApiError(cloudinaryMessage((r.error && r.error.message) || 'Upload failed.'), 'UPLOAD_FAILED'));
       };
       xhr.onerror = () => reject(new ApiError('Upload failed because of a network error.', 'NETWORK'));
       xhr.send(form);
@@ -190,7 +202,7 @@ const API = (() => {
   }
 
   return {
-    ApiError, isConfigured, getToken, setToken, clearCache,
+    ApiError, isConfigured, isVideoFile, getToken, setToken, clearCache,
 
     /* website */
     getContent, setReviewLikes, addReview,
@@ -210,7 +222,8 @@ const API = (() => {
     saveRecord: (collection, record) => request('POST', 'saveRecord', { collection, record }),
     deleteRecord: (collection, id) => request('POST', 'deleteRecord', { collection, id }),
     reorder: (collection, ids) => request('POST', 'reorder', { collection, ids }),
-    uploadImage,
+    uploadMedia,
+    uploadImage: uploadMedia,
     mediaFolders: fresh => request('POST', 'mediaFolders', { fresh: Boolean(fresh) }),
     mediaLibrary: fresh => request('POST', 'mediaLibrary', { fresh: Boolean(fresh) }),
     deleteFolder: path => request('POST', 'deleteFolder', { path }),
