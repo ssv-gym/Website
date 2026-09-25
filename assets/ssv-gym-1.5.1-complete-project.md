@@ -1,0 +1,6926 @@
+# SSV Gym website 1.5.1: complete project
+
+Every file of the project, in its folder.
+
+**Backend:** paste `apps-script/Code.gs` into Apps Script and save, reload the Google Sheet, run **SSV Admin > Set up / repair sheets**, then Deploy > Manage deployments > Edit > Version: New version > Deploy.
+
+**Website:** upload the other files to GitHub. Delete `js/data.js`, `apps-script/appsscript.json` and `assets/placeholders/README.md` there if they are still present.
+
+---
+
+## `admin.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>SSV Admin · Website Manager</title>
+  <link rel="icon" href="assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <!-- ?v= makes browsers load the new file after an update. Change it whenever you edit a CSS or JS file. -->
+  <link rel="stylesheet" href="css/admin.css?v=1.5.0">
+</head>
+<body>
+  <!-- SIGN IN. No password is stored in this file: the backend verifies it. -->
+  <main class="login" id="login-view">
+    <div class="login__card">
+      <div class="brand"><span class="brand__bar" aria-hidden="true"></span><div><strong>SSV Admin</strong><span>Website Manager</span></div></div>
+      <p class="login__intro">Manage the SSV Gym website: details, membership plans, trainers, photos, videos, events, reviews and enquiries.</p>
+      <form id="login-form" novalidate hidden>
+        <label class="field"><span class="field__label">Admin password</span><input type="password" name="password" autocomplete="current-password" required></label>
+        <button class="btn btn--primary btn--block" type="submit">Sign in</button>
+        <p class="login__msg" id="login-msg" role="alert"></p>
+      </form>
+      <div class="login__setup" id="login-setup" hidden>
+        <p><strong>Not connected yet.</strong> The admin panel can't reach the website's Google Sheet.</p>
+        <p class="login__small">For the developer: set <code>API_URL</code> in <code>js/config.js</code>.</p>
+      </div>
+      <noscript><p class="login__msg">The admin panel needs JavaScript. Turn it on and reload the page.</p></noscript>
+      <p class="login__foot">Your password is checked securely by Google. It is never stored in the website.</p>
+    </div>
+  </main>
+
+  <!-- APP -->
+  <div class="app" id="app" hidden>
+    <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+      <div class="brand"><span class="brand__bar" aria-hidden="true"></span><div><strong>SSV Admin</strong><span>Website Manager</span></div></div>
+      <nav class="sidebar__nav">
+        <a href="#dashboard" data-view="dashboard">Dashboard</a>
+        <p class="sidebar__group">Website content</p>
+        <a href="#general" data-view="general">General information</a>
+        <a href="#facilities" data-view="facilities">Facilities</a>
+        <a href="#plans" data-view="plans">Membership plans</a>
+        <a href="#services" data-view="services">Personal training &amp; diet</a>
+        <a href="#trainers" data-view="trainers">Trainers</a>
+        <a href="#gallery" data-view="gallery">Gallery</a>
+        <a href="#reviews" data-view="reviews">Reviews <span class="nav-badge" id="nav-reviews-badge" hidden></span></a>
+        <a href="#announcements" data-view="announcements">Announcements &amp; events</a>
+        <p class="sidebar__group">Photos</p>
+        <a href="#media" data-view="media">Media library</a>
+        <p class="sidebar__group">Members &amp; setup</p>
+        <a href="#enquiries" data-view="enquiries">Enquiries <span class="nav-badge" id="nav-enquiries-badge" hidden></span></a>
+        <a href="#settings" data-view="settings">Settings</a>
+      </nav>
+      <div class="sidebar__foot">
+        <a class="btn btn--ghost btn--sm" href="index.html" target="_blank" rel="noopener">View website</a>
+        <button class="btn btn--ghost btn--sm" type="button" id="logout-btn">Sign out</button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <h1 id="view-title" tabindex="-1">Dashboard</h1>
+        <div class="topbar__right">
+          <span class="conn is-live" id="conn-status">Connected</span>
+          <button class="btn btn--ghost btn--sm" type="button" id="refresh-btn">Refresh</button>
+        </div>
+      </header>
+      <section class="view" id="view"></section>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT DIALOG -->
+  <dialog class="modal" id="modal" aria-labelledby="modal-title">
+    <form class="modal__form" id="modal-form" method="dialog" novalidate>
+      <header class="modal__head">
+        <h2 id="modal-title">Edit</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="modal__body" id="modal-body"></div>
+      <footer class="modal__foot">
+        <button class="btn btn--ghost" type="button" data-close>Cancel</button>
+        <button class="btn btn--primary" type="submit" id="modal-save">Save</button>
+      </footer>
+    </form>
+    <div class="toasts" id="modal-toasts" aria-live="polite"></div>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <input type="file" id="file-picker" accept="image/jpeg,image/png,image/webp" hidden>
+
+  <script src="js/config.js?v=1.5.0"></script>
+  <script src="js/utils.js?v=1.5.0"></script>
+  <script src="js/api.js?v=1.5.0"></script>
+  <script src="js/admin.js?v=1.5.0"></script>
+</body>
+</html>
+```
+
+---
+
+## `index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SSV Gym | Shree Siddhi Vinayak Gym, Virar West</title>
+  <meta name="description" content="SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.">
+  <meta name="theme-color" content="#0D0F0E">
+
+  <!-- Link previews (WhatsApp, Facebook). og:url and og:image must be the site's full address. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SSV Gym">
+  <meta property="og:title" content="SSV Gym | Shree Siddhi Vinayak Gym, Virar West">
+  <meta property="og:description" content="Gym, CrossFit, cardio, personal training, diet plans and steam room in Virar West. Call +91 77588 78588.">
+  <meta property="og:locale" content="en_IN">
+  <meta property="og:url" content="https://ssvgym.github.io/ssv-gym/">
+  <meta property="og:image" content="https://ssvgym.github.io/ssv-gym/assets/favicon.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="SSV Gym logo">
+  <meta name="twitter:card" content="summary">
+
+  <!-- Browser tab icon: the SSV logo at assets/favicon.jpg (square, at least 192 x 192 px). -->
+  <link rel="icon" href="assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com">
+  <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <!-- ?v= makes browsers load the new file after an update. Change it whenever you edit a CSS or JS file. -->
+  <link rel="stylesheet" href="css/style.css?v=1.5.1">
+  <script>document.documentElement.classList.add('js');</script>
+
+  <!-- Business details for Google. Updated from the sheet when the page loads. -->
+  <script type="application/ld+json" id="ld-business">
+  {
+    "@context": "https://schema.org",
+    "@type": "ExerciseGym",
+    "name": "SSV Gym",
+    "alternateName": "Shree Siddhi Vinayak Gym",
+    "description": "Gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room in Virar West.",
+    "url": "https://ssvgym.github.io/ssv-gym/",
+    "logo": "https://ssvgym.github.io/ssv-gym/assets/favicon.jpg",
+    "telephone": "+917758878588",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Shree Siddhi Manora Commercial Complex, Datt Mandir Road, above IDBI Bank, Doghar Pada, Sheetal Nagar, Virar West",
+      "addressLocality": "Vasai-Virar",
+      "addressRegion": "Maharashtra",
+      "postalCode": "401303",
+      "addressCountry": "IN"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": 19.4515801, "longitude": 72.8066756 },
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], "opens": "06:00", "closes": "23:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Sunday"], "opens": "16:00", "closes": "21:00" }
+    ],
+    "hasMap": "https://maps.app.goo.gl/EX4aAEYxKCztUjqv6",
+    "sameAs": ["https://www.instagram.com/ssvgym2021/", "https://www.facebook.com/p/SSV-GYM-100069942823280/"]
+  }
+  </script>
+
+  <!-- Used only if the Google Sheet can't be reached on a visitor's first visit. Keep in step with the General tab. -->
+  <script type="application/json" id="fallback-general">
+  {
+    "gym_name": "SSV Gym",
+    "full_name": "Shree Siddhi Vinayak Gym",
+    "phone": "+91 77588 78588",
+    "phone_2": "+91 75586 08585",
+    "whatsapp": "+91 75586 08585",
+    "address": "Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303",
+    "opening_hours": "Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM",
+    "maps_url": "https://maps.app.goo.gl/EX4aAEYxKCztUjqv6",
+    "maps_embed_url": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin",
+    "instagram_url": "https://www.instagram.com/ssvgym2021/",
+    "facebook_url": "https://www.facebook.com/p/SSV-GYM-100069942823280/",
+    "services_heading": "Personal training and diet plans",
+    "review_form": false
+  }
+  </script>
+</head>
+<body class="has-mobile-bar">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="logo" href="#home" aria-label="SSV Gym, back to top">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <nav class="nav" id="site-nav" aria-label="Main">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="#home">Home</a></li>
+          <li><a class="nav__link" href="#about">About</a></li>
+          <li><a class="nav__link" href="#facilities">Facilities</a></li>
+          <li><a class="nav__link" href="#membership">Membership</a></li>
+          <li><a class="nav__link" href="#trainers">Trainers</a></li>
+          <li><a class="nav__link" href="#gallery">Gallery</a></li>
+          <li><a class="nav__link" href="#contact">Contact</a></li>
+        </ul>
+        <a class="btn btn--primary btn--sm nav__cta" href="#membership" data-requires="membership">View membership plans</a>
+      </nav>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero__media media" id="hero-media" data-label="Hero photo"></div>
+      <div class="hero__shade" aria-hidden="true"></div>
+      <div class="container hero__inner">
+        <h1 class="hero__title" id="hero-title">
+          <span class="hero__brand"><b data-g="gym_name">SSV Gym</b><span data-g="full_name">Shree Siddhi Vinayak Gym</span></span>
+          <span class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></span>
+        </h1>
+        <p class="hero__sub" data-g="hero_subtitle" data-optional>Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#facilities" data-requires="facilities">View facilities</a>
+          <a class="btn btn--ghost" href="#membership" data-requires="membership">Membership plans</a>
+        </div>
+      </div>
+      <div class="hero__strip">
+        <div class="container">
+          <ul class="facility-strip" data-g-list="facility_strip" aria-label="Areas at SSV Gym"><li>Main Gym</li><li>CrossFit</li><li>Cardio</li><li>Steam Room</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK STATS (General tab: stat_1_value, stat_1_label … stat_6). Hidden while empty. -->
+    <section class="stats" id="stats" aria-label="SSV Gym at a glance" hidden>
+      <div class="container"><dl class="stats__grid" id="stats-grid"></dl></div>
+    </section>
+
+    <!-- ANNOUNCEMENTS WITHOUT A PHOTO: short notices in a strip. Hidden when there are none. -->
+    <section class="notice" id="announcements" aria-labelledby="notice-title" hidden>
+      <div class="container notice__inner">
+        <h2 class="notice__label" id="notice-title">Announcements</h2>
+        <ul class="notice__list" id="notice-list"></ul>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="section about" id="about" aria-labelledby="about-title">
+      <div class="container about__grid">
+        <div class="about__media reveal">
+          <div class="media media--portrait" id="about-media" data-label="About photo"></div>
+          <p class="about__tag" hidden><strong id="zone-count">3</strong> dedicated areas</p>
+        </div>
+        <div class="about__body reveal">
+          <p class="section-label">About SSV</p>
+          <h2 id="about-title" data-g="about_heading">Shree Siddhi Vinayak Gym</h2>
+          <div class="about__text" id="about-text">
+            <p>SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal.</p>
+            <p>Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.</p>
+          </div>
+          <ul class="highlights" id="about-highlights"><li>Personal training</li><li>Weight loss and weight gain programmes</li><li>CrossFit and functional training</li><li>Complimentary lockers</li></ul>
+          <div class="about__actions">
+            <a class="btn btn--primary" href="#contact">Contact SSV</a>
+            <a class="text-link" href="#facilities" data-requires="facilities">Explore facilities</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EVENTS: announcements with a photo (tournaments, competitions). Hidden when there are none. -->
+    <section class="section events" id="events" aria-labelledby="events-title" hidden>
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Events</p>
+            <h2 id="events-title">What's on at SSV</h2>
+          </div>
+          <p class="section-head__lead">Tournaments, competitions and special sessions at the gym. Tap Ask about this to register your interest.</p>
+        </header>
+        <div class="event-grid reveal" id="event-grid"></div>
+      </div>
+    </section>
+
+    <!-- FACILITIES -->
+    <section class="section facilities" id="facilities" aria-labelledby="facilities-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Facilities</p>
+            <h2 id="facilities-title">Strength, conditioning, recovery</h2>
+          </div>
+          <p class="section-head__lead" data-g="facilities_intro" data-optional>A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.</p>
+        </header>
+        <div class="facility-grid reveal" id="facility-grid"></div>
+        <div class="facility-extra" id="facility-extra" hidden>
+          <h3 class="facility-extra__title">Also at SSV</h3>
+          <ul class="facility-extra__list" id="facility-extra-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEMBERSHIP, then personal training and diet plans (Services tab) -->
+    <section class="section plans" id="membership" aria-labelledby="plans-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Membership</p>
+            <h2 id="plans-title">Membership plans</h2>
+          </div>
+          <p class="section-head__lead">Pick the duration that suits your routine, then tap Enquire to ask about joining.</p>
+        </header>
+        <div class="plan-board reveal" id="plan-grid"></div>
+        <p class="plans__note" id="plans-note">Call or WhatsApp the gym to confirm current fees and offers.</p>
+        <div class="services reveal" id="services" hidden>
+          <h3 class="services__title" data-g="services_heading">Personal training and diet plans</h3>
+          <div class="service-grid" id="service-grid"></div>
+          <p class="services__call" data-row="call">Call for assistance <a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRAINERS (hidden until trainers are added) -->
+    <section class="section trainers" id="trainers" aria-labelledby="trainers-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="section-label">Trainers</p>
+          <h2 id="trainers-title">Coaches on the floor</h2>
+        </header>
+        <div class="trainer-grid reveal" id="trainer-grid"></div>
+      </div>
+    </section>
+
+    <!-- GALLERY: photos and videos (hidden until something is added) -->
+    <section class="section gallery" id="gallery" aria-labelledby="gallery-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h2 id="gallery-title">Inside SSV</h2>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events.</p>
+        </header>
+        <div class="gallery__bar">
+          <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+        </div>
+        <div class="gallery-grid" id="gallery-grid"></div>
+      </div>
+    </section>
+
+    <!-- REVIEWS: the most liked three here, the rest in a dialog -->
+    <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Reviews</p>
+            <h2 id="reviews-title">What members say</h2>
+          </div>
+          <div class="reviews__aside">
+            <div class="reviews__summary" id="reviews-summary" hidden>
+              <strong class="reviews__avg" id="reviews-avg">0.0</strong>
+              <div><div id="reviews-avg-stars"></div><span class="reviews__count" id="reviews-count"></span></div>
+            </div>
+            <div class="reviews__actions">
+              <button class="btn btn--primary btn--sm" type="button" id="write-review" hidden>Write a review</button>
+              <a class="text-link" id="google-reviews" href="#reviews" target="_blank" rel="noopener" hidden>See us on Google Maps</a>
+            </div>
+          </div>
+        </header>
+        <p class="reviews__note" id="reviews-note" role="status" hidden></p>
+        <div class="review-grid reveal" id="review-grid"></div>
+        <div class="reviews__more" id="reviews-more" hidden>
+          <button class="btn btn--ghost" type="button" id="all-reviews">See all <span id="all-reviews-count"></span> reviews</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container contact__grid">
+        <div class="contact__info reveal">
+          <p class="section-label">Contact</p>
+          <h2 id="contact-title">Visit <span data-g="gym_name">SSV Gym</span></h2>
+          <p class="contact__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+          <dl class="contact__list">
+            <div data-row="address"><dt>Address</dt><dd data-g-lines="address">Shree Siddhi Manora Commercial Complex<br>Datt Mandir Road, above IDBI Bank<br>Doghar Pada, Sheetal Nagar, Virar West<br>Vasai-Virar, Maharashtra 401303</dd></div>
+            <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
+            <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
+            <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
+            <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours><li><span>Monday – Saturday</span><span>6:00 AM – 11:00 PM</span></li><li><span>Sunday</span><span>4:00 PM – 9:00 PM</span></li></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
+            <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
+            <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
+          </dl>
+          <div class="contact__actions">
+            <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
+            <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+            <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
+          </div>
+        </div>
+        <div class="contact__side reveal">
+          <form class="enquiry" id="enquiry-form" novalidate>
+            <h3>Send an enquiry</h3>
+            <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
+            <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
+            <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+            <div class="field"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
+            <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+            <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
+            <p class="enquiry__status" id="enquiry-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+      <!-- MAP: dark to match the site, normal colours on hover, with the address and a directions button -->
+      <div class="container contact__map reveal" hidden>
+        <figure class="map" id="map-embed"></figure>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <a class="logo" href="#home" aria-label="SSV Gym, back to top"><span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span></a>
+        <p class="footer__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        <p class="footer__tagline" data-g="tagline" data-optional>Train strong. Live strong.</p>
+        <ul class="facility-strip facility-strip--small" data-g-list="facility_strip"><li>Main Gym</li><li>CrossFit</li><li>Cardio</li><li>Steam Room</li></ul>
+      </div>
+      <nav class="footer__col" aria-label="Footer">
+        <h2 class="footer__title">Explore</h2>
+        <ul class="footer__nav">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#events">Events</a></li>
+          <li><a href="#facilities">Facilities</a></li>
+          <li><a href="#membership">Membership</a></li>
+          <li><a href="#trainers">Trainers</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#reviews">Reviews</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="footer__col" id="footer-connect">
+        <h2 class="footer__title">Connect</h2>
+        <ul class="footer__links">
+          <li><a data-link="phone" href="tel:+917758878588"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Call</a></li>
+          <li><a data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>WhatsApp</a></li>
+          <li><a data-link="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/><path d="M16.5 7.5v.01"/></svg>Instagram</a></li>
+          <li><a data-link="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v4h3v7h4v-7h3l1-4h-4V8a1 1 0 0 1 1-1h3V3h-3a5 5 0 0 0-5 5v2H7"/></svg>Facebook</a></li>
+          <li><a data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Directions</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym. All rights reserved.</p>
+      <a href="#home">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong><span id="lb-caption"></span></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <!-- ALL REVIEWS -->
+  <dialog class="sheet" id="reviews-dialog" aria-labelledby="reviews-dialog-title">
+    <div class="sheet__panel">
+      <header class="sheet__head">
+        <h2 id="reviews-dialog-title">All reviews</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__bar">
+        <div class="chips" role="group" aria-label="Sort reviews">
+          <button type="button" class="chip" data-sort="top" aria-pressed="true">Most liked</button>
+          <button type="button" class="chip" data-sort="new" aria-pressed="false">Newest</button>
+        </div>
+      </div>
+      <div class="sheet__body">
+        <div class="review-list" id="review-list"></div>
+        <button class="btn btn--ghost btn--block" type="button" id="review-list-more" hidden>Show more reviews</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- WRITE A REVIEW -->
+  <dialog class="sheet sheet--narrow" id="review-dialog" aria-labelledby="review-dialog-title">
+    <form class="sheet__panel review-form" id="review-form" novalidate>
+      <header class="sheet__head">
+        <h2 id="review-dialog-title">Write a review</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__body">
+        <fieldset class="stars-input">
+          <legend>Your rating</legend>
+          <div class="stars-input__row">
+            <input type="radio" id="rate-5" name="rating" value="5"><label for="rate-5"><span class="sr-only">5 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-4" name="rating" value="4"><label for="rate-4"><span class="sr-only">4 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-3" name="rating" value="3"><label for="rate-3"><span class="sr-only">3 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-2" name="rating" value="2"><label for="rate-2"><span class="sr-only">2 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-1" name="rating" value="1"><label for="rate-1"><span class="sr-only">1 star</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+          </div>
+          <span class="stars-input__text" id="rating-text" aria-hidden="true">Tap a star</span>
+        </fieldset>
+        <div class="field"><label for="rev-name">Your name</label><input id="rev-name" name="name" type="text" autocomplete="name" maxlength="60" required></div>
+        <div class="field"><label for="rev-text">Your review</label><textarea id="rev-text" name="review" rows="5" maxlength="800" required></textarea><small class="field__count"><span id="rev-count">0</span> / 800</small></div>
+        <div class="hp" aria-hidden="true"><label for="rev-website">Leave this empty</label><input id="rev-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <button class="btn btn--primary btn--block" type="submit">Post review</button>
+        <p class="enquiry__status" id="review-status" role="status" aria-live="polite"></p>
+        <p class="review-form__note">Your name and review will be shown on this website.</p>
+      </div>
+    </form>
+  </dialog>
+
+  <noscript><p class="noscript">JavaScript is turned off, so some content can't load. Call the gym on +91 77588 78588.</p></noscript>
+
+  <script src="js/config.js?v=1.5.0"></script>
+  <script src="js/utils.js?v=1.5.0"></script>
+  <script src="js/api.js?v=1.5.0"></script>
+  <script src="js/gallery.js?v=1.5.0"></script>
+  <script src="js/main.js?v=1.5.0"></script>
+</body>
+</html>
+```
+
+---
+
+## `README.md`
+
+```markdown
+# SSV Gym website (v1.5.0)
+
+Website for **Shree Siddhi Vinayak Gym (SSV Gym)**, Virar West, with an admin panel.
+Content lives in a private Google Sheet, photos and videos in Cloudinary, and the site
+runs on GitHub Pages. No frameworks and no build step.
+
+## Files
+
+| File | What it is |
+|---|---|
+| `index.html` | The website (one page) |
+| `admin.html` | The admin panel (password protected) |
+| `css/style.css`, `css/admin.css` | Styles for the website and the admin panel |
+| `js/config.js` | The backend link (`API_URL`) and upload limits. Public: no secrets here |
+| `js/utils.js`, `js/api.js` | Shared helpers and all calls to the backend |
+| `js/main.js`, `js/gallery.js` | The website: sections, hours, events, reviews, gallery, map, enquiry form |
+| `js/admin.js` | The admin panel |
+| `apps-script/Code.gs` | The backend. Paste it into the sheet's Apps Script (see `apps-script/README.md`) |
+| `assets/favicon.jpg` | The browser tab icon and link-preview picture: the SSV logo (square, at least 192 × 192 px) |
+| `demo/` | A separate demo with sample data (see `demo/README.md`). Delete it any time |
+
+The Apps Script project uses Google's default `appsscript.json`; no manifest file is needed.
+
+## What the owner can change in the admin panel
+
+- **General information:** names, texts, photos, statistics, both phone numbers, WhatsApp,
+  address, opening hours, map and social links.
+- **Facilities, Membership plans, Trainers:** add, edit, hide, reorder.
+- **Personal training & diet:** the extra services shown under the membership plans,
+  with their prices.
+- **Gallery:** photos and videos (uploaded, or YouTube links), with categories that can be
+  added or renamed (Gallery › Categories).
+- **Announcements & events:** without a photo, a short notice near the top of the site;
+  with a photo, an event card (tournament, competition) in the Events section.
+- **Reviews, Enquiries, Media library, Settings.**
+
+## Opening hours
+
+One line per group of days, for example
+`Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM`.
+The website highlights today's hours and shows whether the gym is open now (India time).
+
+## Link previews (WhatsApp, Facebook)
+
+`og:url` and `og:image` at the top of `index.html` must hold the site's full address. They
+are set to `https://ssvgym.github.io/ssv-gym/`. If the site moves (for example to its own
+domain), change both lines and the `url` and `logo` in the business details below them.
+
+## How content gets to the website
+
+1. The owner edits in `admin.html` (or directly in the Google Sheet).
+2. The backend (`Code.gs`) saves to the sheet and clears its 5-minute cache.
+3. Visitors get the new content: new visitors straight away, returning visitors
+   within a few minutes (their browser shows its saved copy first, then refreshes).
+
+Code updates never overwrite what the owner has changed: the one-time upgrade steps
+only replace values that still match the original starting content.
+
+## Sample content
+
+Until the owner replaces them, trainers, statistics and most photos are **sample
+content** (photos from Unsplash). The admin dashboard lists what still needs replacing
+under "Finish your website". Reviews are left to real visitors.
+
+## Security
+
+- **Who can edit:** anyone with the admin password (admin panel) and anyone with edit
+  access to the Google Sheet. Change the password with SSV Admin › Set admin password.
+- **Secrets never go in the sheet.** The admin password (stored only as a salted hash)
+  and the Cloudinary API key and secret are kept in the script's Script Properties, set
+  from the SSV Admin menu. An unpublished sheet is still readable by everyone it is
+  shared with, can be copied or downloaded, and keeps old values in its version
+  history. Script Properties can only be seen by people who can edit the script.
+- **Email alerts:** `NOTIFY_EMAIL` in the Config tab (several addresses separated by
+  commas). These addresses only receive alerts; they give no access to the admin panel.
+- `js/config.js` is public, like every file of the website. It holds no secrets.
+
+## Updating
+
+- **Website files:** upload the changed files to the GitHub repository (Add file ›
+  Upload files). When a CSS or JS file changes, the `?v=` numbers in the HTML files
+  change too, so browsers load the new version.
+- **Backend:** paste the new `Code.gs`, save, reload the sheet, run SSV Admin › Set up /
+  repair sheets, then Deploy › Manage deployments › Edit › Version: New version › Deploy.
+  The admin panel warns when the deployed backend is older than it expects.
+
+## Troubleshooting
+
+- **Windows blocks `.js` files when extracting a downloaded ZIP.** Right-click the ZIP ›
+  Properties › tick Unblock › OK, then extract. Or use the project builder's "Save to a
+  folder" button.
+- **An upload says "cloud_name is disabled".** Cloudinary has switched the account off.
+  Sign in at cloudinary.com: usually the email address isn't verified yet, or the free
+  plan's limits were reached. The website can't fix this; Cloudinary support can.
+- **Media library mentions permission.** In the sheet, run SSV Admin › Set Cloudinary keys
+  once and allow access (tick "Select all") when Google asks.
+- **The website shows old content.** Wait five minutes, or run SSV Admin › Clear website
+  cache and reload the page.
+- **Admin sign-in is locked** after 5 wrong passwords: SSV Admin › Unlock admin sign-in.
+```
+
+---
+
+## `css/admin.css`
+
+```css
+/* ==========================================================================
+   SSV GYM — ADMIN PANEL STYLES (same palette as the website)         v1.5.0
+   ========================================================================== */
+:root {
+  color-scheme: dark;   /* dark scrollbars, date pickers and dropdowns */
+  --bg: #0D0F0E; --bg-2: #151917; --bg-3: #1D221F; --bg-4: #262C28;
+  --line: rgba(245, 245, 242, .09); --line-2: rgba(245, 245, 242, .16);
+  --green: #6DBE45; --green-2: #8FE05A; --green-soft: rgba(109, 190, 69, .14);
+  --text: #F5F5F2; --text-2: #D2D6D2; --muted: #A7ADA8; --muted-2: #7E8580;
+  --danger: #F0957F; --danger-soft: rgba(240, 149, 127, .12);
+  --warn: #E9C46A; --warn-soft: rgba(233, 196, 106, .12);
+  --scroll: #343B37; --scroll-hover: #4A544E;
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-narrow: "Archivo", "Arial Narrow", sans-serif;
+  --sidebar: 256px; --radius: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { scrollbar-color: var(--scroll) var(--bg); scrollbar-width: thin; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 .9375rem/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, p, ul, dl, dd { margin: 0; }
+ul { padding: 0; list-style: none; }
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+img { display: block; max-width: 100%; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--green-2); outline-offset: 2px; }
+code { padding: 1px 5px; border-radius: 4px; background: var(--bg-3); font-size: .85em; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.muted { color: var(--muted-2); }
+
+/* scrollbars that match the dark panel (Chrome, Edge, Safari; Firefox uses scrollbar-color) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border: 2px solid var(--bg); border-radius: 999px; background: var(--scroll); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
+.sidebar, .modal__body, .table-wrap, .folder-tree { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+.sidebar::-webkit-scrollbar-thumb { border-color: var(--bg-2); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 18px; border: 1px solid transparent; border-radius: var(--radius); background: none; font-size: .875rem; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color .2s, border-color .2s, color .2s; }
+.btn--primary { background: var(--green); color: #0A0C0B; }
+.btn--primary:hover { background: var(--green-2); }
+.btn--ghost { border-color: var(--line-2); color: var(--text); }
+.btn--ghost:hover { border-color: var(--green); color: var(--green-2); }
+.btn--danger { border-color: rgba(240, 149, 127, .35); color: var(--danger); }
+.btn--danger:hover { background: var(--danger-soft); }
+.btn--sm { min-height: 36px; padding: 0 14px; }
+.btn--xs { min-height: 30px; padding: 0 10px; font-size: .8125rem; }
+.btn--block { width: 100%; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line-2); border-radius: var(--radius); background: none; font-size: 1rem; line-height: 1; cursor: pointer; }
+.icon-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green-2); }
+.icon-btn:disabled { opacity: .3; cursor: default; }
+
+/* brand */
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand__bar { width: 5px; height: 36px; background: var(--green); }
+.brand strong { display: block; font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 1.6rem; line-height: 1; letter-spacing: .04em; text-transform: uppercase; }
+.brand div span { color: var(--muted); font-size: .8125rem; }
+
+/* sign in */
+.login { display: grid; place-items: center; min-height: 100vh; padding: 24px; background: radial-gradient(60% 50% at 50% 0%, rgba(109, 190, 69, .08), transparent 70%), var(--bg); }
+.login__card { width: min(420px, 100%); padding: 32px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-2); }
+.login__intro { margin-top: 20px; color: var(--muted); }
+.login form, .login__setup { display: grid; gap: 14px; margin-top: 24px; }
+.login__msg { min-height: 1.4em; color: var(--danger); font-size: .875rem; }
+.login__setup p { color: var(--text-2); }
+.login__small, .login__foot { color: var(--muted-2) !important; font-size: .8125rem; }
+.login__foot { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+
+/* shell */
+.app { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); min-height: 100vh; }
+.sidebar { position: sticky; top: 0; display: flex; flex-direction: column; gap: 24px; height: 100vh; padding: 22px 14px; overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--line); background: var(--bg-2); }
+.sidebar .brand { padding: 0 8px; }
+.sidebar__nav { display: grid; gap: 2px; }
+/* each group starts with a divider */
+.sidebar__group { margin: 16px 4px 6px; padding: 16px 8px 0; border-top: 1px solid var(--line); color: var(--muted-2); font-size: .6875rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.sidebar__nav a { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius); color: var(--muted); font-weight: 500; text-decoration: none; }
+.sidebar__nav a:hover { background: var(--bg-3); color: var(--text); }
+.sidebar__nav a[aria-current="page"] { background: var(--green-soft); color: var(--text); }
+.sidebar__nav a[aria-current="page"]::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--green); }
+.nav-badge { min-width: 22px; margin-left: auto; padding: 2px 7px; border-radius: 999px; background: var(--green); color: #0A0C0B; font-size: .75rem; font-weight: 700; text-align: center; }
+.sidebar__foot { display: grid; gap: 8px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
+.main { display: flex; flex-direction: column; min-width: 0; }
+.topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 0 28px; border-bottom: 1px solid var(--line); background: rgba(13, 15, 14, .92); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.topbar h1 { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 1.75rem; line-height: 1; text-transform: uppercase; outline: none; }
+.topbar__right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.conn { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .8125rem; }
+.conn::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); }
+.conn.is-live::before { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.sidebar-toggle, .scrim { display: none; }
+.view { padding: 24px 28px 64px; outline: none; }
+.loading { padding: 40px 0; color: var(--muted); }
+
+/* panels & dashboard */
+.panel { padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+.panel__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.panel__head h2 { font-size: 1rem; font-weight: 700; }
+.panel__head small { color: var(--muted-2); font-size: .8125rem; font-weight: 500; }
+.panel__head a { color: var(--green-2); font-size: .875rem; text-decoration: none; }
+.panel__note { margin-top: 14px; color: var(--muted); font-size: .8125rem; }
+.panel__note--top { margin: -6px 0 16px; }
+.panel__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.stack { display: grid; gap: 16px; }
+.stat-cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.stat-card { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); text-decoration: none; transition: border-color .2s; }
+.stat-card:hover { border-color: var(--green); }
+.stat-card__label { color: var(--muted); font-size: .875rem; }
+.stat-card__value { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 3rem; line-height: 1; }
+.stat-card--alert .stat-card__value { color: var(--green-2); }
+.dash-grid { display: grid; gap: 14px; margin-top: 14px; }
+.lead-list li { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--line); }
+.lead-list__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
+.lead-list__row span, .lead-list p { color: var(--muted); }
+.lead-list p { font-size: .875rem; }
+.checklist li { border-top: 1px solid var(--line); }
+.checklist a { display: flex; gap: 12px; padding: 10px 0; color: var(--text-2); text-decoration: none; }
+.checklist a:hover { color: var(--green-2); }
+.checklist a::before { content: ""; flex: none; width: 16px; height: 16px; margin-top: 2px; border: 1.5px solid var(--line-2); border-radius: 50%; }
+@media (min-width: 1100px) { .dash-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
+
+/* lists & tables */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.toolbar__info { color: var(--muted); }
+.toolbar__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.hint-box { margin-bottom: 16px; padding: 12px 14px; border-left: 3px solid var(--green); border-radius: 0 var(--radius) var(--radius) 0; background: var(--bg-2); color: var(--text-2); font-size: .875rem; }
+.hint-box--warn { border-left-color: var(--warn); background: var(--warn-soft); color: #F3DC9C; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+.table { width: 100%; min-width: 760px; border-collapse: collapse; }
+.table th { padding: 11px 14px; border-bottom: 1px solid var(--line); background: var(--bg-3); color: var(--muted); font-size: .8125rem; font-weight: 600; text-align: left; white-space: nowrap; }
+.table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover { background: rgba(245, 245, 242, .02); }
+.is-muted td:not(.col-actions):not(.col-order) { color: var(--muted-2); }
+.cell-main { display: flex; align-items: center; gap: 12px; }
+.thumb { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: var(--radius); background: var(--bg-3); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.col-order { width: 88px; white-space: nowrap; }
+.col-order .icon-btn + .icon-btn { margin-left: 4px; }
+.col-actions { text-align: right; white-space: nowrap; }
+.col-actions .btn + .btn { margin-left: 6px; }
+.pill { display: inline-block; padding: 3px 9px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--bg-3); color: var(--muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.pill--on { border-color: rgba(109, 190, 69, .4); background: var(--green-soft); color: var(--green-2); }
+.pill--warn { border-color: rgba(233, 196, 106, .4); background: var(--warn-soft); color: var(--warn); }
+.empty { display: grid; justify-items: center; gap: 14px; padding: 48px 24px; border: 1px dashed var(--line-2); border-radius: 10px; color: var(--muted); text-align: center; }
+.stars-mini { display: inline-flex; gap: 2px; vertical-align: middle; }
+.stars-mini span { color: var(--line-2); }
+.stars-mini .is-on { color: var(--green); }
+.stars-mini svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* play sign on video thumbnails */
+.play-badge { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(13, 15, 14, .78); color: var(--text); pointer-events: none; }
+.play-badge svg { width: 18px; height: 18px; margin-left: 2px; fill: currentColor; }
+.thumb .play-badge { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+.thumb .play-badge svg { width: 9px; height: 9px; margin-left: 1px; }
+
+/* switches (review settings) */
+.switches { display: grid; gap: 12px; }
+.switch { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.switch input { -webkit-appearance: none; appearance: none; position: relative; flex: none; width: 40px; height: 22px; margin: 0; border: 1px solid var(--line-2); border-radius: 999px; background: var(--bg-3); cursor: pointer; transition: background-color .2s, border-color .2s; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform .2s, background-color .2s; }
+.switch input:checked { border-color: var(--green); background: var(--green-soft); }
+.switch input:checked::after { background: var(--green-2); transform: translateX(18px); }
+.switch input:disabled { opacity: .5; }
+
+/* gallery manager & media library cards */
+.media-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.media-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+.media-card.is-unused { border-color: rgba(233, 196, 106, .35); }
+.media-card__img { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; background: var(--bg-3); color: var(--muted-2); font-size: .8125rem; }
+.media-card__img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.media-card.is-muted .media-card__img img { opacity: .4; }
+.media-card__cat, .media-card__state { position: absolute; top: 10px; background: rgba(13, 15, 14, .8); }
+.media-card__cat { left: 10px; }
+.media-card__state { right: 10px; }
+.media-card__body { flex: 1; display: grid; align-content: start; gap: 4px; padding: 14px 14px 0; }
+.media-card__body strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-card__body small { display: -webkit-box; overflow: hidden; color: var(--muted); -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.media-card__body .media-card__use { color: var(--text-2); }
+.media-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 14px; }
+.media-card__actions .spacer { flex: 1; }
+
+/* category picker next to "Add photos", upload list */
+.image-field__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.folder-pick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; color: var(--muted); font-size: .8125rem; }
+.folder-pick__label { white-space: nowrap; }
+.folder-pick select, .field .folder-pick select { width: auto; min-width: 150px; max-width: 100%; min-height: 32px; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: .8125rem; cursor: pointer; }
+.image-field__link summary { width: fit-content; color: var(--muted); font-size: .8125rem; cursor: pointer; }
+.image-field__link input { margin-top: 8px; }
+.upload-list { display: grid; gap: 6px; margin-top: 12px; }
+.upload-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius); font-size: .875rem; }
+.upload-list li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-list li em { flex: none; color: var(--muted); font-style: normal; }
+.upload-list li.is-done em { color: var(--green-2); }
+.upload-list li.is-error em { color: var(--danger); }
+
+/* media library */
+.media-lib { display: grid; gap: 16px; }
+.media-lib__main { min-width: 0; }
+.media-lib__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.media-lib__head h2 { font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.folder-tree { padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+.folder-tree ul { display: grid; gap: 2px; }
+.folder-tree button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px 7px calc(10px + var(--depth, 0) * 16px); border: 0; border-radius: var(--radius); background: none; color: var(--muted); text-align: left; cursor: pointer; }
+.folder-tree button:hover { background: var(--bg-3); color: var(--text); }
+.folder-tree button[aria-current="true"] { background: var(--green-soft); color: var(--text); }
+.folder-tree__icon { flex: none; width: 14px; height: 11px; border: 1.5px solid currentColor; border-radius: 2px 2px 3px 3px; opacity: .75; }
+.folder-tree__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-tree__count { color: var(--muted-2); font-size: .75rem; }
+.folder-tree__group { margin: 12px 10px 4px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted-2); font-size: .75rem; font-weight: 600; }
+@media (min-width: 900px) { .media-lib { grid-template-columns: 250px minmax(0, 1fr); align-items: start; } .folder-tree { position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto; } }
+
+/* enquiries, reviews & settings */
+.segmented { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); }
+.seg { min-height: 34px; padding: 0 12px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-weight: 600; cursor: pointer; }
+.seg span { margin-left: 4px; color: var(--muted-2); font-weight: 500; }
+.seg:hover { color: var(--text); }
+.seg[aria-pressed="true"] { background: var(--bg-4); color: var(--text); }
+.status-select { min-height: 34px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); cursor: pointer; }
+.status--new { border-color: var(--green); color: var(--green-2); }
+.status--contacted { border-color: rgba(233, 196, 106, .6); color: var(--warn); }
+.status--closed { color: var(--muted); }
+.status { font-size: .8125rem; font-weight: 600; }
+.msg { max-width: 420px; color: var(--text-2); white-space: pre-wrap; }
+.nowrap { white-space: nowrap; }
+.kv > div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.kv dt { color: var(--muted); }
+.kv dd { overflow-wrap: anywhere; }
+.kv dd small { display: block; margin-top: 4px; color: var(--muted-2); }
+.notes { display: grid; gap: 8px; margin-bottom: 16px; padding-left: 18px; list-style: disc; color: var(--text-2); }
+.settings-grid { display: grid; gap: 14px; }
+.version-note { margin-top: 18px; color: var(--muted-2); font-size: .8125rem; }
+.review-settings { margin-bottom: 16px; }
+@media (min-width: 1100px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
+
+/* forms */
+.form-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.field--full { grid-column: 1 / -1; }
+.field__label { color: var(--text-2); font-size: .8125rem; font-weight: 600; }
+.field__hint { color: var(--muted-2); font-size: .8125rem; }
+.field__warn { color: var(--warn); font-size: .8125rem; }
+.field input:not([type="checkbox"]), .field select, .field textarea { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+.field textarea { line-height: 1.5; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.field--check { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.field--check input { width: 18px; height: 18px; accent-color: var(--green); }
+.form-actions { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 16px 0; background: linear-gradient(transparent, var(--bg) 35%); }
+.dirty-note { color: var(--warn); font-size: .875rem; font-weight: 600; }
+.image-field__row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: start; }
+.image-field__preview { position: relative; display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; border: 1px dashed var(--line-2); border-radius: var(--radius); background: var(--bg-3); color: var(--muted-2); font-size: .75rem; text-align: center; }
+.image-field__preview img { width: 100%; height: 100%; object-fit: cover; }
+.image-field__preview:empty::before { content: "Photo unavailable"; }
+.image-field__controls { display: grid; gap: 10px; }
+.progress { height: 6px; overflow: hidden; border-radius: 999px; background: var(--bg-3); }
+.progress span { display: block; width: 0; height: 100%; background: var(--green); transition: width .2s; }
+
+/* dialog */
+.modal { width: min(760px, calc(100% - 24px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-2); color: var(--text); }
+.modal::backdrop { background: rgba(0, 0, 0, .65); }
+.modal__form { display: flex; flex-direction: column; max-height: calc(100vh - 34px); }
+.modal__head, .modal__foot { display: flex; align-items: center; gap: 10px; padding: 16px 22px; }
+.modal__head { justify-content: space-between; border-bottom: 1px solid var(--line); }
+.modal__head h2 { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 1.6rem; line-height: 1; text-transform: uppercase; }
+.modal__body { padding: 22px; overflow-y: auto; }
+.modal__foot { justify-content: flex-end; border-top: 1px solid var(--line); }
+
+/* toasts */
+.toasts { position: fixed; right: 20px; bottom: 20px; z-index: 1000; display: grid; gap: 8px; max-width: min(420px, calc(100% - 40px)); }
+.toast { padding: 12px 16px; border: 1px solid var(--line-2); border-left: 3px solid var(--green); border-radius: var(--radius); background: var(--bg-3); box-shadow: 0 12px 32px rgba(0, 0, 0, .4); transition: opacity .3s, transform .3s; }
+.toast--error { border-left-color: var(--danger); }
+.toast--warn { border-left-color: var(--warn); }
+.toast.is-out { opacity: 0; transform: translateY(6px); }
+
+/* small screens */
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; width: min(280px, 86vw); transform: translateX(-100%); transition: transform .25s ease; }
+  .sidebar-open .sidebar { transform: none; }
+  .sidebar-open .scrim { position: fixed; inset: 0; z-index: 20; display: block; background: rgba(0, 0, 0, .55); }
+  .sidebar-toggle { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line-2); border-radius: var(--radius); background: none; cursor: pointer; }
+  .topbar { padding: 0 16px; }
+  .topbar h1 { font-size: 1.4rem; }
+  .conn { display: none; }
+  .view { padding: 18px 16px 56px; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .kv > div { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (max-width: 520px) {
+  .image-field__row { grid-template-columns: 1fr; }
+  .image-field__preview { width: 120px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+```
+
+---
+
+## `css/style.css`
+
+```css
+/* ==========================================================================
+   SSV GYM — WEBSITE STYLES                                           v1.5.0
+   Palette taken from the gym itself: rubber floor black, charcoal panels,
+   machine-frame green (accent only), chalk white. The 5px green bar used in
+   the logo is the one recurring ornament. Grids echo the floor tiles.
+   Change colours in :root and everything else follows.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;     /* dark scrollbars and form controls */
+  --bg: #0D0F0E;          /* rubber floor */
+  --bg-2: #151917;        /* charcoal panels */
+  --bg-3: #1D221F;        /* raised surfaces */
+  --line: rgba(245, 245, 242, 0.09);
+  --line-2: rgba(245, 245, 242, 0.16);
+  --green: #6DBE45;       /* machine-frame green, accents only */
+  --green-2: #8FE05A;     /* hover / highlight */
+  --green-soft: rgba(109, 190, 69, 0.12);
+  --text: #F5F5F2;
+  --text-2: #D2D6D2;
+  --muted: #A7ADA8;
+  --muted-2: #7E8580;
+  --error: #F0957F;
+  --scroll: #343B37;
+  --scroll-hover: #4A544E;
+
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-narrow: "Archivo", "Arial Narrow", "Roboto Condensed", sans-serif;
+
+  --container: 1240px;
+  --gutter: clamp(20px, 4vw, 40px);
+  --header-h: 72px;
+  --radius: 3px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scrollbar-color: var(--scroll) var(--bg); scrollbar-width: thin; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.65 var(--font); -webkit-font-smoothing: antialiased; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, h4, p, ul, dl, dd, figure, blockquote { margin: 0; }
+ul { padding: 0; list-style: none; }
+button, input, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--green-2); outline-offset: 3px; }
+::selection { background: var(--green); color: var(--bg); }
+/* Scrollbars that match the dark design (Chrome, Edge, Safari; Firefox uses scrollbar-color above) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { border: 2px solid var(--bg); border-radius: 999px; background: var(--scroll); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 16px; top: -64px; z-index: 100; padding: 12px 18px; background: var(--green); color: var(--bg); font-weight: 600; transition: top .2s; }
+.skip-link:focus { top: 12px; }
+.container { width: min(100% - 2 * var(--gutter), var(--container)); margin-inline: auto; }
+
+h1, h2 { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; line-height: .92; letter-spacing: .005em; text-transform: uppercase; }
+h3, h4 { font-weight: 700; line-height: 1.25; }
+
+/* ---------- shared components ---------- */
+.section { padding-block: clamp(80px, 11vw, 136px); }
+section[id] { scroll-margin-top: var(--header-h); }
+
+.section-label { display: inline-flex; align-items: center; gap: 10px; color: var(--green-2); font-size: .9375rem; font-weight: 600; }
+.section-label::before { content: ""; width: 5px; height: 18px; background: var(--green); }
+
+.section-head { max-width: 780px; margin-bottom: clamp(36px, 5vw, 56px); }
+.section-head h2 { margin-top: 16px; font-size: clamp(2.75rem, 6.4vw, 5rem); }
+.section-head__lead { margin-top: 18px; max-width: 58ch; color: var(--muted); font-size: 1.0625rem; }
+/* Title on the left, short text on the right (stacked on phones) */
+.section-head--split { max-width: none; display: grid; gap: 20px; align-items: end; }
+@media (min-width: 900px) {
+  .section-head--split { grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 48px; }
+  .section-head--split .section-head__lead { margin-top: 0; }
+}
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 26px; border: 1px solid transparent; border-radius: var(--radius); font-family: var(--font-narrow); font-stretch: 75%; font-weight: 700; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; cursor: pointer; transition: background-color .2s, border-color .2s, color .2s; }
+.btn--primary { background: var(--green); color: #0A0C0B; }
+.btn--primary:hover { background: var(--green-2); }
+.btn--ghost { border-color: var(--line-2); background: rgba(13, 15, 14, .4); color: var(--text); }
+.btn--ghost:hover { border-color: var(--green); color: var(--green-2); }
+.btn--sm { min-height: 42px; padding: 0 18px; font-size: .9375rem; }
+.btn--block { width: 100%; }
+.btn[disabled] { opacity: .6; pointer-events: none; }
+.text-link { padding-bottom: 3px; border-bottom: 1px solid var(--green); font-weight: 600; transition: color .2s; }
+.text-link:hover { color: var(--green-2); }
+
+/* ---------- image boxes & designed placeholders ---------- */
+.media { position: relative; overflow: hidden; background: radial-gradient(80% 60% at var(--ph-x, 50%) 0%, rgba(245, 245, 242, .08), transparent 70%), linear-gradient(170deg, #1B201D 0%, #101311 100%); }
+.media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.media:not(.has-img)::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 56px 56px; background-position: center; -webkit-mask-image: linear-gradient(180deg, transparent, #000 65%); mask-image: linear-gradient(180deg, transparent, #000 65%); }
+.tone-1 { --ph-x: 18%; }
+.tone-2 { --ph-x: 82%; }
+.tone-3 { --ph-x: 35%; }
+
+/* ---------- header & navigation ---------- */
+.site-header { position: fixed; inset: 0 0 auto; z-index: 50; height: var(--header-h); border-bottom: 1px solid transparent; transition: background-color .3s, border-color .3s; }
+.site-header.is-scrolled { background: rgba(13, 15, 14, .9); border-bottom-color: var(--line); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.site-header__inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.logo { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-narrow); font-stretch: 62.5%; font-size: 1.875rem; line-height: 1; text-transform: uppercase; }
+.logo__bar { width: 5px; height: 28px; background: var(--green); }
+.logo__word { font-weight: 800; letter-spacing: .03em; }
+.logo__gym { font-weight: 500; letter-spacing: .08em; color: var(--muted); }
+.nav { display: flex; align-items: center; gap: 36px; }
+.nav__list { display: flex; gap: 26px; }
+.nav__link { position: relative; display: block; padding: 8px 0; color: var(--muted); font-size: .9375rem; font-weight: 500; transition: color .2s; }
+.nav__link::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 2px; background: var(--green); transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease); }
+.nav__link:hover, .nav__link.is-active { color: var(--text); }
+.nav__link:hover::after, .nav__link.is-active::after { transform: scaleX(1); }
+.nav-toggle { display: none; }
+
+@media (max-width: 1080px) {
+  .nav-toggle { position: relative; z-index: 2; display: inline-flex; flex-direction: column; justify-content: center; gap: 6px; width: 48px; height: 48px; padding: 0 13px; border: 1px solid var(--line-2); border-radius: var(--radius); background: rgba(13, 15, 14, .5); cursor: pointer; }
+  .nav-toggle span { height: 2px; background: var(--text); transition: transform .3s var(--ease); }
+  .nav-open .nav-toggle span:first-child { transform: translateY(4px) rotate(45deg); }
+  .nav-open .nav-toggle span:last-child { transform: translateY(-4px) rotate(-45deg); }
+  .nav { position: fixed; inset: 0; z-index: 1; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 32px; padding: calc(var(--header-h) + 24px) var(--gutter) calc(32px + env(safe-area-inset-bottom)); overflow-y: auto; scrollbar-width: thin; background: var(--bg); opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; }
+  .nav-open .nav { opacity: 1; visibility: visible; }
+  body.nav-open { overflow: hidden; }
+  /* backdrop-filter would trap the fixed menu inside the header */
+  .nav-open .site-header { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .nav__list { flex-direction: column; gap: 0; }
+  .nav__link { padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--text); font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2.25rem; line-height: 1; text-transform: uppercase; }
+  .nav__link::after { display: none; }
+  .nav__link.is-active { color: var(--green-2); }
+  .nav__cta { min-height: 54px; }
+}
+
+/* ---------- hero ---------- */
+.hero { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: flex-end; min-height: 640px; min-height: max(640px, 100svh); overflow: hidden; }
+.hero__media { position: absolute; inset: 0; z-index: -2; }
+.hero__shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(13, 15, 14, .94) 0%, rgba(13, 15, 14, .72) 38%, rgba(13, 15, 14, .25) 75%, rgba(13, 15, 14, .15) 100%), linear-gradient(0deg, var(--bg) 0%, rgba(13, 15, 14, 0) 38%); }
+/* No hero photo: overhead lights and a perspective floor-tile grid */
+.hero__media:not(.has-img) { background: radial-gradient(36% 30% at 62% 0%, rgba(245, 245, 242, .16), transparent 70%), radial-gradient(28% 24% at 88% 6%, rgba(245, 245, 242, .10), transparent 70%), radial-gradient(50% 45% at 78% 100%, rgba(109, 190, 69, .12), transparent 70%), linear-gradient(180deg, #1A1F1C 0%, #0D0F0E 75%); }
+.hero__media:not(.has-img)::before { inset: auto -40% 0 -40%; height: 62%; background-image: linear-gradient(var(--line-2) 1px, transparent 1px), linear-gradient(90deg, var(--line-2) 1px, transparent 1px); background-size: 96px 96px; transform: perspective(520px) rotateX(64deg); transform-origin: bottom; -webkit-mask-image: linear-gradient(0deg, #000 10%, transparent 90%); mask-image: linear-gradient(0deg, #000 10%, transparent 90%); }
+.hero__inner { padding-top: calc(var(--header-h) + 72px); padding-bottom: clamp(48px, 7vw, 88px); }
+.hero__title { display: flex; flex-direction: column; gap: 24px; }
+.hero__brand { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; color: var(--text-2); font-family: var(--font); font-stretch: 100%; font-size: 1rem; font-weight: 500; line-height: 1.2; letter-spacing: 0; text-transform: none; }
+.hero__brand b { padding: 7px 12px 6px; border: 1px solid var(--green); color: var(--text); font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 1.375rem; letter-spacing: .06em; text-transform: uppercase; }
+.hero__heading { display: block; font-size: clamp(2.75rem, 13.5vw, 9.75rem); line-height: .86; }
+.hero__line { display: block; }
+.hero__sub { max-width: 44ch; margin-top: 26px; color: var(--text-2); font-size: clamp(1.0625rem, 1.5vw, 1.25rem); }
+.hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+.hero__strip { border-top: 1px solid var(--line); background: rgba(13, 15, 14, .7); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.facility-strip { display: flex; flex-wrap: wrap; align-items: center; min-height: 64px; row-gap: 6px; font-family: var(--font-narrow); font-stretch: 75%; font-weight: 700; font-size: 1.0625rem; letter-spacing: .08em; text-transform: uppercase; }
+.facility-strip li + li::before { content: "\2022"; margin: 0 16px; color: var(--green); }
+.facility-strip--small { min-height: 0; margin-top: 16px; color: var(--muted); font-size: .9375rem; }
+
+/* The one orchestrated moment: hero load sequence */
+@keyframes rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes settle { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.js .hero__media { animation: settle 1.6s var(--ease) both; }
+.js .hero__brand, .js .hero__line, .js .hero__sub, .js .hero__actions { animation: rise .9s var(--ease) both; }
+.js .hero__line:nth-child(1) { animation-delay: .1s; }
+.js .hero__line:nth-child(2) { animation-delay: .2s; }
+.js .hero__line:nth-child(3) { animation-delay: .28s; }
+.js .hero__sub { animation-delay: .34s; }
+.js .hero__actions { animation-delay: .44s; }
+
+/* ---------- stats ---------- */
+.stats { border-bottom: 1px solid var(--line); }
+.stats__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); overflow: hidden; }
+.stat { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 8px; padding: 30px 24px; box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line); }
+.stat__value { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2.75rem, 5vw, 4rem); line-height: 1; }
+.stat__affix { color: var(--green); }
+.stat__label { color: var(--muted); font-size: .9375rem; font-weight: 500; }
+
+/* ---------- announcements without a photo (strip) ---------- */
+.notice { border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.notice__inner { display: grid; gap: 14px 40px; padding-block: 24px; }
+.notice__label { display: inline-flex; align-items: center; gap: 10px; height: fit-content; color: var(--green-2); font-family: var(--font); font-stretch: 100%; font-size: .9375rem; font-weight: 600; line-height: 1.4; text-transform: none; }
+.notice__label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+.notice__list { display: grid; gap: 14px; }
+.notice__item { display: grid; gap: 2px 24px; }
+.notice__item time { padding-top: 2px; color: var(--muted-2); font-size: .875rem; }
+.notice__item h3 { font-size: 1.0625rem; }
+.notice__item p { color: var(--muted); }
+@media (min-width: 760px) {
+  .notice__inner { grid-template-columns: 200px minmax(0, 1fr); }
+  .notice__item { grid-template-columns: 120px minmax(0, 1fr); }
+}
+
+/* ---------- about ---------- */
+.about__grid { display: grid; gap: 48px; align-items: center; }
+.about__media { position: relative; }
+.media--portrait { aspect-ratio: 4 / 5; border-radius: var(--radius); }
+.about__tag { position: absolute; left: 0; bottom: 0; display: flex; align-items: baseline; gap: 10px; padding: 18px 22px; border-top: 2px solid var(--green); background: var(--bg); color: var(--text-2); font-weight: 500; }
+.about__tag strong { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2.5rem; line-height: 1; color: var(--text); }
+.about__body h2 { margin-top: 16px; font-size: clamp(2.5rem, 5.4vw, 4.25rem); }
+.about__text { display: grid; gap: 14px; max-width: 60ch; margin-top: 24px; color: var(--muted); font-size: 1.0625rem; }
+.highlights { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
+.highlights li { display: flex; align-items: baseline; gap: 12px; font-weight: 600; }
+.highlights li::before { content: ""; flex: none; width: 10px; height: 10px; background: var(--green); transform: translateY(1px); }
+.about__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; margin-top: 36px; }
+@media (min-width: 920px) { .about__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(56px, 7vw, 104px); } }
+@media (max-width: 480px) { .highlights { grid-template-columns: 1fr; } }
+
+/* ---------- events (announcements with a photo) ---------- */
+.events { border-top: 1px solid var(--line); }
+.event-grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
+.event { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg-2); transition: border-color .3s; }
+.event:hover { border-color: rgba(109, 190, 69, .45); }
+.event__media { position: relative; }
+.event__img { aspect-ratio: 4 / 3; }
+.event__img img { transition: transform 1s var(--ease); }
+.event:hover .event__img img { transform: scale(1.03); }
+.event__date { position: absolute; left: 14px; top: 14px; display: grid; justify-items: center; min-width: 60px; padding: 8px 10px 7px; border-radius: 6px; background: var(--green); color: #0A0C0B; font-size: .75rem; font-weight: 700; line-height: 1.1; text-transform: uppercase; box-shadow: 0 8px 20px rgba(0, 0, 0, .35); }
+.event__date b { font-family: var(--font-narrow); font-stretch: 62.5%; font-size: 1.875rem; font-weight: 800; line-height: 1; }
+.event__body { display: flex; flex: 1; flex-direction: column; gap: 10px; padding: 22px 22px 24px; }
+.event__tag { color: var(--green-2); font-size: .875rem; font-weight: 600; }
+.event__title { font-size: 1.3125rem; }
+.event__desc { flex: 1; color: var(--muted); white-space: pre-line; }
+.event .btn { align-self: flex-start; margin-top: 6px; }
+.event.is-past { opacity: .72; }
+.event.is-past .event__date { background: var(--bg-3); color: var(--muted); box-shadow: none; }
+
+/* ---------- facilities: three zones side by side ---------- */
+.facilities { border-top: 1px solid var(--line); }
+.facility-grid { display: grid; gap: 2px; }
+.facility-card { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: flex-end; min-height: clamp(440px, 48vw, 600px); overflow: hidden; background: var(--bg-2); }
+.facility-card__media { position: absolute; inset: 0; z-index: -2; transition: transform 1.2s var(--ease); }
+.facility-card::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(13, 15, 14, .05) 25%, rgba(13, 15, 14, .88) 80%); }
+.facility-card::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--green); transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease); }
+.facility-card:hover::after { transform: scaleX(1); }
+.facility-card:hover .facility-card__media { transform: scale(1.04); }
+.facility-card__body { padding: clamp(24px, 3vw, 36px); }
+.facility-card__title { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2.25rem, 3.6vw, 3.25rem); line-height: .95; text-transform: uppercase; }
+.facility-card__tags { margin-top: 12px; color: var(--green-2); font-size: .9375rem; font-weight: 600; }
+.facility-card__tags i { font-style: normal; color: var(--green); }
+.facility-card__desc { max-width: 40ch; margin-top: 12px; color: var(--text-2); }
+.facility-extra { display: grid; gap: 20px; margin-top: 48px; }
+.facility-extra__title { padding-top: 18px; font-size: 1.125rem; }
+.facility-extra__list { display: grid; }
+.facility-extra__list li { display: flex; gap: 14px; padding: 18px 0; border-top: 1px solid var(--line); }
+.facility-extra__list li::before { content: ""; flex: none; width: 10px; height: 10px; margin-top: 7px; background: var(--green); }
+.facility-extra__list h4 { font-size: 1.0625rem; }
+.facility-extra__list p { margin-top: 4px; color: var(--muted); font-size: .9375rem; }
+@media (min-width: 640px) { .facility-extra__list { grid-template-columns: repeat(2, 1fr); column-gap: 40px; } }
+@media (min-width: 760px) { .facility-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 900px) { .facility-extra { grid-template-columns: 220px minmax(0, 1fr); gap: 40px; } }
+@media (min-width: 1024px) { .facility-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- membership: one rate board, not separate cards ---------- */
+.plans { position: relative; border-block: 1px solid var(--line); background: var(--bg-2); }
+.plans::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 96px 96px; -webkit-mask-image: radial-gradient(80% 70% at 50% 0%, #000, transparent); mask-image: radial-gradient(80% 70% at 50% 0%, #000, transparent); }
+.plans > .container { position: relative; }
+.plan-board { display: grid; overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+.plan { position: relative; display: flex; flex-direction: column; padding: 32px 28px; box-shadow: 1px 0 0 var(--line-2), 0 1px 0 var(--line-2); }
+.plan--featured { background: linear-gradient(180deg, var(--green-soft), transparent 45%); }
+.plan--featured::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--green); }
+.plan__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 26px; }
+.plan__name { color: var(--green-2); font-size: 1.0625rem; font-weight: 600; }
+.plan__badge { padding: 5px 9px; border-radius: 2px; background: var(--green); color: #0A0C0B; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.plan__price { margin-top: 28px; font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(3rem, 4.4vw, 3.75rem); line-height: 1; overflow-wrap: anywhere; }
+.plan__price--ask { display: flex; align-items: flex-end; min-height: 1em; font-size: clamp(2rem, 3vw, 2.5rem); color: var(--text-2); }
+.plan__duration { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 10px; color: var(--text-2); font-weight: 500; }
+.plan__per { color: var(--muted-2); font-size: .875rem; }
+.plan__body { flex: 1; margin: 24px 0 28px; padding-top: 22px; border-top: 1px solid var(--line); }
+.plan__desc { color: var(--muted); font-size: .9375rem; }
+.plan__features { display: grid; gap: 10px; margin-top: 16px; }
+.plan__features li { display: flex; gap: 12px; font-size: .9375rem; }
+.plan__features li::before { content: ""; flex: none; width: 12px; height: 7px; margin-top: 7px; border-left: 2px solid var(--green); border-bottom: 2px solid var(--green); transform: rotate(-45deg); }
+.plans__note { margin-top: 24px; color: var(--muted-2); font-size: .9375rem; }
+@media (min-width: 640px) { .plan-board { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .plan-board { grid-template-columns: repeat(var(--cols, 4), 1fr); } }
+
+/* personal training and diet plans (Services tab), under the plans */
+.services { margin-top: clamp(48px, 6vw, 72px); }
+.services__title { margin-bottom: 20px; font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2rem, 3.6vw, 2.75rem); line-height: 1; text-transform: uppercase; }
+.service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+.service { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 28px; box-shadow: 1px 0 0 var(--line-2), 0 1px 0 var(--line-2); }
+.service::before { content: ""; position: absolute; left: 0; top: 28px; width: 3px; height: 26px; background: var(--green); }
+.service__name { color: var(--green-2); font-size: 1.0625rem; font-weight: 600; }
+.service__price { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2.5rem, 3.6vw, 3.25rem); line-height: 1; }
+.service__price span { display: block; margin-top: 8px; color: var(--muted-2); font-family: var(--font); font-stretch: 100%; font-size: .875rem; font-weight: 500; line-height: 1.3; text-transform: none; }
+.service__price--ask { color: var(--text-2); font-size: clamp(1.75rem, 2.6vw, 2.25rem); }
+.service__desc { flex: 1; color: var(--muted); font-size: .9375rem; }
+.service .text-link { align-self: flex-start; margin-top: 4px; }
+.services__call { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 20px; color: var(--muted); }
+.services__call a { color: var(--text); font-family: var(--font-narrow); font-stretch: 75%; font-size: 1.375rem; font-weight: 800; letter-spacing: .02em; }
+.services__call a:hover { color: var(--green-2); }
+
+/* ---------- trainers ---------- */
+.trainer-grid { display: grid; gap: 32px 20px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+.trainer__media { aspect-ratio: 4 / 5; border-radius: var(--radius); }
+.trainer__media img { filter: grayscale(.25); transition: filter .5s, transform 1s var(--ease); }
+.trainer:hover .trainer__media img { filter: none; transform: scale(1.03); }
+.trainer__body { padding-top: 18px; }
+.trainer__name { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2rem; line-height: 1; text-transform: uppercase; }
+.trainer__role { margin-top: 6px; color: var(--green-2); font-size: .9375rem; font-weight: 600; }
+.trainer__spec { margin-top: 10px; color: var(--text-2); font-size: .9375rem; font-weight: 500; }
+.trainer__bio { margin-top: 8px; color: var(--muted); font-size: .9375rem; }
+
+/* ---------- gallery: photos and videos ---------- */
+.gallery { border-block: 1px solid var(--line); background: var(--bg-2); }
+.gallery__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-height: 42px; padding: 0 18px; border: 1px solid var(--line-2); border-radius: 999px; background: transparent; color: var(--muted); font-size: .9375rem; font-weight: 500; cursor: pointer; transition: color .2s, border-color .2s, background-color .2s; }
+.chip:hover { border-color: var(--muted-2); color: var(--text); }
+.chip[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #0A0C0B; font-weight: 600; }
+.gallery__count { color: var(--muted-2); font-size: .9375rem; }
+.gallery-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; grid-auto-flow: dense; }
+.g-item { position: relative; min-width: 0; }
+.g-item--tall { grid-row: span 2; }
+.g-item--wide { grid-column: span 2; }
+.g-item__btn { position: absolute; inset: 0; display: block; width: 100%; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius); background: none; text-align: left; cursor: zoom-in; }
+.g-item__btn.is-video { cursor: pointer; }
+.g-item__btn:focus-visible { outline-offset: -3px; }
+.g-item__media { position: absolute; inset: 0; transition: transform .9s var(--ease); }
+.g-item__btn:hover .g-item__media { transform: scale(1.04); }
+.g-item__play { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 58px; height: 58px; margin: -29px 0 0 -29px; border: 1px solid rgba(245, 245, 242, .3); border-radius: 50%; background: rgba(13, 15, 14, .7); color: var(--text); pointer-events: none; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); transition: background-color .25s, color .25s, transform .3s var(--ease); }
+.g-item__play svg { width: 22px; height: 22px; margin-left: 3px; fill: currentColor; }
+.g-item__btn:hover .g-item__play, .g-item__btn:focus-visible .g-item__play { border-color: var(--green); background: var(--green); color: #0A0C0B; transform: scale(1.06); }
+.g-item__overlay { position: absolute; inset: auto 0 0; display: flex; flex-direction: column; gap: 2px; padding: 48px 16px 14px; background: linear-gradient(0deg, rgba(13, 15, 14, .92), transparent); opacity: 0; transition: opacity .3s; }
+.g-item__btn:hover .g-item__overlay, .g-item__btn:focus-visible .g-item__overlay { opacity: 1; }
+.g-item__cat { color: var(--green-2); font-size: .8125rem; font-weight: 600; }
+.g-item__title { font-weight: 600; }
+.is-animating .g-item { animation: fade .45s var(--ease) both; animation-delay: calc(min(var(--i), 12) * 30ms); }
+@media (hover: none) { .g-item__overlay { opacity: 1; } }
+@media (min-width: 760px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 200px; } }
+@media (min-width: 1100px) { .gallery-grid { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 230px; } }
+
+/* ---------- lightbox (photos and videos) ---------- */
+.lightbox { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(8, 10, 9, .97); color: var(--text); }
+.lightbox::backdrop { background: rgba(0, 0, 0, .7); }
+.lightbox[open] { display: block; animation: fade .25s ease both; }
+.lightbox__inner { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; height: 100%; padding: 72px 20px 28px; }
+.lightbox__figure { display: flex; flex-direction: column; align-items: center; gap: 18px; min-width: 0; }
+#lb-media { width: 100%; display: flex; justify-content: center; }
+.lightbox__img { width: 100%; max-width: 1200px; height: min(72vh, 820px); border-radius: var(--radius); }
+.lightbox .media img { object-fit: contain; }
+.lightbox .media.has-img { background: none; }
+.lightbox__video { width: min(100%, 1200px); height: min(72vh, 820px); overflow: hidden; border-radius: var(--radius); background: #000; }
+.lightbox__video video, .lightbox__video iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; object-fit: contain; }
+.lightbox figcaption { display: grid; gap: 4px; max-width: 64ch; text-align: center; }
+.lightbox__count { color: var(--muted-2); font-size: .875rem; }
+#lb-caption { color: var(--muted); }
+.lb-btn { display: grid; place-items: center; width: 52px; height: 52px; border: 1px solid var(--line-2); border-radius: 50%; background: rgba(13, 15, 14, .6); color: var(--text); cursor: pointer; transition: border-color .2s, color .2s; }
+.lb-btn:hover { border-color: var(--green); color: var(--green-2); }
+.lb-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+.lightbox__close { position: absolute; top: 16px; right: 16px; z-index: 1; }
+.lightbox.is-single .lightbox__prev, .lightbox.is-single .lightbox__next { visibility: hidden; }
+body.lb-open, body.dialog-open { overflow: hidden; }
+@media (max-width: 700px) {
+  .lightbox__inner { grid-template-columns: minmax(0, 1fr); padding: 72px 12px 104px; }
+  .lightbox__prev, .lightbox__next { position: absolute; bottom: 28px; }
+  .lightbox__prev { left: calc(50% - 64px); }
+  .lightbox__next { right: calc(50% - 64px); }
+  .lightbox__video { height: min(62vh, 720px); }
+}
+
+/* ---------- reviews: quotes on a rule, not cards ---------- */
+.reviews__aside { display: grid; gap: 18px; justify-items: start; }
+.reviews__summary { display: flex; align-items: center; gap: 16px; }
+.reviews__avg { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 4.25rem; line-height: .85; }
+.reviews__summary .review__stars svg { width: 18px; height: 18px; }
+.reviews__count { display: block; margin-top: 6px; color: var(--muted); font-size: .9375rem; }
+.reviews__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; }
+.reviews__note { margin-bottom: 28px; padding: 14px 18px; border-left: 3px solid var(--green); border-radius: 0 var(--radius) var(--radius) 0; background: var(--bg-2); color: var(--text-2); }
+.reviews__empty { grid-column: 1 / -1; color: var(--muted); font-size: 1.0625rem; }
+.reviews__more { display: flex; justify-content: center; margin-top: 44px; }
+.review-grid { display: grid; gap: 40px; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+.review { display: flex; flex-direction: column; gap: 18px; padding-top: 24px; border-top: 2px solid var(--line-2); }
+.review__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review__top time { color: var(--muted-2); font-size: .875rem; white-space: nowrap; }
+.review__stars { display: flex; gap: 4px; }
+.review__stars span { color: var(--line-2); }
+.review__stars .is-on { color: var(--green); }
+.review__stars svg { width: 16px; height: 16px; fill: currentColor; }
+.review blockquote { flex: 1; color: var(--text-2); font-size: 1.0625rem; line-height: 1.6; }
+.review__text p { white-space: pre-line; overflow-wrap: anywhere; }
+.review__text.is-clamped p { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+.review__more { align-self: flex-start; margin-top: -6px; padding: 0; border: 0; background: none; color: var(--green-2); font-size: .9375rem; font-weight: 600; cursor: pointer; }
+.review__more:hover { text-decoration: underline; text-underline-offset: 3px; }
+.review__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review__who { display: flex; align-items: center; gap: 12px; min-width: 0; font-weight: 600; }
+.review__who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar { display: grid; place-items: center; flex: none; width: 42px; height: 42px; overflow: hidden; border-radius: 50%; background: var(--bg-3); color: var(--green-2); font-size: .9375rem; font-weight: 700; }
+.like { display: inline-flex; flex: none; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; background: none; color: var(--muted); font-size: .875rem; font-weight: 600; cursor: pointer; transition: border-color .2s, color .2s, background-color .2s; }
+.like svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .2s var(--ease); }
+.like:hover { border-color: var(--green); color: var(--text); }
+.like[aria-pressed="true"] { border-color: var(--green); background: var(--green-soft); color: var(--green-2); }
+.like[aria-pressed="true"] svg { fill: currentColor; transform: scale(1.1); }
+
+/* ---------- dialogs: all reviews, write a review ---------- */
+.sheet { width: min(760px, calc(100% - 32px)); max-width: none; max-height: min(88vh, 900px); margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg-2); color: var(--text); }
+.sheet--narrow { width: min(520px, calc(100% - 32px)); }
+.sheet::backdrop { background: rgba(0, 0, 0, .72); }
+.sheet[open] { display: flex; flex-direction: column; animation: fade .2s ease both; }
+.sheet__panel { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.sheet__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 14px 14px 24px; border-bottom: 1px solid var(--line); }
+.sheet__head h2 { font-size: 2rem; }
+.sheet__close { width: 44px; height: 44px; }
+.sheet__bar { padding: 14px 24px; border-bottom: 1px solid var(--line); }
+.sheet__body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; padding: 8px 24px 28px; }
+.review-list { display: grid; }
+.review-list .review { padding-block: 24px; border-top: 1px solid var(--line); }
+.review-list .review:first-child { border-top: 0; }
+.review-list + .btn { margin-top: 8px; }
+@media (max-width: 640px) {
+  .sheet, .sheet--narrow { width: 100%; height: 100%; max-height: none; margin: 0; border: 0; border-radius: 0; }
+}
+
+/* write a review */
+.review-form .field { margin-top: 18px; }
+.stars-input { margin: 14px 0 0; padding: 0; border: 0; }
+.stars-input legend { padding: 0; font-size: .9375rem; font-weight: 600; }
+.stars-input__row { display: inline-flex; flex-direction: row-reverse; gap: 2px; margin-top: 6px; }
+.stars-input__row input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.stars-input__row label { display: grid; place-items: center; width: 46px; height: 46px; color: var(--line-2); cursor: pointer; transition: color .15s, transform .15s; }
+.stars-input__row label svg { width: 34px; height: 34px; fill: currentColor; }
+.stars-input__row input:checked ~ label { color: var(--green); }
+.stars-input__row:hover input ~ label { color: var(--line-2); }
+.stars-input__row:hover label:hover, .stars-input__row:hover label:hover ~ label { color: var(--green-2); }
+.stars-input__row label:active { transform: scale(.92); }
+.stars-input__row input:focus-visible + label { outline: 2px solid var(--green-2); outline-offset: -4px; border-radius: 6px; }
+.stars-input__text { display: block; margin-top: 2px; color: var(--muted); font-size: .875rem; }
+.field__count { justify-self: end; color: var(--muted-2); font-size: .8125rem; }
+.review-form .btn { margin-top: 22px; }
+.review-form__note { margin-top: 8px; color: var(--muted-2); font-size: .8125rem; }
+
+/* ---------- contact ---------- */
+.contact { border-top: 1px solid var(--line); background: var(--bg-2); }
+.contact__grid { display: grid; gap: 56px; }
+.contact__info h2 { margin-top: 16px; font-size: clamp(2.75rem, 6vw, 4.5rem); }
+.contact__full { margin-top: 12px; color: var(--muted); font-size: 1.0625rem; }
+.contact__list { margin-top: 36px; border-top: 1px solid var(--line); }
+.contact__list > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.contact__list dt { color: var(--muted); font-size: .9375rem; }
+.contact__list dd { font-weight: 500; overflow-wrap: anywhere; }
+.contact__list a:hover { color: var(--green-2); }
+.contact__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+
+/* opening hours: one row per group of days, today highlighted, open-now status */
+.hours { display: grid; gap: 6px; max-width: 420px; }
+.hours li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; }
+.hours li span:first-child { color: var(--text-2); }
+.hours li.is-today span { color: var(--green-2); font-weight: 600; }
+.hours em { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green-2); font-size: .75rem; font-style: normal; font-weight: 700; vertical-align: 1px; }
+.hours__note { color: var(--muted); }
+.hours__status { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 5px 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--muted); font-size: .875rem; font-weight: 600; }
+.hours__status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); }
+.hours__status.is-open { border-color: rgba(109, 190, 69, .45); color: var(--green-2); }
+.hours__status.is-open::before { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+
+.enquiry { position: relative; padding: clamp(24px, 4vw, 40px); border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+html:not(.js) .enquiry { display: none; } /* the form needs JavaScript to send */
+.enquiry::before { content: ""; position: absolute; left: -1px; top: -1px; width: 64px; height: 3px; background: var(--green); }
+.enquiry h3 { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2.25rem; line-height: 1; text-transform: uppercase; }
+.enquiry__intro { margin-top: 10px; color: var(--muted); }
+.field { display: grid; gap: 8px; margin-top: 20px; }
+.field label { font-size: .9375rem; font-weight: 600; }
+.field label span { color: var(--muted-2); font-weight: 400; }
+.field input, .field textarea { width: 100%; min-height: 52px; padding: 13px 16px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg-2); transition: border-color .2s, box-shadow .2s; }
+.sheet .field input, .sheet .field textarea { background: var(--bg); }
+.field textarea { min-height: 116px; resize: vertical; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.field [aria-invalid="true"] { border-color: var(--error); }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.enquiry .btn { margin-top: 24px; }
+.enquiry__status { min-height: 1.5em; margin-top: 14px; font-size: .9375rem; }
+.enquiry__status.is-success { color: var(--green-2); }
+.enquiry__status.is-error { color: var(--error); }
+.enquiry__status a { text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 980px) { .contact__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(56px, 7vw, 96px); } }
+@media (max-width: 520px) { .contact__list > div { grid-template-columns: 1fr; gap: 6px; } }
+
+/* map: dark to match the site, normal colours on hover, with an address card */
+.contact__map { margin-top: clamp(48px, 7vw, 80px); }
+.map { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.map__frame { height: clamp(320px, 40vw, 460px); background: var(--bg-3); }
+.map__frame iframe { display: block; width: 100%; height: 100%; border: 0; filter: grayscale(.2) invert(.9) hue-rotate(180deg) contrast(.95) brightness(.95); transition: filter .5s var(--ease); }
+.map:hover .map__frame iframe, .map:focus-within .map__frame iframe { filter: none; }
+.map__card { position: absolute; left: 20px; bottom: 20px; display: flex; align-items: center; gap: 14px; max-width: min(520px, calc(100% - 40px)); padding: 14px 16px; border: 1px solid var(--line-2); border-left: 3px solid var(--green); border-radius: 6px; background: rgba(13, 15, 14, .94); box-shadow: 0 16px 40px rgba(0, 0, 0, .45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.map__pin { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--green-soft); color: var(--green-2); }
+.map__pin svg { width: 20px; height: 20px; }
+.map__text { display: grid; gap: 2px; min-width: 0; }
+.map__text strong { font-weight: 700; }
+.map__text span { color: var(--muted); font-size: .9375rem; }
+.map__card .btn { flex: none; margin-left: auto; }
+@media (max-width: 640px) {
+  .map__card { position: static; flex-wrap: wrap; max-width: none; border-width: 1px 0 0; border-left: 0; border-radius: 0; box-shadow: none; }
+  .map__card .btn { width: 100%; margin-left: 0; }
+}
+
+/* ---------- footer ---------- */
+.site-footer { padding-top: clamp(48px, 7vw, 72px); border-top: 1px solid var(--line); background: var(--bg); }
+.footer__grid { display: grid; gap: 40px; }
+.footer__full { margin-top: 16px; color: var(--text-2); font-weight: 500; }
+.footer__tagline { margin-top: 4px; color: var(--muted); }
+.footer__title { margin-bottom: 14px; color: var(--muted-2); font-family: var(--font); font-stretch: 100%; font-size: .8125rem; font-weight: 700; line-height: 1.4; letter-spacing: .1em; text-transform: uppercase; }
+.footer__nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+.footer__nav a { display: block; padding: 7px 0; color: var(--text-2); transition: color .2s; }
+.footer__nav a:hover { color: var(--green-2); }
+.footer__links { display: flex; flex-wrap: wrap; gap: 10px; }
+.footer__links a { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px 0 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: .9375rem; font-weight: 600; transition: border-color .2s, color .2s, background-color .2s; }
+.footer__links a:hover { border-color: var(--green); background: var(--green-soft); color: var(--green-2); }
+.footer__links svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.footer__bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-top: 56px; padding-block: 24px; border-top: 1px solid var(--line); color: var(--muted-2); font-size: .875rem; }
+.footer__bottom a:hover { color: var(--text); }
+@media (min-width: 700px) { .footer__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 40px; } .footer__brand { grid-column: 1 / -1; } }
+@media (min-width: 1100px) { .footer__grid { grid-template-columns: 1.4fr 1fr 1.1fr; gap: 48px; } .footer__brand { grid-column: auto; } }
+@media (max-width: 699px) {
+  /* phones: each block in its own band, separated by a rule */
+  .footer__grid { gap: 0; }
+  .footer__grid > * { padding-block: 26px; border-top: 1px solid var(--line); }
+  .footer__grid > :first-child { padding-top: 0; border-top: 0; }
+  .footer__nav a { padding: 10px 0; font-size: 1.0625rem; }
+  .footer__links a { flex: 1 1 calc(50% - 5px); justify-content: center; min-height: 48px; }
+  .footer__bottom { flex-direction: column; align-items: center; margin-top: 0; text-align: center; }
+}
+
+/* ---------- mobile contact bar ---------- */
+.mobile-bar { display: none; }
+.noscript { padding: 16px; background: var(--bg-2); text-align: center; }
+@media (max-width: 760px) {
+  /* Buttons share the bar equally; a hidden one takes no space. */
+  .mobile-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(13, 15, 14, .94); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .mobile-bar .btn { min-height: 48px; }
+  body.has-mobile-bar { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .nav-open .mobile-bar, .lb-open .mobile-bar, .dialog-open .mobile-bar { display: none; }
+}
+@media (max-width: 600px) {
+  .hero__actions .btn { flex: 1 1 100%; }
+  .contact__actions .btn { flex: 1 1 auto; }
+}
+
+/* ---------- scroll reveal (quiet) & loading ---------- */
+/* .reveal-on is added by main.js, so nothing stays hidden if the script fails to load. */
+.reveal-on .reveal { opacity: 0; transform: translateY(16px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.reveal-on .reveal.is-visible { opacity: 1; transform: none; }
+.is-loading .facility-grid, .is-loading .plan-board, .is-loading .trainer-grid, .is-loading .gallery-grid, .is-loading .review-grid { min-height: 280px; background: linear-gradient(100deg, transparent 30%, rgba(245, 245, 242, .04) 50%, transparent 70%) 0 0 / 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .reveal-on .reveal { opacity: 1; transform: none; }
+}
+```
+
+---
+
+## `js/admin.js`
+
+```javascript
+/* ==========================================================================
+   SSV GYM — ADMIN PANEL                                              v1.5.0
+   Signs in with the password checked by Apps Script, then edits the Google
+   Sheet through the API: general information, collections, reviews, photos
+   and videos (Cloudinary) and enquiries. Works on phones too. Uploads always
+   go into their section's folder (Home, Facilities, Trainers, Gallery, Events).
+   ========================================================================== */
+(() => {
+  'use strict';
+  const BACKEND_VERSION = '1.5.0';   // the Code.gs version this panel expects
+  const { esc, text, truthy, splitList, isoDate, formatDate, timeAgo, formatPrice, byOrder, cld, safeUrl, realPhone, mediaKind, videoPoster } = Utils;
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg>';
+  const PLAY = '<span class="play-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>';
+  const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
+  const MEDIA_ACCEPT = 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm';
+
+  /* Sample content written by the sheet setup, to be replaced with the gym's own. */
+  const SAMPLE = {
+    trainers: ['tr-aman-verma', 'tr-neha-kulkarni', 'tr-vikram-singh'],
+    prices: { 'plan-monthly': '1200', 'plan-quarterly': '3000', 'plan-half-yearly': '5500', 'plan-yearly': '9000' },
+    stats: { stat_1_value: '5+', stat_2_value: '40+', stat_3_value: '3', stat_4_value: '7' }
+  };
+  const isStock = url => /images\.unsplash\.com/i.test(String(url || ''));
+  const DEFAULT_CATEGORIES = ['Gym', 'CrossFit', 'Training', 'Equipment', 'Events'];
+
+  /* Each collection: labels and the fields of its editor. */
+  const COLLECTIONS = {
+    facilities: {
+      one: 'facility', many: 'facilities', ordered: true, media: 'facilities',
+      intro: 'Main areas show as large photo cards. "Also at SSV" items show as a short list under them.',
+      fields: [
+        { key: 'name', label: 'Name', required: true },
+        { key: 'category', label: 'Shown as', type: 'select', options: [['major', 'Main area (large photo card)'], ['additional', 'Also at SSV (short list)']] },
+        { key: 'tags', label: 'Tags', full: true, hint: 'Short words under the name, separated by |' },
+        { key: 'description', label: 'Description', type: 'textarea', full: true },
+        { key: 'image_url', label: 'Photo', type: 'image', hint: 'Used on large photo cards.' },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    },
+    plans: {
+      one: 'plan', many: 'plans', ordered: true, media: 'general',
+      fields: [
+        { key: 'name', label: 'Plan name', required: true },
+        { key: 'duration', label: 'Duration', required: true, placeholder: '3 Months' },
+        { key: 'price', label: 'Price (₹)', placeholder: '3000', hint: 'Numbers only. Empty shows "Price on enquiry".' },
+        { key: 'description', label: 'Short description' },
+        { key: 'features', label: 'Included', type: 'list', hint: 'One item per line.' },
+        { key: 'featured', label: 'Highlight this plan', type: 'check' },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    },
+    services: {
+      one: 'service', many: 'services', ordered: true, media: 'general',
+      intro: 'Shown under the membership plans, for example personal training and diet plans. The heading above them is in General information › Membership.',
+      fields: [
+        { key: 'name', label: 'Name', required: true, placeholder: 'Personal Training' },
+        { key: 'price', label: 'Price (₹)', placeholder: '5000', hint: 'Numbers only. Empty shows "Price on enquiry".' },
+        { key: 'price_note', label: 'Under the price', placeholder: 'Starting price', hint: 'For example "Starting price" or "Per session".' },
+        { key: 'description', label: 'Description', type: 'textarea', full: true },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    },
+    trainers: {
+      one: 'trainer', many: 'trainers', ordered: true, media: 'trainers',
+      fields: [
+        { key: 'name', label: 'Name', required: true },
+        { key: 'role', label: 'Role', placeholder: 'Head Trainer' },
+        { key: 'specialization', label: 'Specialisation', full: true },
+        { key: 'bio', label: 'Short bio', type: 'textarea', full: true },
+        { key: 'image_url', label: 'Photo', type: 'image', hint: 'A portrait photo works best.' },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    },
+    gallery: {
+      one: 'item', many: 'items', ordered: true, media: 'gallery',
+      fields: [
+        { key: 'image_url', label: 'Photo or video', type: 'image', video: true, required: true, hint: 'Upload a photo or a video (MP4, MOV or WebM, up to 100 MB), or paste a YouTube link under "Link".' },
+        { key: 'title', label: 'Title' },
+        { key: 'category', label: 'Category', type: 'category' },
+        { key: 'caption', label: 'Caption', type: 'textarea', full: true },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    },
+    reviews: {
+      one: 'review', many: 'reviews', media: 'general',
+      fields: [
+        { key: 'name', label: 'Name', required: true },
+        { key: 'rating', label: 'Rating', type: 'select', options: [['5', '5 stars'], ['4', '4 stars'], ['3', '3 stars'], ['2', '2 stars'], ['1', '1 star']] },
+        { key: 'review', label: 'Review', type: 'textarea', full: true, required: true, max: 800, rows: 5 },
+        { key: 'status', label: 'Status', type: 'select', options: [['Published', 'Published'], ['Pending', 'Waiting for approval'], ['Hidden', 'Hidden']] }
+      ]
+    },
+    announcements: {
+      one: 'announcement', many: 'announcements', media: 'announcements',
+      intro: 'Without a photo, an announcement shows as a short notice near the top of the website. With a photo, it shows as an event card (tournaments, competitions) in the Events section.',
+      fields: [
+        { key: 'title', label: 'Title', required: true, full: true },
+        { key: 'description', label: 'Details', type: 'textarea', full: true, rows: 4 },
+        { key: 'image_url', label: 'Photo (for events)', type: 'image', hint: 'A poster or photo of the event. Leave empty for a short notice.' },
+        { key: 'date', label: 'Date', type: 'date', hint: 'For events: the day of the event.' },
+        { key: 'expiry', label: 'Show until', type: 'date', hint: 'Empty = no end date.' },
+        { key: 'priority', label: 'Priority', type: 'number', placeholder: '1', hint: 'Higher shows first.' },
+        { key: 'active', label: 'Show on the website', type: 'check' }
+      ]
+    }
+  };
+
+  /* General information, grouped like the website. */
+  const GENERAL = [
+    { title: 'Gym name', fields: [
+      { key: 'gym_name', label: 'Short name', required: true },
+      { key: 'full_name', label: 'Full name' },
+      { key: 'tagline', label: 'Footer line', hint: 'Empty = hidden.' },
+      { key: 'description', label: 'Summary for Google search', type: 'textarea', full: true }
+    ] },
+    { title: 'Top of the page', fields: [
+      { key: 'hero_heading', label: 'Big heading', full: true, hint: 'A | starts a new line.' },
+      { key: 'hero_subtitle', label: 'Text under the heading', type: 'textarea', full: true },
+      { key: 'hero_image', label: 'Top photo', type: 'image' },
+      { key: 'facility_strip', label: 'Words under the photo', full: true, hint: 'Separated by |. Empty = hidden.' }
+    ] },
+    { title: 'Statistics', note: 'Figures under the top photo, such as "5+" with "Years in Virar". Leave a pair empty to hide it.', fields: [
+      { key: 'stat_1_value', label: 'Figure 1' }, { key: 'stat_1_label', label: 'Label 1' },
+      { key: 'stat_2_value', label: 'Figure 2' }, { key: 'stat_2_label', label: 'Label 2' },
+      { key: 'stat_3_value', label: 'Figure 3' }, { key: 'stat_3_label', label: 'Label 3' },
+      { key: 'stat_4_value', label: 'Figure 4' }, { key: 'stat_4_label', label: 'Label 4' }
+    ] },
+    { title: 'About', fields: [
+      { key: 'about_heading', label: 'Heading', full: true },
+      { key: 'about_text', label: 'Text', type: 'textarea', full: true, rows: 5, hint: 'A | starts a new paragraph.' },
+      { key: 'about_highlights', label: 'Short points', type: 'list', hint: 'One point per line.' },
+      { key: 'about_image', label: 'About photo', type: 'image' },
+      { key: 'facilities_intro', label: 'Text next to the Facilities heading', type: 'textarea', full: true }
+    ] },
+    { title: 'Membership', fields: [
+      { key: 'featured_badge_text', label: 'Label on highlighted plans', placeholder: 'Best value' },
+      { key: 'services_heading', label: 'Heading above personal training and diet plans', placeholder: 'Personal training and diet plans' }
+    ] },
+    { title: 'Contact', fields: [
+      { key: 'phone', label: 'Gym phone', placeholder: '+91 77588 78588', hint: 'Used for the Call buttons.' },
+      { key: 'phone_2', label: "Owner's phone", placeholder: '+91 75586 08585', hint: 'Shown as a second number. Empty = hidden.' },
+      { key: 'whatsapp', label: 'WhatsApp', hint: 'Empty = the gym phone is used.' },
+      { key: 'address', label: 'Address', type: 'textarea', rows: 4, hint: 'A | starts a new line.' },
+      { key: 'opening_hours', label: 'Opening hours', type: 'textarea', full: true, rows: 3, hint: 'One line per group of days, separated by |, e.g. "Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM". The website highlights today and shows whether the gym is open now.' }
+    ] },
+    { title: 'Map and social links', fields: [
+      { key: 'maps_url', label: 'Google Maps link', full: true, hint: 'Google Maps › Share › Copy link.' },
+      { key: 'maps_embed_url', label: 'Map on the website', type: 'textarea', full: true, hint: 'Google Maps › Share › Embed a map › Copy HTML. Paste the whole code or just the link.' },
+      { key: 'instagram_url', label: 'Instagram', placeholder: 'https://www.instagram.com/ssvgym2021/' },
+      { key: 'facebook_url', label: 'Facebook' }
+    ] }
+  ];
+
+  const VIEWS = {
+    dashboard: 'Dashboard', general: 'General information', facilities: 'Facilities', plans: 'Membership plans',
+    services: 'Personal training & diet', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews',
+    announcements: 'Announcements & events', media: 'Media library', enquiries: 'Enquiries', settings: 'Settings'
+  };
+
+  const state = {
+    data: null, view: 'dashboard', dirty: false, lib: null, libFolder: '',
+    reviewFilter: 'all', enquiryFilter: 'all', pending: new Set(), lastHash: ''
+  };
+
+  /* ---------------------------------------------------------------- helpers */
+  const meta = () => (state.data && state.data.meta) || {};
+  const general = () => (state.data && state.data.general) || {};
+  const list = key => {
+    if (!state.data) return [];
+    if (!Array.isArray(state.data[key])) state.data[key] = [];
+    return state.data[key];
+  };
+  const cloudinaryReady = () => Boolean(meta().cloudinaryConfigured);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const plain = v => text(v).replace(/[₹,\s]/g, '');
+  const olderThan = (a, b) => {
+    const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+    return false;
+  };
+  /* Small picture for a photo, video or YouTube link. */
+  const thumb = (url, w = 200) => {
+    const u = safeUrl(url);
+    if (!u) return '';
+    const kind = mediaKind(u);
+    const src = kind === 'image' ? cld(u, w) : videoPoster(u, w);
+    return (src ? `<img src="${esc(src)}" alt="" loading="lazy">` : '') + (kind === 'image' ? '' : PLAY);
+  };
+  const pill = (label, kind = '') => `<span class="pill${kind ? ' pill--' + kind : ''}">${esc(label)}</span>`;
+  const stars = n => {
+    const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+    return `<span class="stars-mini" role="img" aria-label="${r} out of 5">${[1, 2, 3, 4, 5].map(i => `<span${i <= r ? ' class="is-on"' : ''}>${STAR}</span>`).join('')}</span>`;
+  };
+  const sizeText = b => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b || 0} B`);
+  const statusText = s => { const v = text(s) || 'New'; return `<span class="status status--${esc(v.toLowerCase())}">${esc(v)}</span>`; };
+
+  /* Gallery categories: names in filter order, kept in General › gallery_categories. */
+  function galleryCategories() {
+    const names = splitList(general().gallery_categories);
+    return names.length ? names : DEFAULT_CATEGORIES.slice();
+  }
+  const categoryOptions = () => galleryCategories().map(n => [n.toLowerCase(), n]);
+  const catLabel = c => {
+    const k = text(c).toLowerCase();
+    const hit = galleryCategories().find(n => n.toLowerCase() === k);
+    return hit || (k ? k.replace(/\b[a-z]/g, ch => ch.toUpperCase()) : 'No category');
+  };
+
+  function toast(message, type = 'ok') {
+    const box = $('#modal').open ? $('#modal-toasts') : $('#toasts');
+    const el = document.createElement('div');
+    el.className = `toast${type === 'ok' ? '' : ' toast--' + type}`;
+    el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    el.textContent = message;
+    box.appendChild(el);
+    setTimeout(() => { el.classList.add('is-out'); setTimeout(() => el.remove(), 350); }, type === 'error' ? 8000 : 3800);
+  }
+
+  function fail(err, fallback) {
+    if (err && err.code === 'AUTH_REQUIRED') { signOut(err.message); return; }
+    toast((err && err.message) || fallback || 'Something went wrong.', 'error');
+  }
+
+  /* Uploads made in a form that hasn't been saved yet. They are deleted if the form is abandoned. */
+  function cleanupPending(keep = []) {
+    const drop = [...state.pending].filter(u => !keep.includes(u));
+    state.pending.clear();
+    if (drop.length) API.deleteImages(drop).catch(() => { /* can be removed later in the media library */ });
+  }
+
+  /* ---------------------------------------------------------- sign in / out */
+  function showLogin(message = '') {
+    $('#app').hidden = true;
+    $('#login-view').hidden = false;
+    const configured = API.isConfigured();
+    $('#login-form').hidden = !configured;
+    $('#login-setup').hidden = configured;
+    $('#login-msg').textContent = message;
+    if (configured) setTimeout(() => $('#login-form').elements.password.focus(), 50);
+  }
+
+  async function signOut(message = '') {
+    cleanupPending();
+    state.data = null; state.dirty = false; state.lib = null;
+    await API.logout();
+    showLogin(message);
+  }
+
+  async function startApp() {
+    $('#login-view').hidden = true;
+    $('#app').hidden = false;
+    $('#view').innerHTML = '<p class="loading">Loading the website content…</p>';
+    if (!await loadData()) return;
+    state.lastHash = location.hash;
+    route();
+  }
+
+  async function loadData() {
+    try {
+      state.data = await API.getAdminData();
+      setConn(true);
+      updateBadges();
+      return true;
+    } catch (err) {
+      setConn(false);
+      if (err.code === 'AUTH_REQUIRED') { signOut(err.message); return false; }
+      $('#view').innerHTML = `<div class="empty"><p>${esc(err.message || 'Could not load the website content.')}</p><button class="btn btn--primary" type="button" data-action="retry">Try again</button></div>`;
+      return false;
+    }
+  }
+
+  function setConn(ok) {
+    const el = $('#conn-status');
+    el.classList.toggle('is-live', ok);
+    el.textContent = ok ? 'Connected' : 'Not connected';
+  }
+
+  function updateBadges() {
+    const badge = (sel, n) => { const el = $(sel); el.hidden = !n; el.textContent = n; };
+    badge('#nav-enquiries-badge', list('enquiries').filter(e => (text(e.status) || 'New') === 'New').length);
+    badge('#nav-reviews-badge', list('reviews').filter(r => text(r.status) === 'Pending').length);
+  }
+
+  /* ---------------------------------------------------------------- routing */
+  function route() {
+    const name = location.hash.replace('#', '');
+    state.view = VIEWS[name] ? name : 'dashboard';
+    $$('.sidebar__nav a').forEach(a => { if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    $('#view-title').textContent = VIEWS[state.view];
+    document.title = `${VIEWS[state.view]} · SSV Admin`;
+    closeSidebar();
+    if (state.data) render();
+  }
+
+  function render() {
+    const root = $('#view'), v = state.view;
+    if (v === 'dashboard') renderDashboard(root);
+    else if (v === 'general') renderGeneral(root);
+    else if (v === 'gallery') renderGallery(root);
+    else if (v === 'reviews') renderReviews(root);
+    else if (v === 'media') renderMedia(root);
+    else if (v === 'enquiries') renderEnquiries(root);
+    else if (v === 'settings') renderSettings(root);
+    else renderCollection(root, v);
+  }
+
+  function closeSidebar() {
+    document.body.classList.remove('sidebar-open');
+    $('#sidebar-toggle').setAttribute('aria-expanded', 'false');
+  }
+
+  function versionWarning() {
+    const v = meta().version;
+    return v && olderThan(v, BACKEND_VERSION)
+      ? `<p class="hint-box hint-box--warn">The Apps Script backend is version ${esc(v)}; this panel expects ${BACKEND_VERSION}. Paste the new Code.gs, run SSV Admin › Set up / repair sheets, then Deploy › Manage deployments › Edit › Version: New version › Deploy.</p>`
+      : '';
+  }
+
+  /* -------------------------------------------------------------- dashboard */
+  function todo() {
+    const g = general(), items = [];
+    const active = key => list(key).filter(r => truthy(r.active));
+    if (!cloudinaryReady()) items.push(['Set up photo uploads (Cloudinary)', '#settings']);
+    if (!meta().notifyEmail) items.push(['Get an email for every enquiry and review', '#settings']);
+    const photos = [g.hero_image, g.about_image, ...list('facilities').map(f => f.image_url), ...list('trainers').map(t => t.image_url), ...list('gallery').map(p => p.image_url)];
+    if (photos.some(isStock)) items.push(['Replace the stand-in photos with photos of SSV', '#gallery']);
+    if (!active('trainers').length) items.push(['Add your trainers', '#trainers']);
+    else if (list('trainers').some(t => SAMPLE.trainers.includes(t.id))) items.push(['Replace the sample trainers with your own team', '#trainers']);
+    const plans = active('plans');
+    if (plans.some(p => !text(p.price))) items.push(['Add membership prices', '#plans']);
+    else if (plans.some(p => SAMPLE.prices[p.id] !== undefined && plain(p.price) === SAMPLE.prices[p.id])) items.push(['Replace the sample membership prices', '#plans']);
+    if (Object.keys(SAMPLE.stats).every(k => text(g[k]) === SAMPLE.stats[k])) items.push(['Check the sample statistics', '#general']);
+    if (!active('gallery').length) items.push(['Add photos to the gallery', '#gallery']);
+    return items;
+  }
+
+  function renderDashboard(root) {
+    const enquiries = list('enquiries').slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const newCount = enquiries.filter(e => (text(e.status) || 'New') === 'New').length;
+    const waiting = list('reviews').filter(r => text(r.status) === 'Pending').length;
+    const items = todo();
+    const card = (label, value, href, alert) => `<a class="stat-card${alert ? ' stat-card--alert' : ''}" href="${href}"><span class="stat-card__label">${label}</span><span class="stat-card__value">${value}</span></a>`;
+    root.innerHTML = `${versionWarning()}
+      <div class="stat-cards">
+        ${card('New enquiries', newCount, '#enquiries', newCount > 0)}
+        ${card('Reviews waiting', waiting, '#reviews', waiting > 0)}
+        ${card('Membership plans', list('plans').filter(p => truthy(p.active)).length, '#plans')}
+        ${card('Gallery items', list('gallery').filter(p => truthy(p.active)).length, '#gallery')}
+      </div>
+      <div class="dash-grid">
+        <section class="panel">
+          <div class="panel__head"><h2>Recent enquiries</h2><a href="#enquiries">See all</a></div>
+          ${enquiries.length ? `<ul class="lead-list">${enquiries.slice(0, 5).map(e => `<li>
+              <div class="lead-list__row"><strong>${esc(e.name)}</strong><span>${esc(timeAgo(e.date) || formatDate(e.date))}</span></div>
+              ${text(e.message) ? `<p>${esc(e.message)}</p>` : ''}
+              <div class="lead-list__row"><span>${esc(e.phone)}</span>${statusText(e.status)}</div>
+            </li>`).join('')}</ul>`
+            : '<p class="muted">No enquiries yet. They appear here when visitors send the form on the website.</p>'}
+        </section>
+        <section class="panel">
+          <div class="panel__head"><h2>Finish your website</h2><small>${items.length ? `${items.length} to do` : 'All done'}</small></div>
+          ${items.length ? `<ul class="checklist">${items.map(([label, href]) => `<li><a href="${href}">${esc(label)}</a></li>`).join('')}</ul>` : '<p class="muted">Everything is set up.</p>'}
+        </section>
+      </div>`;
+  }
+
+  /* ---------------------------------------------------------------- fields */
+  function fieldHtml(f, value, section) {
+    const v = value === undefined || value === null ? '' : value;
+    const id = `f-${f.key}`;
+    const full = f.full || f.type === 'list' || f.type === 'image' ? ' field--full' : '';
+    const hint = f.hint ? `<small class="field__hint">${esc(f.hint)}</small>` : '';
+    const label = `<span class="field__label">${esc(f.label)}${f.required ? ' *' : ''}</span>`;
+    const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : '';
+    switch (f.type) {
+      case 'check':
+        return `<label class="field field--check"><input type="checkbox" name="${f.key}"${truthy(v) ? ' checked' : ''}> ${esc(f.label)}</label>`;
+      case 'textarea':
+        return `<label class="field${full}" for="${id}">${label}<textarea id="${id}" name="${f.key}" rows="${f.rows || 3}"${f.max ? ` maxlength="${f.max}"` : ''}${ph}>${esc(v)}</textarea>${hint}</label>`;
+      case 'list':
+        return `<label class="field${full}" for="${id}">${label}<textarea id="${id}" name="${f.key}" rows="4">${esc(splitList(v).join('\n'))}</textarea>${hint}</label>`;
+      case 'select':
+      case 'category': {
+        const opts = f.type === 'category' ? categoryOptions() : f.options.slice();
+        if (text(v) && !opts.some(([k]) => String(k) === String(v).toLowerCase() || String(k) === String(v))) opts.unshift([String(v), catLabel(v)]);
+        const current = f.type === 'category' ? String(v).toLowerCase() : String(v);
+        const extra = f.type === 'category' ? '<option value="__new">+ New category…</option>' : '';
+        return `<label class="field${full}" for="${id}">${label}<select id="${id}" name="${f.key}"${f.type === 'category' ? ' data-category' : ''}>${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === current ? ' selected' : ''}>${esc(l)}</option>`).join('')}${extra}</select>${hint}</label>`;
+      }
+      case 'date':
+        return `<label class="field${full}" for="${id}">${label}<input id="${id}" type="date" name="${f.key}" value="${esc(isoDate(v))}">${hint}</label>`;
+      case 'number':
+        return `<label class="field${full}" for="${id}">${label}<input id="${id}" type="number" name="${f.key}" value="${esc(v)}"${ph}>${hint}</label>`;
+      case 'image':
+        return imageFieldHtml(f, v, section);
+      default:
+        return `<label class="field${full}" for="${id}">${label}<input id="${id}" type="text" name="${f.key}" value="${esc(v)}"${ph}>${hint}</label>`;
+    }
+  }
+
+  function imageFieldHtml(f, value, section) {
+    const v = text(value);
+    const noun = f.video ? 'photo or video' : 'photo';
+    return `<div class="field field--full image-field" data-image-field data-section="${esc(section)}"${f.video ? ' data-video="1"' : ''}>
+      <span class="field__label">${esc(f.label)}${f.required ? ' *' : ''}</span>
+      <div class="image-field__row">
+        <div class="image-field__preview">${v ? thumb(v, 300) : '<span>Nothing yet</span>'}</div>
+        <div class="image-field__controls">
+          <div class="image-field__actions">
+            <button class="btn btn--ghost btn--sm" type="button" data-upload${cloudinaryReady() ? '' : ' disabled title="Set up photo uploads in Settings first"'}>${v ? `Replace ${noun}` : `Upload ${noun}`}</button>
+          </div>
+          <div class="progress" hidden><span></span></div>
+          <details class="image-field__link"${v && !/res\.cloudinary\.com/i.test(v) ? ' open' : ''}><summary>Link</summary><input type="url" name="${f.key}" value="${esc(v)}" placeholder="https://…" inputmode="url"></details>
+          ${f.hint ? `<small class="field__hint">${esc(f.hint)}</small>` : ''}
+          ${isStock(v) ? '<small class="field__warn">Stand-in photo. Replace it with a photo of SSV.</small>' : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* Values of a form, checked for required fields. null when something is missing. */
+  function readForm(form, fields) {
+    const out = {};
+    for (const f of fields) {
+      const el = form.elements[f.key];
+      if (!el) continue;
+      let v;
+      if (f.type === 'check') v = el.checked;
+      else if (f.type === 'list') v = splitList(el.value).join(' | ');
+      else v = text(el.value);
+      if (f.type === 'category' && v === '__new') v = '';
+      if (f.required && v === '') {
+        const details = el.closest && el.closest('details');
+        if (details) details.open = true;
+        el.focus();
+        toast(`${f.label} is required.`, 'error');
+        return null;
+      }
+      out[f.key] = v;
+    }
+    return out;
+  }
+
+  /* ---------------------------------------------------------------- uploads */
+  function sectionFolder(section) {
+    const media = meta().media || {};
+    const s = media.sections || {};
+    return s[section] || s.general || `${media.base || 'SSV-Gym'}/Home`;
+  }
+
+  /* One hidden file input serves every upload button. */
+  let pickResolve = null;
+  function pickFiles(multiple, accept = IMAGE_ACCEPT) {
+    return new Promise(resolve => {
+      if (pickResolve) pickResolve([]);   // an earlier picker was closed without a choice
+      pickResolve = resolve;
+      const picker = $('#file-picker');
+      picker.multiple = Boolean(multiple);
+      picker.accept = accept;
+      picker.value = '';
+      picker.click();
+    });
+  }
+  $('#file-picker').addEventListener('change', e => { const r = pickResolve; pickResolve = null; if (r) r(Array.from(e.target.files || [])); });
+  $('#file-picker').addEventListener('cancel', () => { const r = pickResolve; pickResolve = null; if (r) r([]); });
+
+  function bindImageFields(root) {
+    $$('[data-image-field]', root).forEach(box => {
+      const input = $('input[type="url"]', box), preview = $('.image-field__preview', box), btn = $('[data-upload]', box);
+      const noun = box.dataset.video ? 'photo or video' : 'photo';
+      input.addEventListener('input', () => {
+        const v = text(input.value);
+        preview.innerHTML = v ? thumb(v, 300) : '<span>Nothing yet</span>';
+        btn.textContent = v ? `Replace ${noun}` : `Upload ${noun}`;
+      });
+      btn.addEventListener('click', async () => {
+        const files = await pickFiles(false, box.dataset.video ? MEDIA_ACCEPT : IMAGE_ACCEPT);
+        if (!files.length) return;
+        uploadInto(box, files[0], sectionFolder(box.dataset.section));
+      });
+    });
+  }
+
+  async function uploadInto(box, file, folder) {
+    const input = $('input[type="url"]', box), bar = $('.progress', box), fill = $('.progress span', box), btn = $('[data-upload]', box);
+    const noun = box.dataset.video ? 'photo or video' : 'photo';
+    bar.hidden = false;
+    fill.style.width = '0%';
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    try {
+      const res = await API.uploadMedia(file, { folder, onProgress: p => { fill.style.width = `${p}%`; } });
+      state.pending.add(res.url);
+      input.value = res.url;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      toast(`${res.kind === 'video' ? 'Video' : 'Photo'} uploaded. Save to use it.`);
+    } catch (err) {
+      fail(err, 'Upload failed.');
+    } finally {
+      bar.hidden = true;
+      btn.disabled = false;
+      btn.textContent = text(input.value) ? `Replace ${noun}` : `Upload ${noun}`;
+    }
+  }
+
+  /* Choosing "+ New category…" in a category list asks for the name and adds it. */
+  async function addCategory(select) {
+    const name = (prompt('Name of the new category:') || '').replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!name) { select.value = select.options[0] ? select.options[0].value : ''; return; }
+    const names = galleryCategories();
+    if (!names.some(n => n.toLowerCase() === name.toLowerCase())) {
+      names.push(name);
+      try { state.data.general = await API.saveGeneralData({ gallery_categories: names.join(' | ') }); }
+      catch (err) { fail(err, 'Could not save the new category.'); return; }
+    }
+    const key = name.toLowerCase();
+    if (![...select.options].some(o => o.value === key)) select.add(new Option(name, key), select.options[select.options.length - 1]);
+    select.value = key;
+    toast(`Category "${name}" added.`);
+  }
+
+  function editCategories() {
+    openModal({
+      title: 'Gallery categories',
+      body: `<div class="form-grid">${fieldHtml({ key: 'gallery_categories', label: 'Categories', type: 'list', hint: 'One per line, in the order of the filter buttons on the website. Renaming or removing one here does not change photos that already use it.' }, galleryCategories().join(' | '))}</div>`,
+      saveLabel: 'Save categories',
+      onSave: async form => {
+        const names = splitList(form.elements.gallery_categories.value.replace(/\|/g, '\n'));
+        if (!names.length) { toast('Add at least one category.', 'error'); return false; }
+        state.data.general = await API.saveGeneralData({ gallery_categories: names.join(' | ') });
+        toast('Categories saved.');
+        render();
+        return true;
+      }
+    });
+  }
+
+  /* ---------------------------------------------------- general information */
+  function setDirty(on) {
+    state.dirty = on;
+    const note = $('#dirty-note'), btn = $('#general-save');
+    if (note) note.hidden = !on;
+    if (btn) btn.disabled = !on;
+  }
+  function discardChanges() { state.dirty = false; cleanupPending(); }
+
+  function renderGeneral(root) {
+    const g = general();
+    root.innerHTML = `<form id="general-form" class="stack" novalidate>
+      ${GENERAL.map(sec => `<section class="panel">
+        <div class="panel__head"><h2>${esc(sec.title)}</h2></div>
+        ${sec.note ? `<p class="panel__note panel__note--top">${esc(sec.note)}</p>` : ''}
+        <div class="form-grid">${sec.fields.map(f => fieldHtml(f, g[f.key], 'general')).join('')}</div>
+      </section>`).join('')}
+      <div class="form-actions"><span class="dirty-note" id="dirty-note" hidden>Unsaved changes</span><button class="btn btn--primary" type="submit" id="general-save" disabled>Save changes</button></div>
+    </form>`;
+    const form = $('#general-form');
+    bindImageFields(form);
+    form.addEventListener('input', () => setDirty(true));
+    form.addEventListener('change', () => setDirty(true));
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const values = readForm(form, GENERAL.flatMap(s => s.fields));
+      if (!values) return;
+      const btn = $('#general-save');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      try {
+        state.data.general = await API.saveGeneralData(values);
+        cleanupPending(Object.values(values));
+        setDirty(false);
+        toast('Saved. The website shows the changes within a few minutes.');
+      } catch (err) {
+        fail(err, 'Could not save.');
+        btn.disabled = false;
+      } finally {
+        btn.textContent = 'Save changes';
+      }
+    });
+  }
+
+  /* ------------------------------------------------------------ edit dialog */
+  let modalSave = null;
+  function openModal({ title, body, saveLabel = 'Save', onSave }) {
+    $('#modal-title').textContent = title;
+    $('#modal-body').innerHTML = body;
+    $('#modal-save').textContent = saveLabel;
+    $('#modal-save').disabled = false;
+    modalSave = onSave;
+    bindImageFields($('#modal-body'));
+    $('#modal').showModal();
+    const first = $('#modal-body input[type="text"], #modal-body textarea, #modal-body select');
+    if (first) first.focus();
+  }
+  function closeModal() { if ($('#modal').open) $('#modal').close(); }
+
+  $('#modal').addEventListener('close', () => { cleanupPending(); modalSave = null; $('#modal-body').innerHTML = ''; });
+  $('#modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
+  $('#modal').addEventListener('change', e => { if (e.target.matches('select[data-category]') && e.target.value === '__new') addCategory(e.target); });
+  $('#modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!modalSave) return;
+    const btn = $('#modal-save'), label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try { if (await modalSave($('#modal-form'))) closeModal(); }
+    catch (err) { fail(err, 'Could not save.'); }
+    finally { btn.disabled = false; btn.textContent = label; }
+  });
+
+  /* ------------------------------------------------------------ collections */
+  function sortedRows(key) {
+    const rows = list(key).slice();
+    if (key === 'announcements') return rows.sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date)));
+    if (key === 'reviews') return rows;
+    return rows.sort(byOrder);
+  }
+
+  function isSample(key, r) {
+    return (key === 'trainers' && SAMPLE.trainers.includes(r.id)) || isStock(r.image_url)
+      || (key === 'plans' && SAMPLE.prices[r.id] !== undefined && plain(r.price) === SAMPLE.prices[r.id]);
+  }
+
+  function columns(key) {
+    const withThumb = ['facilities', 'trainers', 'announcements'].includes(key);
+    const name = r => `<div class="cell-main">${withThumb ? `<span class="thumb">${thumb(r.image_url, 120)}</span>` : ''}<div><strong>${esc(r.name || r.title || 'Untitled')}</strong>${isSample(key, r) ? ` ${pill('Sample', 'warn')}` : ''}</div></div>`;
+    const price = r => (text(r.price) ? esc(formatPrice(r.price)) : '<span class="muted">On enquiry</span>');
+    switch (key) {
+      case 'facilities': return [{ label: 'Name', cell: name }, { label: 'Shown as', cell: r => (text(r.category).toLowerCase() === 'additional' ? 'Also at SSV' : 'Main area') }];
+      case 'plans': return [{ label: 'Plan', cell: name }, { label: 'Duration', cell: r => esc(r.duration) }, { label: 'Price', cell: price }, { label: 'Highlight', cell: r => (truthy(r.featured) ? pill('Highlighted', 'on') : '') }];
+      case 'services': return [{ label: 'Name', cell: name }, { label: 'Price', cell: price }, { label: 'Under the price', cell: r => esc(r.price_note) }];
+      case 'trainers': return [{ label: 'Name', cell: name }, { label: 'Role', cell: r => esc(r.role) }];
+      case 'announcements': return [{ label: 'Title', cell: name }, { label: 'Shown as', cell: r => (text(r.image_url) ? pill('Event card') : pill('Notice')) }, { label: 'Date', cell: r => esc(formatDate(r.date)) }, { label: 'Until', cell: r => (text(r.expiry) ? esc(formatDate(r.expiry)) : '<span class="muted">No end</span>') }];
+      default: return [{ label: 'Name', cell: name }];
+    }
+  }
+
+  function renderCollection(root, key) {
+    const c = COLLECTIONS[key];
+    const rows = sortedRows(key);
+    const shown = rows.filter(r => truthy(r.active)).length;
+    const cols = columns(key);
+    root.innerHTML = `${c.intro ? `<p class="hint-box">${esc(c.intro)}</p>` : ''}
+      <div class="toolbar">
+        <p class="toolbar__info">${rows.length} ${rows.length === 1 ? c.one : c.many} · ${shown} shown on the website</p>
+        <div class="toolbar__actions"><button class="btn btn--primary btn--sm" type="button" data-add="${key}">Add ${c.one}</button></div>
+      </div>
+      ${rows.length ? `<div class="table-wrap"><table class="table">
+        <thead><tr>${c.ordered ? '<th class="col-order">Order</th>' : ''}${cols.map(col => `<th>${col.label}</th>`).join('')}<th>Status</th><th class="col-actions"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${rows.map((r, i) => `<tr class="${truthy(r.active) ? '' : 'is-muted'}">
+          ${c.ordered ? `<td class="col-order"><button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button><button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move down"${i === rows.length - 1 ? ' disabled' : ''}>↓</button></td>` : ''}
+          ${cols.map(col => `<td>${col.cell(r)}</td>`).join('')}
+          <td>${truthy(r.active) ? pill('Shown', 'on') : pill('Hidden')}</td>
+          <td class="col-actions"><button class="btn btn--ghost btn--xs" type="button" data-edit="${esc(r.id)}">Edit</button><button class="btn btn--danger btn--xs" type="button" data-delete="${esc(r.id)}">Delete</button></td>
+        </tr>`).join('')}</tbody></table></div>`
+        : `<div class="empty"><p>No ${c.many} yet.</p><button class="btn btn--primary" type="button" data-add="${key}">Add ${c.one}</button></div>`}`;
+  }
+
+  function nextOrder(key) { return list(key).reduce((m, r) => Math.max(m, Number(r.display_order) || 0), 0) + 1; }
+
+  function openEditor(key, record) {
+    const c = COLLECTIONS[key], isNew = !record;
+    const r = record || { active: true, category: key === 'facilities' ? 'major' : (key === 'gallery' ? photoCategory : ''), status: 'Published', rating: '5', date: isoDate(new Date()), priority: 1 };
+    openModal({
+      title: isNew ? `Add ${c.one}` : `Edit ${c.one}`,
+      body: `<div class="form-grid">${c.fields.map(f => fieldHtml(f, r[f.key], c.media)).join('')}</div>`,
+      saveLabel: isNew ? `Add ${c.one}` : 'Save',
+      onSave: async form => {
+        const values = readForm(form, c.fields);
+        if (!values) return false;
+        if (isNew && c.ordered) values.display_order = nextOrder(key);
+        if (!isNew) values.id = record.id;
+        const saved = await API.saveRecord(key, values);
+        const rows = list(key);
+        const i = rows.findIndex(x => x.id === saved.id);
+        if (i >= 0) rows[i] = saved; else rows.push(saved);
+        cleanupPending(c.fields.filter(f => f.type === 'image').map(f => values[f.key]));
+        toast(isNew ? `${cap(c.one)} added.` : 'Saved.');
+        updateBadges();
+        render();
+        return true;
+      }
+    });
+  }
+
+  async function removeRecord(key, id) {
+    const c = COLLECTIONS[key];
+    const r = list(key).find(x => x.id === id);
+    if (!r) return;
+    const label = r.name || r.title;
+    if (!confirm(`Delete this ${c.one}${label ? ` ("${label}")` : ''}? This can't be undone.`)) return;
+    try {
+      await API.deleteRecord(key, id);
+      state.data[key] = list(key).filter(x => x.id !== id);
+      toast(`${cap(c.one)} deleted.`);
+      updateBadges();
+      render();
+    } catch (err) { fail(err, 'Could not delete.'); }
+  }
+
+  async function move(key, id, dir) {
+    const rows = sortedRows(key);
+    const i = rows.findIndex(r => r.id === id), j = i + dir;
+    if (i < 0 || j < 0 || j >= rows.length) return;
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+    rows.forEach((r, n) => { r.display_order = n + 1; });
+    render();
+    try { await API.reorder(key, rows.map(r => r.id)); }
+    catch (err) { fail(err, 'Could not change the order.'); if (await loadData()) render(); }
+  }
+
+  /* ------------------------------------------------- gallery (photos & videos) */
+  /* Category given to items added with "Add photos or videos" (remembered while the panel is open). */
+  let photoCategory = 'gym';
+
+  function renderGallery(root) {
+    const rows = sortedRows('gallery');
+    const shown = rows.filter(r => truthy(r.active)).length;
+    if (!categoryOptions().some(([k]) => k === photoCategory)) photoCategory = (categoryOptions()[0] || ['gym'])[0];
+    root.innerHTML = `
+      <div class="toolbar">
+        <p class="toolbar__info">${rows.length} item${rows.length === 1 ? '' : 's'} · ${shown} shown on the website</p>
+        <div class="toolbar__actions">
+          ${cloudinaryReady() ? `<label class="folder-pick"><span class="folder-pick__label">Category for new items</span><select id="new-photo-category">${categoryOptions().map(([k, l]) => `<option value="${esc(k)}"${k === photoCategory ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>` : ''}
+          <button class="btn btn--primary btn--sm" type="button" data-add-photos${cloudinaryReady() ? '' : ' disabled'}>Add photos or videos</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-add="gallery">Add by link</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-action="edit-categories">Categories</button>
+        </div>
+      </div>
+      <p class="hint-box">Videos: upload MP4, MOV or WebM files up to 100 MB, or use <b>Add by link</b> with a YouTube link for longer videos.</p>
+      ${cloudinaryReady() ? '' : '<p class="hint-box hint-box--warn">Uploads are not set up yet, so items can only be added by link. See Settings.</p>'}
+      <ul class="upload-list" id="upload-list"></ul>
+      ${rows.length ? `<div class="media-grid">${rows.map((r, i) => {
+          const kind = mediaKind(r.image_url);
+          const state = !truthy(r.active) ? '<span class="pill media-card__state">Hidden</span>' : (isStock(r.image_url) ? '<span class="pill pill--warn media-card__state">Sample</span>' : (kind !== 'image' ? '<span class="pill media-card__state">Video</span>' : ''));
+          return `<article class="media-card${truthy(r.active) ? '' : ' is-muted'}">
+          <div class="media-card__img">${thumb(r.image_url, 500) || 'No photo'}<span class="pill media-card__cat">${esc(catLabel(r.category))}</span>${state}</div>
+          <div class="media-card__body"><strong>${esc(r.title || (kind === 'image' ? 'Untitled photo' : 'Untitled video'))}</strong>${text(r.caption) ? `<small>${esc(r.caption)}</small>` : ''}</div>
+          <div class="media-card__actions">
+            <button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move earlier"${i === 0 ? ' disabled' : ''}>←</button>
+            <button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move later"${i === rows.length - 1 ? ' disabled' : ''}>→</button>
+            <span class="spacer"></span>
+            <button class="btn btn--ghost btn--xs" type="button" data-edit="${esc(r.id)}">Edit</button>
+            <button class="btn btn--danger btn--xs" type="button" data-delete="${esc(r.id)}">Delete</button>
+          </div>
+        </article>`;
+        }).join('')}</div>`
+        : '<div class="empty"><p>Nothing in the gallery yet. Add photos and videos of the gym floor, the CrossFit zone, training and events.</p></div>'}`;
+  }
+
+  const titleFromFile = name => String(name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, ch => ch.toUpperCase()).slice(0, 80) || 'Gallery item';
+
+  /* Uploads several photos or videos into the Gallery folder and adds each one to the gallery. */
+  async function addPhotos() {
+    const pick = $('#new-photo-category');
+    if (pick) photoCategory = pick.value;
+    const category = photoCategory;
+    const files = await pickFiles(true, MEDIA_ACCEPT);
+    if (!files.length) return;
+    const folder = sectionFolder('gallery');
+    const rows = list('gallery');
+    let order = nextOrder('gallery') - 1, added = 0;
+    for (const file of files) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${esc(file.name)}</span><em>Uploading…</em>`;
+      const box = $('#upload-list');
+      if (box) box.appendChild(li);
+      const status = $('em', li);
+      try {
+        const up = await API.uploadMedia(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
+        status.textContent = 'Saving…';
+        rows.push(await API.saveRecord('gallery', { image_url: up.url, title: titleFromFile(file.name), category, caption: '', active: true, display_order: ++order }));
+        li.classList.add('is-done');
+        status.textContent = 'Added';
+        added++;
+      } catch (err) {
+        li.classList.add('is-error');
+        status.textContent = err.message || 'Failed';
+        if (err.code === 'AUTH_REQUIRED') { fail(err); return; }
+      }
+    }
+    if (state.view === 'gallery') {
+      const log = ($('#upload-list') || {}).innerHTML || '';
+      renderGallery($('#view'));
+      $('#upload-list').innerHTML = log;
+    }
+    toast(`${added} item${added === 1 ? '' : 's'} added to the gallery.`, added ? 'ok' : 'warn');
+  }
+
+  /* ---------------------------------------------------------------- reviews */
+  const reviewStatus = r => text(r.status) || 'Published';
+  function statusPill(s) {
+    return s === 'Pending' ? pill('Waiting', 'warn') : s === 'Hidden' ? pill('Hidden') : pill('Published', 'on');
+  }
+  function reviewActions(r) {
+    const id = esc(r.id), s = reviewStatus(r);
+    const b = (status, label, kind = 'ghost') => `<button class="btn btn--${kind} btn--xs" type="button" data-review-status="${status}" data-id="${id}">${label}</button>`;
+    const quick = s === 'Pending' ? b('Published', 'Approve', 'primary') + b('Hidden', 'Hide') : s === 'Hidden' ? b('Published', 'Publish') : b('Hidden', 'Hide');
+    return `${quick}<button class="btn btn--ghost btn--xs" type="button" data-edit="${id}">Edit</button><button class="btn btn--danger btn--xs" type="button" data-delete="${id}">Delete</button>`;
+  }
+
+  function renderReviews(root) {
+    const g = general();
+    const rows = list('reviews').slice().sort((a, b) => (reviewStatus(a) === 'Pending' ? 0 : 1) - (reviewStatus(b) === 'Pending' ? 0 : 1) || String(b.date).localeCompare(String(a.date)));
+    const count = s => rows.filter(r => reviewStatus(r) === s).length;
+    const f = state.reviewFilter;
+    const shown = f === 'all' ? rows : rows.filter(r => reviewStatus(r) === f);
+    const seg = (key, label, n) => `<button class="seg" type="button" data-review-filter="${key}" aria-pressed="${f === key}">${label}<span>${n}</span></button>`;
+    const formOn = g.review_form === undefined || g.review_form === '' || truthy(g.review_form);
+    root.innerHTML = `
+      <section class="panel review-settings">
+        <div class="panel__head"><h2>Review settings</h2></div>
+        <div class="switches">
+          <label class="switch"><input type="checkbox" data-setting="review_form"${formOn ? ' checked' : ''}> Visitors can write reviews on the website</label>
+          <label class="switch"><input type="checkbox" data-setting="review_approval"${truthy(g.review_approval) ? ' checked' : ''}> New reviews wait for my approval before they appear</label>
+        </div>
+      </section>
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Show reviews">${seg('all', 'All', rows.length)}${seg('Pending', 'Waiting', count('Pending'))}${seg('Published', 'Published', count('Published'))}${seg('Hidden', 'Hidden', count('Hidden'))}</div>
+        <div class="toolbar__actions"><button class="btn btn--primary btn--sm" type="button" data-add="reviews">Add a review</button></div>
+      </div>
+      ${shown.length ? `<div class="table-wrap"><table class="table">
+        <thead><tr><th>Rating</th><th>Review</th><th>Likes</th><th>Date</th><th>Status</th><th class="col-actions"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${shown.map(r => `<tr class="${reviewStatus(r) === 'Hidden' ? 'is-muted' : ''}">
+          <td class="nowrap">${stars(r.rating)}</td>
+          <td><strong>${esc(r.name)}</strong>${text(r.source) === 'Admin' ? ' <span class="muted">(added by you)</span>' : ''}<div class="msg">${esc(r.review)}</div></td>
+          <td>${Number(r.likes) || 0}</td>
+          <td class="nowrap">${esc(formatDate(r.date))}</td>
+          <td>${statusPill(reviewStatus(r))}</td>
+          <td class="col-actions">${reviewActions(r)}</td>
+        </tr>`).join('')}</tbody></table></div>`
+        : `<div class="empty"><p>${rows.length ? 'No reviews in this list.' : 'No reviews yet. Reviews written on the website appear here.'}</p></div>`}`;
+  }
+
+  async function setReviewStatus(id, status) {
+    try {
+      const saved = await API.saveRecord('reviews', { id, status });
+      const rows = list('reviews');
+      const i = rows.findIndex(r => r.id === id);
+      if (i >= 0) rows[i] = saved;
+      updateBadges();
+      render();
+      toast(status === 'Published' ? 'Review published.' : 'Review hidden.');
+    } catch (err) { fail(err, 'Could not update the review.'); }
+  }
+
+  async function saveSetting(input) {
+    const key = input.dataset.setting, value = input.checked;
+    input.disabled = true;
+    try {
+      state.data.general = await API.saveGeneralData({ [key]: value });
+      toast('Saved.');
+    } catch (err) {
+      input.checked = !value;
+      fail(err, 'Could not save the setting.');
+    } finally {
+      input.disabled = false;
+    }
+  }
+
+  /* -------------------------------------------------------------- enquiries */
+  function renderEnquiries(root) {
+    const rows = list('enquiries').slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const status = e => text(e.status) || 'New';
+    const count = s => rows.filter(e => status(e) === s).length;
+    const f = state.enquiryFilter;
+    const shown = f === 'all' ? rows : rows.filter(e => status(e) === f);
+    const seg = (key, label, n) => `<button class="seg" type="button" data-enquiry-filter="${key}" aria-pressed="${f === key}">${label}<span>${n}</span></button>`;
+    const gym = text(general().gym_name) || 'SSV Gym';
+    root.innerHTML = `
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Show enquiries">${seg('all', 'All', rows.length)}${seg('New', 'New', count('New'))}${seg('Contacted', 'Contacted', count('Contacted'))}${seg('Closed', 'Closed', count('Closed'))}</div>
+        <div class="toolbar__actions"><button class="btn btn--ghost btn--sm" type="button" data-action="refresh-inbox">Check for new</button></div>
+      </div>
+      ${shown.length ? `<div class="table-wrap"><table class="table">
+        <thead><tr><th>Name</th><th>Phone</th><th>Message</th><th>Received</th><th>Status</th></tr></thead>
+        <tbody>${shown.map(e => {
+          const intl = realPhone(e.phone), s = status(e);
+          const wa = `https://wa.me/${intl}?text=${encodeURIComponent(`Hi ${text(e.name)}, thank you for contacting ${gym}.`)}`;
+          return `<tr>
+            <td><strong>${esc(e.name)}</strong></td>
+            <td class="nowrap">${esc(e.phone)}${intl ? `<div><a href="tel:+${intl}">Call</a> · <a href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}</td>
+            <td><div class="msg">${text(e.message) ? esc(e.message) : '<span class="muted">No message</span>'}</div></td>
+            <td class="nowrap" title="${esc(formatDate(e.date))}">${esc(timeAgo(e.date) || formatDate(e.date))}</td>
+            <td><select class="status-select status--${s.toLowerCase()}" data-enquiry="${esc(e.id)}" aria-label="Status for ${esc(e.name)}">${['New', 'Contacted', 'Closed'].map(o => `<option${o === s ? ' selected' : ''}>${o}</option>`).join('')}</select></td>
+          </tr>`;
+        }).join('')}</tbody></table></div>`
+        : `<div class="empty"><p>${rows.length ? 'No enquiries in this list.' : 'No enquiries yet. They appear here when visitors send the form on the website.'}</p></div>`}`;
+  }
+
+  async function setEnquiryStatus(sel) {
+    const id = sel.dataset.enquiry, status = sel.value;
+    sel.disabled = true;
+    try {
+      await API.updateEnquiryStatus(id, status);
+      const e = list('enquiries').find(x => x.id === id);
+      if (e) e.status = status;
+      updateBadges();
+      render();
+      toast(`Marked as ${status.toLowerCase()}.`);
+    } catch (err) {
+      fail(err, 'Could not update the status.');
+      render();
+    }
+  }
+
+  async function refreshInbox() {
+    try {
+      const d = await API.getInbox();
+      state.data.enquiries = d.enquiries || [];
+      state.data.reviews = d.reviews || [];
+      updateBadges();
+      render();
+      toast('Up to date.');
+    } catch (err) { fail(err, 'Could not check for new enquiries.'); }
+  }
+
+  /* --------------------------------------------------------------- settings */
+  function renderSettings(root) {
+    const m = meta();
+    const base = (m.media && m.media.base) || 'SSV-Gym';
+    root.innerHTML = `${versionWarning()}<div class="settings-grid">
+      <section class="panel">
+        <div class="panel__head"><h2>Connection</h2></div>
+        <dl class="kv">
+          <div><dt>Google Sheet</dt><dd>${m.sheetUrl ? `<a href="${esc(m.sheetUrl)}" target="_blank" rel="noopener">Open the Google Sheet</a>` : 'Connected'}</dd></div>
+          <div><dt>Backend version</dt><dd>${esc(m.version || 'unknown')}</dd></div>
+          <div><dt>Time zone</dt><dd>${esc(m.timeZone || '')}</dd></div>
+        </dl>
+      </section>
+      <section class="panel">
+        <div class="panel__head"><h2>Email alerts</h2></div>
+        ${m.notifyEmail ? `<p>New enquiries and reviews are emailed to <strong>${esc(m.notifyEmail)}</strong>.</p>` : '<p>Email alerts are off.</p>'}
+        <p class="panel__note">To change the addresses, edit NOTIFY_EMAIL in the Config tab of the Google Sheet. Separate several with commas. These addresses only receive alerts; they don't give access to this panel.</p>
+      </section>
+      <section class="panel">
+        <div class="panel__head"><h2>Photos and videos</h2></div>
+        ${m.cloudinaryConfigured
+          ? `<p>Uploads are ready. Files are stored in Cloudinary, in the <strong>${esc(base)}</strong> folder.</p>`
+          : '<p>Uploads are not set up yet.</p><ul class="notes"><li>Put your Cloudinary cloud name next to CLOUDINARY_CLOUD_NAME in the Config tab.</li><li>In the Google Sheet, run SSV Admin › Set Cloudinary keys and paste the API key and secret.</li></ul>'}
+        <p class="panel__note">If an upload says "cloud_name is disabled", Cloudinary has switched the account off: sign in at cloudinary.com to see why. If the media library mentions permission, run SSV Admin › Set Cloudinary keys once and allow access when Google asks.</p>
+      </section>
+      <section class="panel">
+        <div class="panel__head"><h2>Password and sign-in</h2></div>
+        <ul class="notes">
+          <li>Anyone with the admin password can edit the website. Change it in the Google Sheet: SSV Admin › Set admin password. Everyone signed in is then signed out.</li>
+          <li>After 5 wrong passwords, sign-in locks for 15 minutes. Unlock it with SSV Admin › Unlock admin sign-in.</li>
+        </ul>
+        <div class="panel__actions"><button class="btn btn--ghost btn--sm" type="button" data-action="logout">Sign out</button></div>
+      </section>
+    </div>
+    <p class="version-note">Admin panel ${BACKEND_VERSION} · backend ${esc(m.version || 'unknown')}</p>`;
+  }
+
+  /* ---------------------------------------------------------- media library */
+  function sectionOf(path) {
+    const s = (state.lib && state.lib.sections) || (meta().media && meta().media.sections) || {};
+    return Object.values(s).find(p => path === p || path.startsWith(p + '/')) || '';
+  }
+
+  async function renderMedia(root, fresh = false) {
+    if (!cloudinaryReady()) {
+      root.innerHTML = '<div class="empty"><p>Uploads are not set up yet, so there is no media library.</p><a class="btn btn--primary" href="#settings">Open Settings</a></div>';
+      return;
+    }
+    if (!state.lib || fresh) {
+      if (!fresh || !state.lib) root.innerHTML = '<p class="loading">Loading photos and videos…</p>';
+      try {
+        state.lib = await API.mediaLibrary(fresh);
+      } catch (err) {
+        if (err.code === 'AUTH_REQUIRED') { fail(err); return; }
+        if (state.view !== 'media') return;
+        root.innerHTML = `<div class="empty"><p>${esc(err.message || 'Could not load the media library.')}</p><p class="muted">If this keeps happening, open the Google Sheet and run SSV Admin › Set Cloudinary keys once, allowing access when Google asks.</p><button class="btn btn--primary" type="button" data-action="media-refresh">Try again</button></div>`;
+        return;
+      }
+      if (state.view !== 'media') return;
+    }
+    drawMedia(root);
+  }
+
+  function drawMedia(root) {
+    const lib = state.lib;
+    const all = lib.folders || [];
+    const cur = all.includes(state.libFolder) ? state.libFolder : lib.base;
+    state.libFolder = cur;
+    const within = p => i => i.folder === p || i.folder.startsWith(p + '/');
+    const count = p => lib.images.filter(within(p)).length;
+    const images = lib.images.filter(within(cur)).sort((a, b) => String(b.created).localeCompare(String(a.created)));
+    const baseDepth = lib.base.split('/').length;
+    const tree = all.filter(p => p === lib.base || p.startsWith(lib.base + '/'));
+    const legacy = all.filter(p => (lib.legacy || []).some(l => p === l || p.startsWith(l + '/')));
+    const item = (p, depth, label) => `<li><button type="button" data-folder-open="${esc(p)}" style="--depth:${depth}"${p === cur ? ' aria-current="true"' : ''}><span class="folder-tree__icon" aria-hidden="true"></span><span class="folder-tree__name">${esc(label || p.split('/').pop())}</span><span class="folder-tree__count">${count(p)}</span></button></li>`;
+    const section = sectionOf(cur);
+    const depthIn = section ? cur.split('/').length - section.split('/').length : -1;
+    const isLegacy = legacy.includes(cur);
+    const canDelete = (depthIn >= 1 || isLegacy) && !count(cur);
+    const title = cur === lib.base ? 'All photos and videos' : (cur.startsWith(lib.base + '/') ? cur.slice(lib.base.length + 1) : cur);
+    root.innerHTML = `<div class="media-lib">
+      <nav class="folder-tree" aria-label="Folders">
+        <ul>${tree.map(p => item(p, p.split('/').length - baseDepth, p === lib.base ? 'All' : '')).join('')}</ul>
+        ${legacy.length ? `<p class="folder-tree__group">Older uploads</p><ul>${legacy.map(p => item(p, p.split('/').length - 1)).join('')}</ul>` : ''}
+      </nav>
+      <div class="media-lib__main">
+        <div class="media-lib__head">
+          <h2>${esc(title)}</h2>
+          <div class="toolbar__actions">
+            ${section && depthIn === 0 ? '<button class="btn btn--primary btn--sm" type="button" data-action="media-upload">Upload here</button>' : ''}
+            ${canDelete ? '<button class="btn btn--danger btn--sm" type="button" data-action="media-delete-folder">Delete folder</button>' : ''}
+            <button class="btn btn--ghost btn--sm" type="button" data-action="media-refresh">Refresh</button>
+          </div>
+        </div>
+        ${lib.truncated ? '<p class="hint-box hint-box--warn">There are more files than can be listed at once. Only the newest are shown.</p>' : ''}
+        ${section && depthIn === 0 ? '' : '<p class="panel__note panel__note--top">To upload here, choose Home, Facilities, Trainers, Gallery or Events on the left.</p>'}
+        <ul class="upload-list" id="upload-list"></ul>
+        ${images.length ? `<div class="media-grid">${images.map(mediaCard).join('')}</div>` : '<div class="empty"><p>Nothing in this folder yet.</p></div>'}
+      </div>
+    </div>`;
+  }
+
+  function mediaCard(file) {
+    const used = file.usedIn || [];
+    const video = file.type === 'video';
+    const where = file.folder !== state.libFolder ? ` · ${esc(file.folder.split('/').pop())}` : '';
+    const size = file.width && file.height ? `${file.width} × ${file.height} · ` : '';
+    const length = video && file.duration ? `${Math.round(file.duration)} s · ` : '';
+    return `<article class="media-card${used.length ? '' : ' is-unused'}">
+      <div class="media-card__img">${thumb(file.url, 500)}${used.length ? (video ? '<span class="pill media-card__state">Video</span>' : '') : '<span class="pill pill--warn media-card__state">Not used</span>'}</div>
+      <div class="media-card__body">
+        <strong title="${esc(file.id)}">${esc(file.id.split('/').pop())}</strong>
+        <small class="media-card__use">${used.length ? `Used in: ${esc(used.join(', '))}` : 'Not used on the website'}</small>
+        <small>${size}${length}${sizeText(file.bytes)}${where}</small>
+      </div>
+      <div class="media-card__actions">
+        <button class="btn btn--ghost btn--xs" type="button" data-copy="${esc(file.url)}">Copy link</button>
+        <a class="btn btn--ghost btn--xs" href="${esc(file.url)}" target="_blank" rel="noopener">Open</a>
+        <span class="spacer"></span>
+        ${used.length ? '' : `<button class="btn btn--danger btn--xs" type="button" data-delete-image="${esc(file.url)}">Delete</button>`}
+      </div>
+    </article>`;
+  }
+
+  async function mediaUpload() {
+    const folder = state.libFolder;
+    const videosAllowed = /\/(Gallery|Events)$/.test(folder);
+    const files = await pickFiles(true, videosAllowed ? MEDIA_ACCEPT : IMAGE_ACCEPT);
+    if (!files.length) return;
+    let done = 0;
+    for (const file of files) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${esc(file.name)}</span><em>Uploading…</em>`;
+      const box = $('#upload-list');
+      if (box) box.appendChild(li);
+      const status = $('em', li);
+      try {
+        await API.uploadMedia(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
+        li.classList.add('is-done');
+        status.textContent = 'Uploaded';
+        done++;
+      } catch (err) {
+        li.classList.add('is-error');
+        status.textContent = err.message || 'Failed';
+        if (err.code === 'AUTH_REQUIRED') { fail(err); return; }
+      }
+    }
+    toast(`${done} file${done === 1 ? '' : 's'} uploaded. Use Copy link to put one in a field.`, done ? 'ok' : 'warn');
+    if (state.view === 'media') renderMedia($('#view'), true);
+  }
+
+  /* Only for emptying out old folders (such as ssv-gym). New folders can't be made here. */
+  async function deleteFolder() {
+    const path = state.libFolder;
+    if (!confirm(`Delete the empty folder "${path.split('/').pop()}"?`)) return;
+    try {
+      await API.deleteFolder(path);
+      state.libFolder = path.split('/').slice(0, -1).join('/');
+      toast('Folder deleted.');
+      await renderMedia($('#view'), true);
+    } catch (err) { fail(err, 'Could not delete the folder.'); }
+  }
+
+  async function deleteImage(url) {
+    if (!confirm('Delete this file from Cloudinary? This can\'t be undone.')) return;
+    try {
+      const res = await API.deleteImages([url]);
+      const gone = res.deleted && res.deleted.length;
+      toast(gone ? 'Deleted.' : 'This file is used on the website, so it was kept.', gone ? 'ok' : 'warn');
+      renderMedia($('#view'), true);
+    } catch (err) { fail(err, 'Could not delete the file.'); }
+  }
+
+  async function copyLink(url) {
+    try { await navigator.clipboard.writeText(url); toast('Link copied.'); }
+    catch { prompt('Copy this link:', url); }
+  }
+
+  /* ----------------------------------------------------------------- events */
+  $('#view').addEventListener('click', e => {
+    const t = e.target.closest('button, a[data-action]');
+    if (!t || t.disabled) return;
+    const d = t.dataset, key = state.view;
+    if (d.add) openEditor(d.add, null);
+    else if (d.edit) { const r = list(key).find(x => x.id === d.edit); if (r) openEditor(key, r); }
+    else if (d.delete) removeRecord(key, d.delete);
+    else if (d.move) move(key, d.id, Number(d.move));
+    else if ('addPhotos' in d) addPhotos();
+    else if (d.reviewStatus) setReviewStatus(d.id, d.reviewStatus);
+    else if (d.reviewFilter) { state.reviewFilter = d.reviewFilter; render(); }
+    else if (d.enquiryFilter) { state.enquiryFilter = d.enquiryFilter; render(); }
+    else if (d.folderOpen) { state.libFolder = d.folderOpen; drawMedia($('#view')); }
+    else if (d.copy) copyLink(d.copy);
+    else if (d.deleteImage) deleteImage(d.deleteImage);
+    else if (d.action === 'retry') { loadData().then(ok => { if (ok) route(); }); }
+    else if (d.action === 'logout') confirmSignOut();
+    else if (d.action === 'refresh-inbox') refreshInbox();
+    else if (d.action === 'edit-categories') editCategories();
+    else if (d.action === 'media-refresh') renderMedia($('#view'), true);
+    else if (d.action === 'media-upload') mediaUpload();
+    else if (d.action === 'media-delete-folder') deleteFolder();
+  });
+
+  $('#view').addEventListener('change', e => {
+    const t = e.target;
+    if (t.matches('[data-enquiry]')) setEnquiryStatus(t);
+    else if (t.matches('[data-setting]')) saveSetting(t);
+    else if (t.id === 'new-photo-category') photoCategory = t.value;
+  });
+
+  window.addEventListener('hashchange', () => {
+    if (!state.data) return;
+    if (state.dirty) {
+      if (!confirm('You have unsaved changes. Leave without saving?')) { history.replaceState(null, '', state.lastHash || '#general'); return; }
+      discardChanges();
+    }
+    state.lastHash = location.hash;
+    route();
+    $('#view-title').focus();
+  });
+
+  window.addEventListener('beforeunload', e => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('pagehide', () => { if (state.pending.size) API.deleteImagesOnExit([...state.pending]); });
+
+  /* A picture that fails to load leaves an empty box instead of a broken image. */
+  document.addEventListener('error', e => {
+    const el = e.target;
+    if (el && el.tagName === 'IMG' && el.closest('.image-field__preview, .thumb, .media-card__img')) el.remove();
+  }, true);
+
+  $('#sidebar-toggle').addEventListener('click', () => {
+    const open = document.body.classList.toggle('sidebar-open');
+    $('#sidebar-toggle').setAttribute('aria-expanded', String(open));
+  });
+  $('#scrim').addEventListener('click', closeSidebar);
+
+  function confirmSignOut() {
+    if (state.dirty && !confirm('You have unsaved changes. Sign out and lose them?')) return;
+    signOut();
+  }
+  $('#logout-btn').addEventListener('click', confirmSignOut);
+
+  $('#refresh-btn').addEventListener('click', async () => {
+    if (state.dirty && !confirm('You have unsaved changes. Refresh and lose them?')) return;
+    if (state.dirty) discardChanges();
+    const btn = $('#refresh-btn');
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+    state.lib = null;
+    if (await loadData()) {
+      render();
+      toast('Up to date.');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Refresh';
+  });
+
+  $('#login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const form = e.currentTarget, btn = $('button[type="submit"]', form), password = form.elements.password.value;
+    if (!password) { $('#login-msg').textContent = 'Enter the admin password.'; return; }
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    $('#login-msg').textContent = '';
+    try {
+      await API.login(password);
+      form.reset();
+      await startApp();
+    } catch (err) {
+      $('#login-msg').textContent = err.message || 'Could not sign in.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  });
+
+  /* ------------------------------------------------------------------- boot */
+  async function boot() {
+    if (!API.isConfigured()) { showLogin(); return; }
+    if (API.getToken()) {
+      $('#login-view').hidden = true;
+      try { await API.verifySession(); await startApp(); return; }
+      catch (err) { API.setToken(null); }
+    }
+    showLogin();
+  }
+  boot();
+})();
+```
+
+---
+
+## `js/api.js`
+
+```javascript
+/* ==========================================================================
+   SSV GYM — API SERVICE LAYER                                        v1.5.0
+   All communication with the Google Apps Script backend and Cloudinary goes
+   through this file. Visitors read content and send enquiries, reviews and
+   likes. Everything else needs the admin session token that the backend
+   issues after checking the password.
+   ========================================================================== */
+const API = (() => {
+  const CONTENT_KEY = 'ssv_content_v2';
+  const TOKEN_KEY = 'ssv_admin_token';
+  const COLLECTIONS = ['facilities', 'plans', 'services', 'trainers', 'gallery', 'reviews', 'announcements'];
+  const PUBLIC_ACTIONS = ['submitEnquiry', 'submitReview', 'likeReview', 'login'];   // sent without the admin token
+  const IMAGE_TYPES = /^image\/(jpeg|png|webp)$/;
+  const VIDEO_TYPES = /^video\/(mp4|quicktime|webm)$/;
+  let memo = null;
+  try { localStorage.removeItem('ssv_content_v1'); } catch { /* copy saved by older versions */ }
+
+  class ApiError extends Error {
+    constructor(message, code = 'ERROR') { super(message); this.name = 'ApiError'; this.code = code; }
+  }
+
+  const isConfigured = () => Boolean(CONFIG.API_URL) && !/^YOUR_/i.test(String(CONFIG.API_URL).trim());
+  const isVideoFile = file => Boolean(file) && VIDEO_TYPES.test(file.type);
+
+  /* ---------- admin session token (kept for this browser tab only) ---------- */
+  const getToken = () => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } };
+  const setToken = token => {
+    try { token ? sessionStorage.setItem(TOKEN_KEY, token) : sessionStorage.removeItem(TOKEN_KEY); } catch { /* storage unavailable */ }
+  };
+
+  /* ---------- low-level request ---------- */
+  async function request(method, action, payload = {}) {
+    if (!isConfigured()) throw new ApiError('API_URL is not set in js/config.js.', 'NOT_CONFIGURED');
+    const ctrl = new AbortController();
+    const base = CONFIG.REQUEST_TIMEOUT_MS || 10000;
+    // Visitors fall back quickly. Other calls wait longer: Apps Script can take several
+    // seconds to start, and photo calls also wait for Cloudinary.
+    const timer = setTimeout(() => ctrl.abort(), method === 'GET' ? base : Math.max(base, 45000));
+    try {
+      const auth = PUBLIC_ACTIONS.includes(action) ? {} : { token: getToken() };
+      const res = method === 'GET'
+        ? await fetch(`${CONFIG.API_URL}?${new URLSearchParams({ ...payload, action })}`, { signal: ctrl.signal })
+        // text/plain keeps this a "simple" CORS request (no preflight), which Apps Script needs.
+        : await fetch(CONFIG.API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ ...payload, action, ...auth }),
+            signal: ctrl.signal
+          });
+      if (!res.ok) throw new ApiError(`Server responded with ${res.status}.`, `HTTP_${res.status}`);
+      const json = await res.json().catch(() => { throw new ApiError('Unexpected response from the server.', 'BAD_RESPONSE'); });
+      if (!json.ok) throw new ApiError(json.error || 'Request failed.', json.code || 'ERROR');
+      return json.data;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      if (err.name === 'AbortError') throw new ApiError('The server took too long to respond.', 'TIMEOUT');
+      throw new ApiError('Could not reach the server. Check the connection and try again.', 'NETWORK');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* Fire-and-forget request that still goes out while the page is closing. */
+  function beacon(action, payload = {}) {
+    if (!isConfigured() || !navigator.sendBeacon) return false;
+    try {
+      const body = new Blob([JSON.stringify({ ...payload, action, token: getToken() })], { type: 'text/plain;charset=utf-8' });
+      return navigator.sendBeacon(CONFIG.API_URL, body);
+    } catch { return false; }
+  }
+
+  /* ---------- website content ---------- */
+  const ttl = () => (CONFIG.CACHE_MINUTES ?? 5) * 60000;
+  const readCache = () => { try { return JSON.parse(localStorage.getItem(CONTENT_KEY)); } catch { return null; } };
+  const writeCache = data => { try { localStorage.setItem(CONTENT_KEY, JSON.stringify({ t: Date.now(), data })); } catch { /* quota / private mode */ } };
+  function clearCache() { memo = null; try { localStorage.removeItem(CONTENT_KEY); } catch { /* ignore */ } }
+  /* Same content, ignoring the server's "generated at" time. */
+  const sameContent = (a, b) => JSON.stringify({ ...a, updated: null }) === JSON.stringify({ ...b, updated: null });
+
+  /* Content from the sheet, used as it is. "offline" means the sheet couldn't be reached
+     and nothing was saved: the page then shows its own built-in details. */
+  function merge(live, source) {
+    const out = { source, general: { ...(live.general || {}) } };
+    COLLECTIONS.forEach(key => { out[key] = Array.isArray(live[key]) ? live[key] : []; });
+    return out;
+  }
+
+  /* Returns content as fast as possible:
+     - saved copy newer than CACHE_MINUTES: used at once;
+     - older saved copy: used at once, then refreshed in the background, and
+       onUpdate(content) is called only if something changed;
+     - nothing saved: waits for the server. */
+  async function getContent({ force = false, onUpdate = null } = {}) {
+    if (memo && !force) return memo;
+    const cached = readCache();
+    const saved = cached && cached.data ? cached.data : null;
+    if (!force && saved) {
+      const fresh = Date.now() - (cached.t || 0) < ttl();
+      memo = merge(saved, fresh ? 'cache' : 'stale');
+      if (!fresh) {
+        request('GET', 'content').then(data => {
+          writeCache(data);
+          if (sameContent(data, saved)) return;
+          memo = merge(data, 'live');
+          if (typeof onUpdate === 'function') onUpdate(memo);
+        }).catch(err => console.warn('[SSV] Could not refresh content; showing the saved copy.', err.message));
+      }
+      return memo;
+    }
+    try {
+      const data = await request('GET', 'content');
+      writeCache(data);
+      return (memo = merge(data, 'live'));
+    } catch (err) {
+      if (saved) return (memo = merge(saved, 'stale'));
+      console.warn('[SSV] The Google Sheet could not be reached; showing the built-in details.', err.message);
+      return (memo = merge({}, 'offline'));
+    }
+  }
+
+  /* Changes the in-memory content and the browser's saved copy together. */
+  function patchContent(fn) {
+    if (memo) fn(memo);
+    try {
+      const cached = readCache();
+      if (cached && cached.data) { fn(cached.data); localStorage.setItem(CONTENT_KEY, JSON.stringify(cached)); }
+    } catch { /* ignore */ }
+  }
+  const setReviewLikes = (id, likes) => patchContent(d => { (d.reviews || []).forEach(r => { if (r.id === id) r.likes = likes; }); });
+  const addReview = review => patchContent(d => { d.reviews = [review, ...(d.reviews || []).filter(r => r.id !== review.id)]; });
+
+  /* ---------- Cloudinary upload (admin) ---------- */
+
+  /* Large JPEG photos are resized in the browser and re-encoded, which also drops their
+     metadata, including GPS location. Anything else is sent as it is. */
+  async function prepareImage(file) {
+    if (file.type !== 'image/jpeg' || typeof createImageBitmap !== 'function') return file;
+    const maxEdge = CONFIG.IMAGE_MAX_EDGE || 2400;
+    let bitmap;
+    try { bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch { return file; }
+    try {
+      const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1 && file.size <= 1.5 * 1048576) return file;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', CONFIG.IMAGE_QUALITY || 0.85));
+      if (!blob || (scale === 1 && blob.size >= file.size)) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+    } catch {
+      return file;
+    } finally {
+      if (bitmap && bitmap.close) bitmap.close();
+    }
+  }
+
+  /* A clean file name, so names in Cloudinary read well: "IMG 2041 (1).JPG" -> "img-2041-1.jpg". */
+  function cleanFile(file) {
+    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' }[file.type] || 'jpg';
+    const name = String(file.name || '').replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'upload';
+    try { return new File([file], `${name}.${ext}`, { type: file.type }); } catch { return file; }
+  }
+
+  /* Cloudinary's own message for an account it has switched off. */
+  const cloudinaryMessage = msg => (/cloud_name is disabled/i.test(msg)
+    ? 'Cloudinary has switched this account off ("cloud_name is disabled"). Sign in at cloudinary.com to see why: usually an email address that isn\'t verified yet, or the free plan\'s limits.'
+    : msg);
+
+  /* Uploads one photo (JPG, PNG, WebP) or video (MP4, MOV, WebM) into `folder`, e.g.
+     "SSV-Gym/Gallery". The backend checks the folder and signs the upload; the API
+     secret never reaches the browser. */
+  async function uploadMedia(original, { folder = '', onProgress = null } = {}) {
+    const video = isVideoFile(original);
+    if (!original || (!video && !IMAGE_TYPES.test(original.type))) throw new ApiError('Choose a JPG, PNG or WebP photo, or an MP4, MOV or WebM video.', 'INVALID_FILE');
+    const file = cleanFile(video ? original : await prepareImage(original));
+    const maxMb = video ? (CONFIG.MAX_VIDEO_MB || 100) : (CONFIG.MAX_UPLOAD_MB || 10);
+    if (file.size > maxMb * 1048576) {
+      throw new ApiError(video ? `This video is larger than ${maxMb} MB. Trim or compress it, or upload it to YouTube and add the link.` : `This photo is larger than ${maxMb} MB. Resize it and try again.`, 'FILE_TOO_LARGE');
+    }
+    const sig = await request('POST', 'getUploadSignature', { folder, kind: video ? 'video' : 'image' });
+    const form = new FormData();
+    form.append('file', file);
+    form.append('api_key', sig.apiKey);
+    form.append('signature', sig.signature);
+    Object.keys(sig.params || {}).forEach(k => form.append(k, String(sig.params[k])));
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(sig.cloudName)}/${video ? 'video' : 'image'}/upload`);
+      xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onload = () => {
+        let r = {};
+        try { r = JSON.parse(xhr.responseText); } catch { /* keep empty */ }
+        if (xhr.status >= 200 && xhr.status < 300 && r.secure_url) resolve({ url: r.secure_url, publicId: r.public_id, width: r.width, height: r.height, kind: video ? 'video' : 'image' });
+        else reject(new ApiError(cloudinaryMessage((r.error && r.error.message) || 'Upload failed.'), 'UPLOAD_FAILED'));
+      };
+      xhr.onerror = () => reject(new ApiError('Upload failed because of a network error.', 'NETWORK'));
+      xhr.send(form);
+    });
+  }
+
+  return {
+    ApiError, isConfigured, isVideoFile, getToken, setToken, clearCache,
+
+    /* website */
+    getContent, setReviewLikes, addReview,
+    health: () => request('GET', 'health'),
+    submitEnquiry: enquiry => request('POST', 'submitEnquiry', { enquiry }),
+    submitReview: review => request('POST', 'submitReview', { review }),
+    likeReview: (id, like) => request('POST', 'likeReview', { id, like }),
+
+    /* admin: every call below is checked again by the backend */
+    login: async password => { const d = await request('POST', 'login', { password }); setToken(d.token); return d; },
+    logout: async () => { try { await request('POST', 'logout'); } catch { /* already expired */ } finally { setToken(null); } },
+    verifySession: () => request('POST', 'verify'),
+    getAdminData: () => request('POST', 'adminGetAll'),
+    getInbox: () => request('POST', 'getInbox'),
+    updateEnquiryStatus: (id, status) => request('POST', 'updateEnquiryStatus', { id, status }),
+    saveGeneralData: general => request('POST', 'saveGeneral', { general }),
+    saveRecord: (collection, record) => request('POST', 'saveRecord', { collection, record }),
+    deleteRecord: (collection, id) => request('POST', 'deleteRecord', { collection, id }),
+    reorder: (collection, ids) => request('POST', 'reorder', { collection, ids }),
+    uploadMedia,
+    uploadImage: uploadMedia,
+    mediaFolders: fresh => request('POST', 'mediaFolders', { fresh: Boolean(fresh) }),
+    mediaLibrary: fresh => request('POST', 'mediaLibrary', { fresh: Boolean(fresh) }),
+    deleteFolder: path => request('POST', 'deleteFolder', { path }),
+    deleteImages: images => request('POST', 'deleteImages', { images }),
+    deleteImagesOnExit: images => beacon('deleteImages', { images })
+  };
+})();
+```
+
+---
+
+## `js/config.js`
+
+```javascript
+/* ==========================================================================
+   SSV GYM — FRONTEND CONFIGURATION                                   v1.5.0
+   --------------------------------------------------------------------------
+   Everything in this file is sent to every visitor's browser. It is PUBLIC.
+   Never put passwords or API secrets here: they live in Apps Script and are
+   set from the SSV Admin menu in the Google Sheet.
+   ========================================================================== */
+const CONFIG = Object.freeze({
+  // Google Apps Script web-app URL (Deploy > Manage deployments > the URL ending in /exec).
+  API_URL: "https://script.google.com/macros/s/AKfycbxiI4QWZQkky2uvW7WST7-QieWcl7oddsGLt9-aU0gdikLjl3i585J34aMilm2XEpnjNQ/exec",
+
+  // Uploads from the admin panel. Large photos are resized in the browser
+  // first: much faster on mobile data, and location (GPS) data is removed.
+  MAX_UPLOAD_MB: 10,      // photos
+  MAX_VIDEO_MB: 100,      // videos (the Cloudinary free plan allows up to 100 MB per video)
+  IMAGE_MAX_EDGE: 2400,   // longest side of a photo in pixels
+  IMAGE_QUALITY: 0.85,    // JPEG quality, 0 to 1
+
+  // Behaviour
+  REQUEST_TIMEOUT_MS: 10000, // first-time visitors wait this long before the page's built-in details are used
+  CACHE_MINUTES: 5           // a saved copy newer than this is used without asking the server
+});
+```
+
+---
+
+## `js/gallery.js`
+
+```javascript
+/* SSV GYM — gallery grid (photos and videos), category filter and lightbox. v1.5.0 */
+const Gallery = (() => {
+  const { esc, media, pad2, mediaKind, videoPoster, videoSrc, youtubeId } = Utils;
+  const SIZES = ['tall', '', 'wide', '', '', 'tall', '', '', '', 'wide']; // repeating layout rhythm
+  const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
+  const el = id => document.getElementById(id);
+  const keyOf = v => String(v || '').trim().toLowerCase();
+  const titleCase = s => s.replace(/\b[a-z]/g, c => c.toUpperCase());
+  let items = [], view = [], filter = 'all', current = 0, trigger = null, bound = false, labels = {}, order = [];
+
+  const labelOf = key => labels[key] || (key ? titleCase(key) : 'Photo');
+  const titleOf = it => it.title || (mediaKind(it.image_url) === 'image' ? 'Gallery photo' : 'Gallery video');
+
+  /* list: gallery rows. categories: names in filter order (General tab: gallery_categories).
+     Safe to call again when fresher content arrives. */
+  function init(list, categories) {
+    items = Array.isArray(list) ? list : [];
+    labels = {};
+    order = [];
+    (categories || []).forEach(name => { const k = keyOf(name); if (k && !(k in labels)) { labels[k] = String(name).trim(); order.push(k); } });
+    items.forEach(i => { const k = keyOf(i.category); if (k && !(k in labels)) { labels[k] = titleCase(k); order.push(k); } });
+    if (!items.some(i => keyOf(i.category) === filter)) filter = 'all';
+    renderFilters();
+    render();
+    if (!bound) bind();
+    if (el('lightbox').open) {
+      if (view.length) { current = Math.min(current, view.length - 1); show(); } else close();
+    }
+  }
+
+  function renderFilters() {
+    const present = new Set(items.map(i => keyOf(i.category)));
+    const keys = order.filter(k => present.has(k));
+    const bar = el('gallery-filters');
+    bar.innerHTML = [['all', 'All'], ...keys.map(k => [k, labelOf(k)])]
+      .map(([k, label]) => `<button type="button" class="chip" data-filter="${esc(k)}" aria-pressed="${k === filter}">${esc(label)}</button>`)
+      .join('');
+    bar.hidden = keys.length < 2; // filters only help with two or more categories
+  }
+
+  function setFilter(key) {
+    filter = key !== 'all' && items.some(i => keyOf(i.category) === key) ? key : 'all';
+    el('gallery-filters').querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    render();
+  }
+
+  function render() {
+    view = filter === 'all' ? items : items.filter(i => keyOf(i.category) === filter);
+    const grid = el('gallery-grid');
+    grid.innerHTML = view.map((it, i) => {
+      const size = SIZES[i % SIZES.length];
+      const kind = mediaKind(it.image_url);
+      const title = titleOf(it);
+      const still = kind === 'image' ? it.image_url : videoPoster(it.image_url, 800);
+      return `<figure class="g-item${size ? ' g-item--' + size : ''}" style="--i:${i}">
+        <button type="button" class="g-item__btn${kind === 'image' ? '' : ' is-video'}" data-index="${i}" aria-label="${kind === 'image' ? 'View larger' : 'Play video'}: ${esc(title)}">
+          ${media(still, title, title, { cls: `g-item__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1100px) 25vw, (min-width: 760px) 33vw, 50vw', widths: [400, 700, 1000] })}
+          ${kind === 'image' ? '' : `<span class="g-item__play" aria-hidden="true">${PLAY}</span>`}
+          <span class="g-item__overlay"><span class="g-item__cat">${esc(labelOf(keyOf(it.category)))}${kind === 'image' ? '' : ' · Video'}</span><span class="g-item__title">${esc(title)}</span></span>
+        </button>
+      </figure>`;
+    }).join('');
+    grid.classList.remove('is-animating');
+    void grid.offsetWidth; // restart the fade
+    grid.classList.add('is-animating');
+    const videos = view.filter(i => mediaKind(i.image_url) !== 'image').length, photos = view.length - videos;
+    el('gallery-count').textContent = [photos ? `${photos} ${photos === 1 ? 'photo' : 'photos'}` : '', videos ? `${videos} ${videos === 1 ? 'video' : 'videos'}` : ''].filter(Boolean).join(' · ');
+  }
+
+  function bind() {
+    bound = true;
+    const dlg = el('lightbox');
+    el('gallery-filters').addEventListener('click', e => { const b = e.target.closest('[data-filter]'); if (b) setFilter(b.dataset.filter); });
+    el('gallery-grid').addEventListener('click', e => { const b = e.target.closest('[data-index]'); if (b) open(Number(b.dataset.index), b); });
+    dlg.addEventListener('click', e => {
+      const act = e.target.closest('[data-lb]');
+      if (act) { if (act.dataset.lb === 'close') close(); else step(act.dataset.lb === 'next' ? 1 : -1); return; }
+      if (e.target === dlg || e.target.classList.contains('lightbox__inner')) close();
+    });
+    dlg.addEventListener('keydown', e => {
+      if (e.target.closest && e.target.closest('video')) return; // arrow keys seek inside a video
+      if (e.key === 'ArrowRight') step(1);
+      else if (e.key === 'ArrowLeft') step(-1);
+    });
+    dlg.addEventListener('close', () => {
+      el('lb-media').innerHTML = ''; // stops any playing video
+      document.body.classList.remove('lb-open');
+      if (trigger && document.contains(trigger)) trigger.focus();
+    });
+    let x0 = null; // swipe on touch screens
+    dlg.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    dlg.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 50 && !(e.target.closest && e.target.closest('video, iframe'))) step(dx < 0 ? 1 : -1);
+    });
+  }
+
+  function open(index, from) {
+    const dlg = el('lightbox');
+    trigger = from;
+    current = index;
+    show();
+    document.body.classList.add('lb-open');
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  }
+
+  function close() {
+    const dlg = el('lightbox');
+    if (typeof dlg.close === 'function') dlg.close();
+    else { dlg.removeAttribute('open'); dlg.dispatchEvent(new Event('close')); }
+  }
+
+  function step(dir) {
+    if (view.length < 2) return;
+    current = (current + dir + view.length) % view.length;
+    show();
+  }
+
+  function show() {
+    const it = view[current];
+    if (!it) return;
+    const kind = mediaKind(it.image_url);
+    const title = titleOf(it);
+    const box = el('lb-media');
+    if (kind === 'youtube') {
+      box.innerHTML = `<div class="lightbox__video"><iframe src="https://www.youtube-nocookie.com/embed/${esc(youtubeId(it.image_url))}?autoplay=1&amp;rel=0&amp;playsinline=1" title="${esc(title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`;
+    } else if (kind === 'video') {
+      const poster = videoPoster(it.image_url, 1400);
+      box.innerHTML = `<div class="lightbox__video"><video src="${esc(videoSrc(it.image_url))}"${poster ? ` poster="${esc(poster)}"` : ''} controls autoplay playsinline preload="metadata">This browser can't play the video.</video></div>`;
+    } else {
+      box.innerHTML = media(it.image_url, title, title, { cls: 'lightbox__img', sizes: '90vw', widths: [800, 1400, 2000], eager: true });
+    }
+    el('lb-title').textContent = title;
+    el('lb-caption').textContent = it.caption || '';
+    el('lb-count').textContent = `${pad2(current + 1)} / ${pad2(view.length)}`;
+    el('lightbox').classList.toggle('is-single', view.length < 2);
+  }
+
+  return { init, setFilter };
+})();
+```
+
+---
+
+## `js/main.js`
+
+```javascript
+/* ==========================================================================
+   SSV GYM — WEBSITE LOGIC                                            v1.5.0
+   Renders every section from the Google Sheet via API.getContent(). Saved
+   content shows at once and is refreshed in the background. If the sheet
+   can't be reached on a first visit, the details built into index.html stay.
+   ========================================================================== */
+(() => {
+  'use strict';
+  const { esc, text, truthy, isFalse, splitList, isPlaceholder, realPhone, linkUrl, instagramUrl, mapEmbedSrc,
+    pad2, toDate, isoDate, formatDate, timeAgo, formatPrice, durationMonths, activeSorted, initials, img, media } = Utils;
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg>';
+  const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3l-1.2-1.1C6 14.9 3 12.2 3 8.9 3 6.2 5.1 4.2 7.7 4.2c1.5 0 2.9.7 3.8 1.8l.5.6.5-.6c.9-1.1 2.3-1.8 3.8-1.8 2.6 0 4.7 2 4.7 4.7 0 3.3-3 6-7.8 10.3z"/></svg>';
+  const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2.5" fill="currentColor"/></svg>';
+  const RATING_WORDS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const GYM_TIME_ZONE = 'Asia/Kolkata';
+  const LIKED_KEY = 'ssv_liked_reviews';
+  const TOP_REVIEWS = 3, PAGE_SIZE = 10, CLAMP_CHARS = 280;
+  const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
+
+  const state = { general: {}, gymName: 'SSV Gym', links: {}, reviews: [], reviewForm: false, sort: 'top', listCount: PAGE_SIZE, openedFrom: null };
+
+  /* ---------- small DOM helpers ---------- */
+  function setText(key, value) {
+    $$(`[data-g="${key}"]`).forEach(el => {
+      const v = text(value);
+      if (el.hasAttribute('data-optional')) el.hidden = !v;
+      if (v) el.textContent = v;
+    });
+  }
+  function setLines(key, value) {
+    const lines = splitList(value);
+    $$(`[data-g-lines="${key}"]`).forEach(el => {
+      const row = el.closest('[data-row]');
+      if (row) row.hidden = !lines.length;
+      el.innerHTML = lines.map(esc).join('<br>');
+    });
+  }
+  function setList(key, value) {
+    const items = splitList(value);
+    $$(`[data-g-list="${key}"]`).forEach(el => {
+      el.hidden = !items.length;
+      el.innerHTML = items.map(i => `<li>${esc(i)}</li>`).join('');
+    });
+  }
+  function setParagraphs(el, value) {
+    const paras = splitList(value);
+    if (paras.length) el.innerHTML = paras.map(p => `<p>${esc(p)}</p>`).join('');
+  }
+  function setBg(el, url, alt) {
+    if (!el) return;
+    const tag = img(url, alt, { sizes: '100vw', eager: true, widths: [800, 1200, 1600, 2400] });
+    el.classList.toggle('has-img', Boolean(tag));
+    el.innerHTML = tag;
+  }
+  function setMediaBox(el, url, alt) {
+    if (!el) return;
+    const tag = img(url, alt, { sizes: '(min-width: 920px) 50vw, 100vw' });
+    el.classList.toggle('has-img', Boolean(tag));
+    el.innerHTML = tag;
+  }
+  /* A missing section is hidden, together with every link and button that points to it. */
+  function toggleSection(id, show) {
+    const section = document.getElementById(id);
+    if (section) section.hidden = !show;
+    const key = id === 'membership' ? 'plans' : id;
+    $$(`a[href="#${id}"]`).forEach(a => {
+      const li = a.closest('.nav__list li, .footer__nav li');
+      (li || a).hidden = !show;
+    });
+    $$(`[data-requires="${key}"], [data-requires="${id}"]`).forEach(el => { el.hidden = !show; });
+  }
+  const starRow = (n, label) => {
+    const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+    return `<div class="review__stars" role="img" aria-label="${esc(label || `Rated ${r} out of 5`)}">${[1, 2, 3, 4, 5].map(i => `<span${i <= r ? ' class="is-on"' : ''}>${STAR}</span>`).join('')}</div>`;
+  };
+  const liked = () => { try { return JSON.parse(localStorage.getItem(LIKED_KEY)) || []; } catch { return []; } };
+  const setLiked = (id, on) => {
+    const list = liked().filter(x => x !== id);
+    if (on) list.push(id);
+    try { localStorage.setItem(LIKED_KEY, JSON.stringify(list)); } catch { /* storage unavailable */ }
+  };
+
+  /* Details built into index.html, used when the sheet can't be reached. */
+  function readFallback() {
+    try { return JSON.parse($('#fallback-general').textContent) || {}; } catch { return {}; }
+  }
+
+  /* ---------- opening hours ----------
+     One line per group of days, "Monday – Saturday: 6:00 AM – 11:00 PM", lines separated by |.
+     A line without "Days: " is shown as it is. Times follow the gym's clock (India). */
+  const dayIndex = word => {
+    const s = String(word || '').trim().toLowerCase().slice(0, 3);
+    return s.length === 3 ? DAYS.findIndex(d => d.toLowerCase().startsWith(s)) : -1;
+  };
+  function parseDays(label) {
+    const s = label.toLowerCase();
+    if (/daily|every ?day|all (7|seven) days|7 days/.test(s)) return [0, 1, 2, 3, 4, 5, 6];
+    const days = new Set();
+    s.split(/,|&|\band\b/).forEach(part => {
+      const ends = part.split(/\s*(?:–|—|-|\bto\b)\s*/).map(x => x.trim()).filter(Boolean);
+      const a = dayIndex(ends[0]), b = ends.length > 1 ? dayIndex(ends[ends.length - 1]) : a;
+      if (a < 0 || b < 0) return;
+      for (let d = a; ; d = (d + 1) % 7) { days.add(d); if (d === b) break; }
+    });
+    return [...days];
+  }
+  const toMinutes = t => {
+    const m = String(t).trim().toLowerCase().replace(/\./g, '').match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+    if (!m) return null;
+    let h = Number(m[1]);
+    if (m[3]) { h %= 12; if (m[3] === 'pm') h += 12; }
+    return h * 60 + Number(m[2] || 0);
+  };
+  function parseTimes(value) {
+    if (/closed/i.test(value)) return { closed: true };
+    const parts = value.split(/\s*(?:–|—|-|\bto\b)\s*/i);
+    if (parts.length !== 2) return null;
+    const open = toMinutes(parts[0]), close = toMinutes(parts[1]);
+    return open === null || close === null ? null : { open, close };
+  }
+  function parseHours(value) {
+    return splitList(value).map(line => {
+      const i = line.indexOf(': ');
+      const label = i > 0 ? line.slice(0, i).trim() : '';
+      const time = i > 0 ? line.slice(i + 2).trim() : line.trim();
+      return { label, time, days: label ? parseDays(label) : [], times: label ? parseTimes(time) : null };
+    });
+  }
+  const clock = m => { const h = Math.floor(m / 60) % 24, mm = m % 60; return `${h % 12 || 12}:${pad2(mm)} ${h < 12 ? 'AM' : 'PM'}`; };
+  const hhmm = m => `${pad2(Math.floor(m / 60) % 24)}:${pad2(m % 60)}`;
+  function gymNow() {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: GYM_TIME_ZONE, weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
+      const get = type => (parts.find(p => p.type === type) || {}).value;
+      return { day: dayIndex(get('weekday')), minutes: (Number(get('hour')) % 24) * 60 + Number(get('minute')) };
+    } catch {
+      const d = new Date();
+      return { day: d.getDay(), minutes: d.getHours() * 60 + d.getMinutes() };
+    }
+  }
+  /* "Open now · until 11:00 PM", "Closed now · opens at 4:00 PM", or null when it can't be told. */
+  function openStatus(rows) {
+    const now = gymNow();
+    const rowFor = d => rows.find(r => r.days.includes(d) && r.times);
+    const today = rowFor(now.day);
+    if (!today) return null;
+    if (!today.times.closed) {
+      const { open, close } = today.times;
+      const isOpen = close > open ? now.minutes >= open && now.minutes < close : (now.minutes >= open || now.minutes < close);
+      if (isOpen) return { open: true, text: `Open now · until ${clock(close)}` };
+      if (now.minutes < open) return { open: false, text: `Closed now · opens at ${clock(open)}` };
+    }
+    for (let i = 1; i <= 7; i++) {
+      const d = (now.day + i) % 7, row = rowFor(d);
+      if (row && !row.times.closed) return { open: false, text: `Closed now · opens ${i === 1 ? 'tomorrow' : DAYS[d]} at ${clock(row.times.open)}` };
+    }
+    return { open: false, text: 'Closed now' };
+  }
+  function renderHours(g) {
+    const rows = parseHours(g.opening_hours);
+    const today = gymNow().day;
+    const html = rows.map(r => (r.label
+      ? `<li${r.days.includes(today) ? ' class="is-today"' : ''}><span>${esc(r.label)}${r.days.includes(today) ? '<em>Today</em>' : ''}</span><span>${esc(r.time)}</span></li>`
+      : `<li class="hours__note"><span>${esc(r.time)}</span></li>`)).join('');
+    $$('[data-hours]').forEach(el => { el.innerHTML = html; el.hidden = !rows.length; });
+    const row = $('[data-row="hours"]');
+    if (row) row.hidden = !rows.length;
+    const status = openStatus(rows);
+    $$('[data-hours-status]').forEach(el => {
+      el.hidden = !status;
+      if (status) { el.textContent = status.text; el.classList.toggle('is-open', status.open); }
+    });
+    return rows;
+  }
+
+  /* ---------- general content ---------- */
+  function renderGeneral(g) {
+    state.general = g;
+    state.gymName = text(g.gym_name) || 'SSV Gym';
+    ['gym_name', 'full_name', 'tagline', 'hero_subtitle', 'about_heading', 'facilities_intro', 'services_heading'].forEach(k => setText(k, g[k]));
+    setLines('address', g.address);
+    setList('facility_strip', g.facility_strip);
+
+    const heading = splitList(g.hero_heading);
+    if (heading.length) $('#hero-heading').innerHTML = heading.map(l => `<span class="hero__line">${esc(l)}</span>`).join('');
+    setBg($('#hero-media'), g.hero_image, `Inside ${state.gymName}`);
+    setMediaBox($('#about-media'), g.about_image, `Training at ${state.gymName}`);
+    if (text(g.about_text)) setParagraphs($('#about-text'), g.about_text);
+    const hl = splitList(g.about_highlights);
+    const hlEl = $('#about-highlights');
+    hlEl.hidden = !hl.length;
+    if (hl.length) hlEl.innerHTML = hl.map(h => `<li>${esc(h)}</li>`).join('');
+    const desc = text(g.description);
+    if (desc) $('meta[name="description"]').setAttribute('content', desc);
+
+    renderStats(g);
+    const hours = renderHours(g);
+    setupLinks(g);
+    setupMap(g);
+    updateStructuredData(g, hours);
+  }
+
+  /* Up to six figures from the General tab (stat_1_value / stat_1_label …). Hidden while empty. */
+  function renderStats(g) {
+    const items = [];
+    for (let i = 1; i <= 6; i++) {
+      const value = text(g[`stat_${i}_value`]), label = text(g[`stat_${i}_label`]);
+      if (value && label) items.push({ value, label });
+    }
+    $('#stats-grid').innerHTML = items.map(s => {
+      const m = s.value.match(/^(\d+)(.*)$/);
+      const shown = m ? `<span data-count="${m[1]}">${m[1]}</span><span class="stat__affix">${esc(m[2])}</span>` : esc(s.value);
+      return `<div class="stat"><dt class="stat__label">${esc(s.label)}</dt><dd class="stat__value">${shown}</dd></div>`;
+    }).join('');
+    $('#stats').hidden = !items.length;
+    countUp();
+  }
+
+  function setupLinks(g) {
+    const call = realPhone(g.phone);
+    const call2 = realPhone(g.phone_2);
+    const wa = realPhone(g.whatsapp) || call;
+    const L = {
+      phone: call ? `tel:+${call}` : '',
+      phone2: call2 ? `tel:+${call2}` : '',
+      whatsapp: wa ? `https://wa.me/${wa}?text=${encodeURIComponent(`Hi ${state.gymName}, I'd like to know more about membership.`)}` : '',
+      maps: linkUrl(g.maps_url),
+      instagram: instagramUrl(g.instagram_url),
+      facebook: linkUrl(g.facebook_url)
+    };
+    state.links = L;
+    $$('[data-link]').forEach(a => {
+      const url = L[a.dataset.link];
+      const li = a.closest('.footer__links li');
+      const target = li || a;
+      if (!url) { target.hidden = true; a.removeAttribute('href'); return; }
+      target.hidden = false;
+      a.href = url;
+      if (/^https?:/i.test(url)) { a.target = '_blank'; a.rel = 'noopener'; } else { a.removeAttribute('target'); a.removeAttribute('rel'); }
+    });
+    const shown = {
+      phone: call ? text(g.phone) : '',
+      phone2: call2 ? text(g.phone_2) : '',
+      whatsapp: wa ? text(g.whatsapp) || text(g.phone) : '',
+      instagram: L.instagram ? '@' + (L.instagram.match(/instagram\.com\/([^/?#]+)/i) || [])[1] : '',
+      facebook: L.facebook ? `${state.gymName} on Facebook` : ''
+    };
+    $$('[data-show]').forEach(el => {
+      const key = el.dataset.show;
+      const row = el.closest('[data-row]');
+      if (row) row.hidden = !shown[key];
+      if (shown[key]) el.textContent = shown[key];
+    });
+    const connect = $('#footer-connect');
+    if (connect) connect.hidden = !$$('.footer__links li', connect).some(li => !li.hidden);
+    const google = $('#google-reviews');
+    google.hidden = !L.maps;
+    if (L.maps) google.href = L.maps;
+    // The quick-contact bar only appears on phones when there is a real number to call.
+    $('#mobile-bar').hidden = !L.phone && !L.whatsapp;
+    document.body.classList.toggle('has-mobile-bar', Boolean(L.phone || L.whatsapp));
+  }
+
+  /* Map card: the embedded Google map (dark to match the site, normal colours on hover),
+     with the gym's name, address and a directions button. */
+  function setupMap(g) {
+    const box = $('#map-embed');
+    const wrap = box.closest('.contact__map') || box;
+    const src = mapEmbedSrc(g.maps_embed_url);
+    if (!src) { wrap.hidden = true; box.innerHTML = ''; delete box.dataset.key; return; }
+    const address = splitList(g.address).join(', ');
+    const maps = state.links.maps;
+    const key = [src, address, maps, state.gymName].join('|');
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
+      box.innerHTML = `<div class="map__frame"><iframe src="${esc(src)}" title="Map showing the location of ${esc(state.gymName)}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+        <figcaption class="map__card">
+          <span class="map__pin" aria-hidden="true">${PIN}</span>
+          <span class="map__text"><strong>${esc(state.gymName)}</strong>${address ? `<span>${esc(address)}</span>` : ''}</span>
+          ${maps ? `<a class="btn btn--primary btn--sm" href="${esc(maps)}" target="_blank" rel="noopener">Get directions</a>` : ''}
+        </figcaption>`;
+    }
+    wrap.hidden = false;
+  }
+
+  /* Keeps the business details for search engines in step with the sheet. */
+  function updateStructuredData(g, hours) {
+    const el = $('#ld-business');
+    if (!el) return;
+    let data;
+    try { data = JSON.parse(el.textContent); } catch { return; }
+    const call = realPhone(g.phone);
+    const set = (k, v) => { if (v) data[k] = v; else delete data[k]; };
+    set('name', state.gymName);
+    set('alternateName', text(g.full_name));
+    set('description', text(g.description));
+    set('telephone', call ? '+' + call : '');
+    set('hasMap', state.links.maps);
+    set('image', text(g.hero_image) && !isPlaceholder(g.hero_image) ? text(g.hero_image) : '');
+    const lines = splitList(g.address);
+    if (lines.length) {
+      const last = lines[lines.length - 1];
+      const pin = (last.match(/\b\d{6}\b/) || [])[0];
+      const parts = last.replace(/\b\d{6}\b/, '').split(',').map(s => s.trim()).filter(Boolean);
+      data.address = { '@type': 'PostalAddress', streetAddress: lines.slice(0, -1).join(', ') || last, addressLocality: parts[0] || '', addressRegion: parts[1] || '', postalCode: pin || '', addressCountry: 'IN' };
+      Object.keys(data.address).forEach(k => { if (!data.address[k]) delete data.address[k]; });
+    }
+    const specs = (hours || []).filter(r => r.days.length && r.times && !r.times.closed)
+      .map(r => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: r.days.map(d => DAYS[d]), opens: hhmm(r.times.open), closes: hhmm(r.times.close) }));
+    set('openingHoursSpecification', specs.length ? specs : '');
+    const same = [state.links.instagram, state.links.facebook].filter(Boolean);
+    set('sameAs', same.length ? same : '');
+    el.textContent = JSON.stringify(data, null, 2);
+  }
+
+  /* ---------- announcements: short notices in the strip, photo ones as event cards ---------- */
+  const byPriority = (a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date));
+
+  function renderAnnouncements(list) {
+    const today = isoDate(new Date());
+    const live = (Array.isArray(list) ? list : []).filter(a => truthy(a.active) && (!text(a.expiry) || isoDate(a.expiry) >= today));
+    const notices = live.filter(a => !text(a.image_url)).sort(byPriority);
+    $('#announcements').hidden = !notices.length;
+    $('#notice-list').innerHTML = notices.map(a => `
+      <li class="notice__item">
+        ${toDate(a.date) ? `<time datetime="${esc(isoDate(a.date))}">${esc(formatDate(a.date))}</time>` : '<span></span>'}
+        <div><h3>${esc(a.title)}</h3>${text(a.description) ? `<p>${esc(a.description)}</p>` : ''}</div>
+      </li>`).join('');
+
+    // Events: upcoming first (soonest first), then past ones (most recent first).
+    const upcoming = e => !toDate(e.date) || isoDate(e.date) >= today;
+    const events = live.filter(a => text(a.image_url)).sort((a, b) => {
+      const ua = upcoming(a) ? 0 : 1, ub = upcoming(b) ? 0 : 1;
+      if (ua !== ub) return ua - ub;
+      const da = String(isoDate(a.date) || '9999'), db = String(isoDate(b.date) || '9999');
+      return (ua === 0 ? da.localeCompare(db) : db.localeCompare(da)) || byPriority(a, b);
+    });
+    toggleSection('events', events.length > 0);
+    $('#event-grid').innerHTML = events.map((e, i) => {
+      const d = toDate(e.date), past = !upcoming(e);
+      const badge = d ? `<span class="event__date"><b>${d.getDate()}</b>${esc(d.toLocaleDateString('en-IN', { month: 'short' }))}</span>` : '';
+      return `<article class="event${past ? ' is-past' : ''}">
+        <div class="event__media">${media(e.image_url, e.title, e.title, { cls: `event__img tone-${(i % 3) + 1}`, sizes: '(min-width: 1024px) 33vw, (min-width: 700px) 50vw, 100vw', widths: [480, 800, 1200] })}${badge}</div>
+        <div class="event__body">
+          ${past ? '<p class="event__tag">Past event</p>' : (d ? `<p class="event__tag">${esc(d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))}</p>` : '')}
+          <h3 class="event__title">${esc(e.title)}</h3>
+          ${text(e.description) ? `<p class="event__desc">${esc(e.description)}</p>` : ''}
+          ${past ? '' : `<a class="btn btn--ghost btn--sm" href="#contact" data-enquire="${esc(`I'd like to know more about: ${text(e.title)}.`)}">Ask about this</a>`}
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  /* ---------- facilities: information cards (no links) ---------- */
+  function renderFacilities(list) {
+    const items = activeSorted(list);
+    const major = items.filter(f => text(f.category).toLowerCase() !== 'additional');
+    const extra = items.filter(f => text(f.category).toLowerCase() === 'additional');
+    toggleSection('facilities', items.length > 0);
+    $('#facility-grid').innerHTML = major.map((f, i) => {
+      const tags = splitList(f.tags).map(esc).join(' <i>/</i> ');
+      return `<article class="facility-card">
+        ${media(f.image_url, f.name, f.name, { cls: `facility-card__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1024px) 33vw, (min-width: 760px) 50vw, 100vw' })}
+        <div class="facility-card__body">
+          <h3 class="facility-card__title">${esc(f.name)}</h3>
+          ${tags ? `<p class="facility-card__tags">${tags}</p>` : ''}
+          ${text(f.description) ? `<p class="facility-card__desc">${esc(f.description)}</p>` : ''}
+        </div>
+      </article>`;
+    }).join('');
+    $('#facility-grid').hidden = !major.length;
+    const tag = $('.about__tag');
+    if (tag) { tag.hidden = !major.length; $('#zone-count').textContent = major.length; }
+    $('#facility-extra').hidden = !extra.length;
+    $('#facility-extra-list').innerHTML = extra.map(f => `<li><div><h4>${esc(f.name)}</h4>${text(f.description) ? `<p>${esc(f.description)}</p>` : ''}</div></li>`).join('');
+  }
+
+  /* ---------- membership plans, then personal training and diet plans ---------- */
+  function renderPlans(list, general) {
+    const items = activeSorted(list);
+    const board = $('#plan-grid');
+    board.hidden = !items.length;
+    $('#plans-note').hidden = !items.length;
+    board.style.setProperty('--cols', Math.min(Math.max(items.length, 1), 4));
+    const badge = text(general.featured_badge_text) || 'Best value';
+    board.innerHTML = items.map(p => {
+      const featured = truthy(p.featured);
+      const price = text(p.price);
+      const months = durationMonths(p.duration);
+      const amount = Number(price.replace(/[₹,\s]/g, ''));
+      const perMonth = price && months > 1 && amount > 0 ? `₹${Math.round(amount / months).toLocaleString('en-IN')} / month` : '';
+      const features = splitList(p.features);
+      const enquire = `I'm interested in the ${text(p.name)} plan${text(p.duration) ? ` (${text(p.duration)})` : ''}.`;
+      return `<article class="plan${featured ? ' plan--featured' : ''}">
+        <div class="plan__top"><h3 class="plan__name">${esc(p.name)}</h3>${featured ? `<span class="plan__badge">${esc(badge)}</span>` : ''}</div>
+        ${price ? `<p class="plan__price">${esc(formatPrice(price))}</p>` : '<p class="plan__price plan__price--ask">Price on enquiry</p>'}
+        <p class="plan__duration">${esc(p.duration)}${perMonth ? `<span class="plan__per">${perMonth}</span>` : ''}</p>
+        <div class="plan__body">
+          ${text(p.description) ? `<p class="plan__desc">${esc(p.description)}</p>` : ''}
+          ${features.length ? `<ul class="plan__features">${features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+        </div>
+        <a class="btn ${featured ? 'btn--primary' : 'btn--ghost'} btn--block" href="#contact" data-enquire="${esc(enquire)}">Enquire</a>
+      </article>`;
+    }).join('');
+    return items.length;
+  }
+
+  function renderServices(list) {
+    const items = activeSorted(list);
+    $('#services').hidden = !items.length;
+    $('#service-grid').innerHTML = items.map(s => {
+      const price = text(s.price);
+      return `<article class="service">
+        <h4 class="service__name">${esc(s.name)}</h4>
+        ${price ? `<p class="service__price">${esc(formatPrice(price))}${text(s.price_note) ? `<span>${esc(s.price_note)}</span>` : ''}</p>` : '<p class="service__price service__price--ask">Price on enquiry</p>'}
+        ${text(s.description) ? `<p class="service__desc">${esc(s.description)}</p>` : ''}
+        <a class="text-link" href="#contact" data-enquire="${esc(`I'm interested in ${text(s.name)}.`)}">Enquire</a>
+      </article>`;
+    }).join('');
+    return items.length;
+  }
+
+  function renderTrainers(list) {
+    const items = activeSorted(list);
+    toggleSection('trainers', items.length > 0);
+    $('#trainer-grid').innerHTML = items.map((t, i) => `
+      <article class="trainer">
+        ${media(t.image_url, t.name, t.name, { cls: `trainer__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1100px) 25vw, (min-width: 600px) 45vw, 100vw', widths: [400, 700, 1000] })}
+        <div class="trainer__body">
+          <h3 class="trainer__name">${esc(t.name)}</h3>
+          ${text(t.role) ? `<p class="trainer__role">${esc(t.role)}</p>` : ''}
+          ${text(t.specialization) ? `<p class="trainer__spec">${esc(t.specialization)}</p>` : ''}
+          ${text(t.bio) ? `<p class="trainer__bio">${esc(t.bio)}</p>` : ''}
+        </div>
+      </article>`).join('');
+  }
+
+  function renderGallery(list, general) {
+    const items = activeSorted(list).filter(i => text(i.image_url));
+    toggleSection('gallery', items.length > 0);
+    Gallery.init(items, splitList(general.gallery_categories));
+  }
+
+  /* ---------- reviews ---------- */
+  const avatar = name => `<span class="avatar" aria-hidden="true">${esc(initials(name))}</span>`;
+  const byTop = (a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0) || String(b.date).localeCompare(String(a.date));
+  const byNew = (a, b) => String(b.date).localeCompare(String(a.date)) || (Number(b.likes) || 0) - (Number(a.likes) || 0);
+
+  function reviewHtml(r) {
+    const words = String(r.review || '');
+    const long = words.length > CLAMP_CHARS;
+    const likes = Number(r.likes) || 0;
+    const on = liked().includes(r.id);
+    return `<article class="review" data-id="${esc(r.id)}">
+      <div class="review__top">${starRow(r.rating)}${toDate(r.date) ? `<time datetime="${esc(isoDate(r.date))}">${esc(timeAgo(r.date))}</time>` : ''}</div>
+      <blockquote class="review__text${long ? ' is-clamped' : ''}"><p>${esc(words)}</p></blockquote>
+      ${long ? '<button class="review__more" type="button" aria-expanded="false">Read more</button>' : ''}
+      <div class="review__foot">
+        <div class="review__who">${avatar(r.name)}<span>${esc(r.name)}</span></div>
+        <button class="like" type="button" data-like="${esc(r.id)}" aria-pressed="${on}" aria-label="${on ? 'Remove like' : 'Like this review'}">${HEART}<span class="like__count">${likes}</span></button>
+      </div>
+    </article>`;
+  }
+
+  function renderReviews(list, general) {
+    state.reviews = (Array.isArray(list) ? list : []).filter(r => text(r.review));
+    state.reviewForm = !isFalse(general.review_form);
+    const items = state.reviews.slice().sort(byTop);
+    const total = items.length;
+    toggleSection('reviews', total > 0 || state.reviewForm);
+    $('#write-review').hidden = !state.reviewForm;
+
+    const rated = items.filter(r => Number(r.rating) > 0);
+    $('#reviews-summary').hidden = !rated.length;
+    if (rated.length) {
+      const avg = rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length;
+      $('#reviews-avg').textContent = avg.toFixed(1);
+      $('#reviews-avg-stars').innerHTML = starRow(avg, `Average rating ${avg.toFixed(1)} out of 5`);
+      $('#reviews-count').textContent = `${rated.length} review${rated.length === 1 ? '' : 's'}`;
+    }
+
+    $('#review-grid').innerHTML = total
+      ? items.slice(0, TOP_REVIEWS).map(reviewHtml).join('')
+      : `<p class="reviews__empty">No reviews yet.${state.reviewForm ? ' Trained at SSV? Be the first to share your experience.' : ''}</p>`;
+    $('#reviews-more').hidden = total <= TOP_REVIEWS;
+    $('#all-reviews-count').textContent = total;
+    if ($('#reviews-dialog').open) renderReviewList();
+  }
+
+  function renderReviewList() {
+    const items = state.reviews.slice().sort(state.sort === 'new' ? byNew : byTop);
+    $('#review-list').innerHTML = items.slice(0, state.listCount).map(reviewHtml).join('');
+    const more = $('#review-list-more');
+    more.hidden = items.length <= state.listCount;
+    more.textContent = `Show more reviews (${items.length - state.listCount} more)`;
+    $$('#reviews-dialog [data-sort]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sort === state.sort)));
+  }
+
+  function openDialog(dlg, from) {
+    state.openedFrom = from || document.activeElement;
+    document.body.classList.add('dialog-open');
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  }
+  function closeDialog(dlg) {
+    if (typeof dlg.close === 'function') dlg.close();
+    else { dlg.removeAttribute('open'); dlg.dispatchEvent(new Event('close')); }
+  }
+
+  async function toggleLike(btn) {
+    const id = btn.dataset.like;
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    const r = state.reviews.find(x => x.id === id);
+    const before = r ? Number(r.likes) || 0 : Number(btn.textContent) || 0;
+    const optimistic = Math.max(0, before + (on ? 1 : -1));
+    const paint = (count, pressed) => $$(`[data-like="${CSS.escape(id)}"]`).forEach(b => {
+      b.setAttribute('aria-pressed', String(pressed));
+      b.setAttribute('aria-label', pressed ? 'Remove like' : 'Like this review');
+      $('.like__count', b).textContent = count;
+    });
+    setLiked(id, on);
+    if (r) r.likes = optimistic;
+    paint(optimistic, on);
+    $$(`[data-like="${CSS.escape(id)}"]`).forEach(b => { b.disabled = true; });
+    try {
+      const res = await API.likeReview(id, on);
+      if (r) r.likes = res.likes;
+      API.setReviewLikes(id, res.likes);
+      paint(res.likes, on);
+    } catch (err) {
+      setLiked(id, !on);
+      if (r) r.likes = before;
+      paint(before, !on);
+    } finally {
+      $$(`[data-like="${CSS.escape(id)}"]`).forEach(b => { b.disabled = false; });
+    }
+  }
+
+  function bindReviews() {
+    document.addEventListener('click', e => {
+      const like = e.target.closest('[data-like]');
+      if (like) { toggleLike(like); return; }
+      const more = e.target.closest('.review__more');
+      if (more) {
+        const quote = more.previousElementSibling;
+        const open = quote.classList.toggle('is-clamped') === false;
+        more.textContent = open ? 'Show less' : 'Read more';
+        more.setAttribute('aria-expanded', String(open));
+      }
+    });
+    const all = $('#reviews-dialog'), write = $('#review-dialog');
+    $('#all-reviews').addEventListener('click', e => { state.listCount = PAGE_SIZE; renderReviewList(); openDialog(all, e.currentTarget); });
+    $('#review-list-more').addEventListener('click', () => { state.listCount += PAGE_SIZE; renderReviewList(); });
+    $$('#reviews-dialog [data-sort]').forEach(b => b.addEventListener('click', () => { state.sort = b.dataset.sort; state.listCount = PAGE_SIZE; renderReviewList(); }));
+    $('#write-review').addEventListener('click', e => { openDialog(write, e.currentTarget); setTimeout(() => $('#rate-5').focus(), 60); });
+    [all, write].forEach(dlg => {
+      dlg.addEventListener('click', e => { if (e.target === dlg || e.target.closest('[data-close]')) closeDialog(dlg); });
+      dlg.addEventListener('close', () => {
+        document.body.classList.remove('dialog-open');
+        if (state.openedFrom && document.contains(state.openedFrom)) state.openedFrom.focus();
+      });
+    });
+    setupReviewForm();
+  }
+
+  function setupReviewForm() {
+    const form = $('#review-form'), status = $('#review-status');
+    const note = (msg, ok) => { status.textContent = msg; status.className = `enquiry__status ${ok ? 'is-success' : 'is-error'}`; };
+    $$('input[name="rating"]', form).forEach(r => r.addEventListener('change', () => { $('#rating-text').textContent = RATING_WORDS[Number(r.value)]; }));
+    $('#rev-text').addEventListener('input', e => { $('#rev-count').textContent = e.target.value.length; });
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form));
+      const name = text(data.name), review = text(data.review), rating = Number(data.rating);
+      $$('[aria-invalid]', form).forEach(el => el.removeAttribute('aria-invalid'));
+      if (!rating) { note('Tap a star to rate SSV.', false); $('#rate-5').focus(); return; }
+      if (name.length < 2) { $('#rev-name').setAttribute('aria-invalid', 'true'); $('#rev-name').focus(); note('Enter your name.', false); return; }
+      if (review.length < 5) { $('#rev-text').setAttribute('aria-invalid', 'true'); $('#rev-text').focus(); note('Write a few words about your experience.', false); return; }
+      if (LINK_PATTERN.test(name + ' ' + review)) { note('Please remove links from your review.', false); return; }
+      if (!API.isConfigured()) { note('Reviews can\'t be sent right now. Please try again later.', false); return; }
+      const btn = $('button[type="submit"]', form);
+      btn.disabled = true; btn.textContent = 'Posting…'; status.textContent = '';
+      try {
+        const res = await API.submitReview({ name, rating, review, website: data.website || '' });
+        form.reset();
+        $('#rev-count').textContent = '0';
+        $('#rating-text').textContent = 'Tap a star';
+        closeDialog($('#review-dialog'));
+        const msg = $('#reviews-note');
+        if (res.review) {
+          state.reviews.unshift(res.review);
+          API.addReview(res.review);
+          renderReviews(state.reviews, state.general);
+          msg.textContent = 'Thank you! Your review is now on the website.';
+        } else {
+          msg.textContent = 'Thank you! Your review will appear once the gym approves it.';
+        }
+        msg.hidden = false;
+        $('#reviews').scrollIntoView({ block: 'start' });
+      } catch (err) {
+        note(err.code === 'CLOSED' || err.code === 'VALIDATION' || err.code === 'DUPLICATE' || err.code === 'RATE_LIMITED'
+          ? err.message : 'Your review could not be sent. Please try again in a moment.', false);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Post review';
+      }
+    });
+  }
+
+  /* ---------- count-up for stats ---------- */
+  function countUp() {
+    const nums = $$('[data-count]');
+    if (!nums.length) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const io = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      io.unobserve(entry.target);
+      const el = entry.target, end = Number(el.dataset.count);
+      if (!end) return;
+      const t0 = performance.now(), dur = 1100;
+      const tick = t => {
+        const p = Math.min((t - t0) / dur, 1);
+        el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }), { threshold: 0.6 });
+    nums.forEach(n => io.observe(n));
+  }
+
+  /* ---------- navigation & interactions ---------- */
+  function setupNav() {
+    const header = $('.site-header');
+    const toggle = $('.nav-toggle');
+    const onScroll = () => header.classList.toggle('is-scrolled', window.scrollY > 10);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const close = () => { document.body.classList.remove('nav-open'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Open menu'); };
+    toggle.addEventListener('click', () => {
+      const open = document.body.classList.toggle('nav-open');
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    });
+    $$('#site-nav a').forEach(a => a.addEventListener('click', close));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('nav-open')) { close(); toggle.focus(); } });
+    matchMedia('(min-width: 1081px)').addEventListener('change', e => { if (e.matches) close(); });
+
+    // Highlight the menu link of the section on screen.
+    if ('IntersectionObserver' in window) {
+      const links = $$('.nav__link');
+      const spy = new IntersectionObserver(entries => entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        links.forEach(l => l.classList.toggle('is-active', l.getAttribute('href') === `#${entry.target.id}`));
+      }), { rootMargin: '-45% 0px -50% 0px' });
+      links.forEach(l => { const s = document.querySelector(l.getAttribute('href')); if (s) spy.observe(s); });
+    }
+
+    // Plan, service and event buttons prefill the enquiry message.
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('[data-enquire]');
+      if (!btn) return;
+      const msg = $('#enq-message');
+      if (msg && !msg.value.trim()) msg.value = btn.dataset.enquire;
+    });
+  }
+
+  function setupReveal() {
+    const els = $$('.reveal');
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.documentElement.classList.add('reveal-on');
+    const io = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { entry.target.classList.add('is-visible'); io.unobserve(entry.target); }
+    }), { rootMargin: '0px 0px -8% 0px' });
+    els.forEach(el => io.observe(el));
+  }
+
+  /* ---------- enquiry form ---------- */
+  function setupEnquiry() {
+    const form = $('#enquiry-form');
+    const status = $('#enquiry-status');
+    const note = (msg, ok) => { status.textContent = msg; status.className = `enquiry__status ${ok ? 'is-success' : 'is-error'}`; };
+    const noteWithWhatsApp = msg => {
+      note(msg, false);
+      if (state.links.whatsapp) status.insertAdjacentHTML('beforeend', ` <a href="${esc(state.links.whatsapp)}" target="_blank" rel="noopener">Message us on WhatsApp</a>`);
+    };
+    const invalid = (input, msg) => { input.setAttribute('aria-invalid', 'true'); input.focus(); note(msg, false); };
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form));
+      $$('[aria-invalid]', form).forEach(el => el.removeAttribute('aria-invalid'));
+      if (text(data.name).length < 2) return invalid(form.elements.name, 'Please enter your name.');
+      const phoneDigits = String(data.phone || '').replace(/\D/g, '');
+      if (phoneDigits.length < 10 || phoneDigits.length > 13) return invalid(form.elements.phone, 'Please enter a valid phone number.');
+      if (!API.isConfigured()) return noteWithWhatsApp('Online enquiries are not available right now.');
+
+      const btn = $('button[type="submit"]', form);
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      status.textContent = '';
+      try {
+        await API.submitEnquiry({ name: text(data.name), phone: text(data.phone), message: text(data.message), website: data.website || '' });
+        form.reset();
+        note('Thank you. The gym will contact you soon.', true);
+      } catch (err) {
+        if (err.code === 'DUPLICATE' || err.code === 'RATE_LIMITED' || err.code === 'VALIDATION') note(err.message, false);
+        else noteWithWhatsApp('Your enquiry could not be sent.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send enquiry';
+      }
+    });
+  }
+
+  /* ---------- boot ---------- */
+  function render(c) {
+    const offline = c.source === 'offline';
+    const g = offline ? readFallback() : { ...readFallback(), ...c.general };
+    renderGeneral(g);
+    renderAnnouncements(c.announcements);
+    renderFacilities(c.facilities);
+    const plans = renderPlans(c.plans, g);
+    const services = renderServices(c.services);
+    toggleSection('membership', plans + services > 0);
+    renderTrainers(c.trainers);
+    renderGallery(c.gallery, g);
+    renderReviews(c.reviews, g);
+  }
+
+  async function init() {
+    $('#year').textContent = new Date().getFullYear();
+    setupNav();
+    bindReviews();
+    setupEnquiry();
+    document.body.classList.add('is-loading');
+    let content;
+    try {
+      content = await API.getContent({ onUpdate: fresh => { render(fresh); $$('.reveal').forEach(el => el.classList.add('is-visible')); } });
+    } catch (err) {
+      console.error('[SSV] Could not load content:', err);
+      content = { source: 'offline', general: {}, facilities: [], plans: [], services: [], trainers: [], gallery: [], reviews: [], announcements: [] };
+    }
+    document.body.classList.remove('is-loading');
+    render(content);
+    setupReveal();
+    setInterval(() => renderHours(state.general), 60000); // keeps "Open now" correct while the page is open
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+```
+
+---
+
+## `js/utils.js`
+
+```javascript
+/* SSV GYM — small shared helpers used by the website and the admin panel. v1.5.0 */
+const Utils = (() => {
+  const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ESC[c]);
+  const text = v => String(v ?? '').trim();
+  const truthy = v => v === true || /^(true|yes|y|1)$/i.test(text(v));
+  const isFalse = v => v === false || /^(false|no|n|0)$/i.test(text(v));
+
+  /* Lists in the sheet are separated with "|" or new lines. */
+  const splitList = v => String(v ?? '').split(/\s*(?:\r?\n|\|)\s*/).map(s => s.trim()).filter(Boolean);
+
+  /* True for empty values and obvious placeholders. */
+  const isPlaceholder = v => {
+    const s = text(v);
+    return !s || /^YOUR_|X{4,}|will appear here/i.test(s);
+  };
+
+  const digits = v => String(v ?? '').replace(/\D/g, '');
+  /* International number without "+". 10-digit numbers are assumed to be Indian (+91). */
+  const intlPhone = v => {
+    const d = digits(v);
+    if (d.length === 10) return '91' + d;
+    if (d.length === 11 && d[0] === '0') return '91' + d.slice(1);
+    return d.length >= 11 && d.length <= 15 ? d : '';
+  };
+  /* Obvious dummy numbers: all zeros, one repeated digit, 1234567890, 9876543210. */
+  const isDummyPhone = v => {
+    const d = digits(v).replace(/^(91|0)(?=\d{10}$)/, '');
+    return d.length > 0 && (/^(\d)\1+$/.test(d) || /^(0123456789|1234567890|9876543210)$/.test(d));
+  };
+  /* The gym's own number for Call / WhatsApp links, or '' when it is missing or a dummy. */
+  const realPhone = v => (isDummyPhone(v) ? '' : intlPhone(v));
+
+  /* Only allow http(s)/tel/mailto/blob URLs, relative paths, and embedded photos (used by the demo). */
+  const safeUrl = v => {
+    const s = text(v);
+    if (!s || /^YOUR_/i.test(s)) return '';
+    if (/^(https?:|mailto:|tel:|blob:)/i.test(s)) return s;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(s)) return s;
+    if (!/^[a-z][\w+.-]*:/i.test(s) && /^(#|\.{0,2}\/|[\w-]+\/)/.test(s)) return s;
+    return '';
+  };
+
+  /* A link typed without https:// (www.instagram.com/…, maps.app.goo.gl/…) gets it added. */
+  const linkUrl = v => {
+    const s = text(v);
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#]\S*)?$/i.test(s) && !/\.(jpe?g|png|webp|gif|svg|html?)$/i.test(s)) return 'https://' + s;
+    return safeUrl(s);
+  };
+
+  /* Instagram profile link from a URL or an @handle. A bare instagram.com link counts as missing. */
+  const instagramUrl = v => {
+    const s = text(v);
+    if (!s || /^YOUR_/i.test(s)) return '';
+    if (!/[/:]/.test(s) && !/instagram\./i.test(s)) {
+      const handle = s.replace(/^@/, '');
+      return /^[A-Za-z0-9._]{1,30}$/.test(handle) ? `https://www.instagram.com/${handle}/` : '';
+    }
+    const u = linkUrl(s);
+    return /instagram\.com\/?$/i.test(u.split(/[?#]/)[0]) ? '' : u;
+  };
+
+  /* Google Maps embed link. Accepts the link itself or the whole <iframe …> code Google gives you. */
+  const mapEmbedSrc = v => {
+    let s = text(v);
+    const m = s.match(/src\s*=\s*["']([^"']+)["']/i);
+    if (m) s = m[1];
+    s = s.replace(/&amp;/g, '&');
+    return /^https:\/\/(www\.)?google\.[a-z.]+\/maps\/embed\?/i.test(s) ? s : '';
+  };
+
+  /* ---------- videos in the gallery: uploaded to Cloudinary, or YouTube links ---------- */
+  const youtubeId = v => {
+    const m = text(v).match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+    return m ? m[1] : '';
+  };
+  const CLD_VIDEO = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.+?)(\.[a-z0-9]{2,5})?$/i;
+  /* 'youtube', 'video' or 'image' */
+  const mediaKind = v => {
+    const s = text(v);
+    if (youtubeId(s)) return 'youtube';
+    return CLD_VIDEO.test(s) || /\.(mp4|webm|mov)(\?|#|$)/i.test(s) ? 'video' : 'image';
+  };
+  /* A still picture for a video: Cloudinary makes one from the first frame; YouTube has its own. */
+  const videoPoster = (v, width = 800) => {
+    const s = text(v), yt = youtubeId(s);
+    if (yt) return `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`;
+    const m = s.match(CLD_VIDEO);
+    return m ? `${m[1]}so_0,q_auto,c_limit,w_${width}/${m[2]}.jpg` : '';
+  };
+  /* A version every browser can play (MP4, H.264), made by Cloudinary from the upload. */
+  const videoSrc = v => {
+    const s = text(v), m = s.match(CLD_VIDEO);
+    return m ? `${m[1]}q_auto,vc_h264/${m[2]}.mp4` : safeUrl(s);
+  };
+
+  const pad2 = n => String(n).padStart(2, '0');
+  const toDate = v => {
+    if (v instanceof Date) return isNaN(v) ? null : v;
+    if (!v) return null;
+    const s = text(v);
+    const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00' : s.replace(' ', 'T'));
+    return isNaN(d) ? null : d;
+  };
+  /* yyyy-MM-dd for <input type="date">. Also accepts "2026-09-24 10:30" and other parseable dates. */
+  const isoDate = v => {
+    const s = v instanceof Date ? '' : text(v), m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+    const d = v instanceof Date ? v : (s ? new Date(s) : null);
+    return d && !isNaN(d) ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
+  };
+  const formatDate = v => {
+    const d = toDate(v);
+    return d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : String(v ?? '');
+  };
+  /* "Just now", "3 hours ago", "Yesterday", "5 days ago", then the date itself. */
+  const timeAgo = v => {
+    const d = toDate(v);
+    if (!d) return '';
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text(v));
+    const now = new Date();
+    if (!dateOnly) {
+      const s = (now - d) / 1000;
+      if (s < 3600) return 'Just now';
+      if (s < 86400) { const h = Math.floor(s / 3600); return `${h} hour${h === 1 ? '' : 's'} ago`; }
+    }
+    const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+    if (days <= 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 30) return `${days} days ago`;
+    return formatDate(d);
+  };
+  const formatPrice = v => {
+    const s = text(v);
+    return /^₹?\s*[\d,]+(\.\d+)?$/.test(s) ? '₹' + Number(s.replace(/[₹,\s]/g, '')).toLocaleString('en-IN') : s;
+  };
+  /* Months in a plan duration: "3 Months" -> 3, "1 Year" / "Yearly" -> 12, "Half Yearly" -> 6. 0 if unknown. */
+  const durationMonths = v => {
+    const s = text(v).toLowerCase();
+    const n = Number((s.match(/\d+(\.\d+)?/) || [])[0]) || 1;
+    if (/year|annual/.test(s)) return /half/.test(s) ? 6 : n * 12;
+    if (/quarter/.test(s)) return n * 3;
+    if (/month/.test(s)) return n;
+    return 0;
+  };
+
+  /* Lower display_order first; rows without one go last. */
+  const orderOf = v => { const n = Number(v); return v === '' || v === null || v === undefined || isNaN(n) ? Infinity : n; };
+  const byOrder = (a, b) => { const x = orderOf(a.display_order), y = orderOf(b.display_order); return x === y ? 0 : (x < y ? -1 : 1); };
+  const activeSorted = list => (Array.isArray(list) ? list : []).filter(i => truthy(i.active)).sort(byOrder);
+  const initials = name => String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
+
+  /* Resize hosted images: Cloudinary uploads, and the Unsplash stand-in photos. */
+  const CLD = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/;
+  const UNSPLASH = /^https:\/\/images\.unsplash\.com\//;
+  const cld = (url, width) => {
+    const s = String(url || '');
+    const m = s.match(CLD);
+    if (m) return `${m[1]}f_auto,q_auto,c_limit,w_${width}/${m[2]}`;
+    if (UNSPLASH.test(s)) {
+      try {
+        const u = new URL(s);
+        u.searchParams.set('auto', 'format');
+        u.searchParams.set('fit', 'crop');
+        u.searchParams.set('q', '75');
+        u.searchParams.set('w', String(width));
+        return u.toString();
+      } catch { return url; }
+    }
+    return url;
+  };
+
+  /* <img> with lazy loading and a responsive srcset for Cloudinary / Unsplash images. */
+  const img = (url, alt, { sizes = '100vw', widths = [480, 800, 1200, 1600], eager = false } = {}) => {
+    const u = safeUrl(url);
+    if (!u) return '';
+    const hosted = CLD.test(u) || UNSPLASH.test(u);
+    const srcset = hosted ? ` srcset="${widths.map(w => `${esc(cld(u, w))} ${w}w`).join(', ')}" sizes="${esc(sizes)}"` : '';
+    const src = hosted ? cld(u, widths[Math.min(1, widths.length - 1)]) : u;
+    return `<img src="${esc(src)}"${srcset} alt="${esc(alt)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+  };
+
+  /* Image box that shows a designed placeholder until a photo URL exists. */
+  const media = (url, alt, label, opts = {}) => {
+    const tag = img(url, alt, opts);
+    return `<div class="media ${opts.cls || ''}${tag ? ' has-img' : ''}" data-label="${esc(label)}">${tag}</div>`;
+  };
+
+  /* Broken image? Fall back to the placeholder instead of a broken icon. */
+  document.addEventListener('error', event => {
+    const el = event.target;
+    if (!el || el.tagName !== 'IMG') return;
+    const box = el.parentElement;
+    if (box && box.classList.contains('media')) box.classList.remove('has-img');
+    el.remove();
+  }, true);
+
+  return {
+    esc, text, truthy, isFalse, splitList, isPlaceholder, digits, intlPhone, isDummyPhone, realPhone, safeUrl, linkUrl,
+    instagramUrl, mapEmbedSrc, youtubeId, mediaKind, videoPoster, videoSrc, pad2, toDate, isoDate, formatDate, timeAgo,
+    formatPrice, durationMonths, byOrder, activeSorted, initials, cld, img, media
+  };
+})();
+```
+
+---
+
+## `apps-script/Code.gs`
+
+```javascript
+/**
+ * ===========================================================================
+ *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.5.0
+ * ===========================================================================
+ *  First time
+ *    1. Open the "SSV Gym CMS" spreadsheet > Extensions > Apps Script.
+ *    2. Paste this file (the default appsscript.json needs no changes), save,
+ *       and reload the sheet.
+ *    3. Sheet menu: SSV Admin > Set up / repair sheets, Set admin password,
+ *       then Set Cloudinary keys.
+ *    4. Deploy > New deployment > Web app. Execute as: Me. Who has access: Anyone.
+ *    5. Paste the /exec URL into js/config.js > API_URL.
+ *  Updating
+ *    Paste, save, reload the sheet, run SSV Admin > Set up / repair sheets,
+ *    then Deploy > Manage deployments > Edit (pencil) > Version: New version > Deploy.
+ *
+ *  SECRETS live in Script Properties and are set from the sheet menu. Never
+ *  type passwords or API secrets into the sheet or the website:
+ *    ADMIN_PASSWORD_HASH / ADMIN_PASSWORD_SALT   SSV Admin > Set admin password
+ *    CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET   SSV Admin > Set Cloudinary keys
+ *    SHEET_ID       (optional)  only if this script is NOT bound to the sheet
+ *  Email alerts go to NOTIFY_EMAIL in the Config tab (several addresses
+ *  separated by commas). They only receive alerts; editing needs the password.
+ * ===========================================================================
+ */
+
+const VERSION = '1.5.0';
+const SEED_LEVEL = '1.5.0';            // level of the starting content (see setupSheets)
+const NOTIFY_DEFAULT = 'ssvgym2021@gmail.com, laxman19.sawant@gmail.com';
+const SESSION_SECONDS = 6 * 60 * 60;   // admin session, extended on each use (CacheService maximum)
+const CONTENT_CACHE_SECONDS = 300;     // public content cache
+const CONTENT_CACHE_KEY = 'public_content_v2';
+const MAX_LOGIN_FAILURES = 5;
+const LOCK_SECONDS = 15 * 60;
+const UPLOAD_FORMATS = 'jpg,png,webp'; // photos: Cloudinary refuses any other file type
+const VIDEO_FORMATS = 'mp4,mov,webm';  // videos (gallery)
+const MAX_FOLDER_DEPTH = 4;            // folders listed: a section folder plus up to 3 levels made in Cloudinary
+const FOLDER_CACHE_SECONDS = 600;      // folder list cache for the admin panel
+const MAX_PUBLIC_REVIEWS = 300;
+const REVIEW_MAX_CHARS = 800;
+/** Config/General keys that look like this are secrets, which don't belong in the sheet. */
+const SECRET_KEY_PATTERN = /pass|secret|api.?key|token/i;
+/** Links in reviews are almost always spam. */
+const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
+
+/** Uploads are filed as <CLOUDINARY_FOLDER>/<section>, e.g. SSV-Gym/Trainers. */
+const MEDIA_SECTIONS = { general: 'Home', facilities: 'Facilities', trainers: 'Trainers', gallery: 'Gallery', announcements: 'Events' };
+/** Main folders used by earlier versions. Their photos still show in the media library. */
+const LEGACY_FOLDERS = ['ssv-gym'];
+
+/** Sheet tab -> columns (internal names). Headers are matched by name, so columns may be reordered. */
+const SCHEMA = {
+  General:            ['key', 'value', 'notes'],
+  Facilities:         ['id', 'name', 'tags', 'description', 'image_url', 'category', 'active', 'display_order'],
+  'Membership Plans': ['id', 'name', 'duration', 'price', 'description', 'features', 'featured', 'active', 'display_order'],
+  Services:           ['id', 'name', 'price', 'price_note', 'description', 'active', 'display_order'],
+  Trainers:           ['id', 'name', 'role', 'specialization', 'bio', 'image_url', 'active', 'display_order'],
+  Gallery:            ['id', 'image_url', 'title', 'category', 'caption', 'active', 'display_order'],
+  Reviews:            ['id', 'name', 'rating', 'review', 'likes', 'date', 'source', 'status'],
+  Announcements:      ['id', 'title', 'description', 'image_url', 'date', 'expiry', 'active', 'priority'],
+  Enquiries:          ['id', 'name', 'phone', 'message', 'date', 'status'],
+  Config:             ['key', 'value', 'notes']
+};
+/** How each column is titled in the sheet. */
+const LABELS = {
+  id: 'ID', key: 'Key', value: 'Value', notes: 'Notes', name: 'Name', tags: 'Tags', description: 'Description',
+  image_url: 'Image URL', category: 'Category', active: 'Active', display_order: 'Display Order', duration: 'Duration',
+  price: 'Price', price_note: 'Price Note', features: 'Features', featured: 'Featured', role: 'Role', specialization: 'Specialization',
+  bio: 'Bio', title: 'Title', caption: 'Caption', rating: 'Rating', review: 'Review', likes: 'Likes', date: 'Date', source: 'Source',
+  status: 'Status', expiry: 'Expiry', priority: 'Priority', phone: 'Phone', message: 'Message'
+};
+/** Column width in pixels and alignment. All text is clipped to one line; click a cell to read it all. */
+const COLUMN_STYLE = {
+  id: [170, 'left'], key: [190, 'left'], value: [420, 'left'], notes: [380, 'left'],
+  name: [190, 'left'], title: [230, 'left'], tags: [220, 'left'], description: [340, 'left'],
+  image_url: [240, 'left'], category: [110, 'center'], active: [80, 'center'], featured: [90, 'center'],
+  display_order: [120, 'center'], duration: [110, 'center'], price: [100, 'center'], price_note: [150, 'left'],
+  features: [300, 'left'], role: [170, 'left'], specialization: [220, 'left'], bio: [340, 'left'], caption: [280, 'left'],
+  rating: [80, 'center'], review: [400, 'left'], likes: [80, 'center'], date: [150, 'center'],
+  expiry: [120, 'center'], priority: [90, 'center'], source: [100, 'center'], status: [120, 'center'],
+  phone: [150, 'left'], message: [360, 'left']
+};
+const COLLECTIONS = { facilities: 'Facilities', plans: 'Membership Plans', services: 'Services', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements' };
+const ID_PREFIX = { Facilities: 'fac', 'Membership Plans': 'plan', Services: 'svc', Trainers: 'tr', Gallery: 'img', Reviews: 'rev', Announcements: 'ann', Enquiries: 'enq' };
+const BOOLEAN_COLUMNS = ['active', 'featured'];
+const BOOLEAN_KEYS = ['review_form', 'review_approval'];
+const DATE_COLUMNS = ['date', 'expiry'];
+const ENQUIRY_STATUSES = ['New', 'Contacted', 'Closed'];
+const REVIEW_STATUSES = ['Published', 'Pending', 'Hidden'];
+/** Columns that must not be empty, with the name used in error messages. */
+const REQUIRED = {
+  Facilities: { name: 'Name' },
+  'Membership Plans': { name: 'Plan name', duration: 'Duration' },
+  Services: { name: 'Name' },
+  Trainers: { name: 'Name' },
+  Gallery: { image_url: 'Photo or video' },
+  Reviews: { name: 'Name', review: 'Review' },
+  Announcements: { title: 'Title' }
+};
+/** Filled in when a row is typed straight into the sheet. */
+const NEW_ROW_DEFAULTS = {
+  Reviews: () => ({ status: 'Published', likes: 0, date: today_(), source: 'Admin' }),
+  Enquiries: () => ({ status: 'New', date: today_() })
+};
+
+/* ============================== HTTP entry points ============================== */
+
+function doGet(e) {
+  return respond_(() => {
+    const action = String((e && e.parameter && e.parameter.action) || 'content');
+    if (action === 'health') return { status: 'ok', version: VERSION };
+    const content = getPublicContent_();
+    if (action === 'content') return content;
+    if (Object.prototype.hasOwnProperty.call(content, action)) return content[action]; // e.g. ?action=plans
+    throw apiError_('Unknown action: ' + action, 'BAD_REQUEST');
+  });
+}
+
+function doPost(e) {
+  return respond_(() => {
+    let body;
+    try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); }
+    catch (err) { throw apiError_('Request body must be JSON.', 'BAD_REQUEST'); }
+    if (!body || typeof body !== 'object') throw apiError_('Request body must be JSON.', 'BAD_REQUEST');
+    const action = String(body.action || '');
+
+    // Public actions
+    if (action === 'submitEnquiry') return submitEnquiry_(body.enquiry);
+    if (action === 'submitReview') return submitReview_(body.review);
+    if (action === 'likeReview') return likeReview_(body.id, body.like);
+    if (action === 'login') return login_(body.password);
+
+    // Everything below needs a valid admin session. Signed-in admins see the real
+    // reason for an unexpected error instead of a generic message.
+    requireSession_(body.token);
+    try { return adminAction_(action, body); }
+    catch (err) {
+      if (err.code) throw err;
+      console.error(err && err.stack ? err.stack : err);
+      throw apiError_('Something went wrong: ' + (err && err.message ? err.message : err), 'SERVER_ERROR');
+    }
+  });
+}
+
+function adminAction_(action, body) {
+  switch (action) {
+    case 'verify':              return { valid: true, version: VERSION };
+    case 'logout':              CacheService.getScriptCache().remove('sess_' + body.token); return { signedOut: true };
+    case 'adminGetAll':         return getAdminData_();
+    case 'getInbox':            return { enquiries: readTable_('Enquiries') || [], reviews: readTable_('Reviews') || [] };
+    case 'saveGeneral': {
+      const out = write_(() => saveKeyValues_('General', body.general));
+      removeUnusedImages_(out.replaced);
+      return out.values;
+    }
+    case 'saveRecord': {
+      const out = write_(() => saveRecord_(tabFor_(body.collection), body.record));
+      removeUnusedImages_(out.replaced);
+      return out.record;
+    }
+    case 'deleteRecord': {
+      const out = write_(() => deleteRecord_(tabFor_(body.collection), body.id));
+      removeUnusedImages_(out.replaced);
+      return { deleted: out.id };
+    }
+    case 'reorder':             return write_(() => reorder_(tabFor_(body.collection), body.ids));
+    case 'updateEnquiryStatus': return withLock_(() => updateEnquiryStatus_(body.id, body.status));
+    case 'getUploadSignature':  return getUploadSignature_(body.folder, body.kind);
+    case 'mediaFolders':        return mediaFolders_(Boolean(body.fresh));
+    case 'mediaLibrary':        return mediaLibrary_(Boolean(body.fresh));
+    case 'deleteFolder':        return deleteFolder_(body.path);
+    case 'deleteImages':        return deleteImages_(body.images);
+    default: throw apiError_('Unknown action: ' + action, 'BAD_REQUEST');
+  }
+}
+
+function respond_(fn) {
+  let out;
+  try { out = { ok: true, data: fn() }; }
+  catch (err) {
+    if (!err.code) console.error(err && err.stack ? err.stack : err);
+    out = { ok: false, error: err.code ? err.message : 'Server error. Check the Apps Script executions log.', code: err.code || 'SERVER_ERROR' };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function apiError_(message, code) { const e = new Error(message); e.code = code; return e; }
+
+/* One writer at a time. Re-entrant within a request; changes are flushed before the lock is released. */
+let IN_LOCK_ = false;
+function withLock_(fn, waitMs) {
+  if (IN_LOCK_) return fn();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(waitMs || 20000)) throw apiError_('The sheet is busy. Try again in a moment.', 'BUSY');
+  IN_LOCK_ = true;
+  try { return fn(); }
+  finally {
+    IN_LOCK_ = false;
+    try { SpreadsheetApp.flush(); } catch (err) { /* nothing pending */ }
+    lock.releaseLock();
+  }
+}
+
+/** Content write: locked, and the public cache is cleared afterwards. */
+function write_(fn) {
+  return withLock_(() => {
+    const result = fn();
+    CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+    return result;
+  });
+}
+
+function tabFor_(collection) {
+  const tab = COLLECTIONS[collection];
+  if (!tab) throw apiError_('Unknown collection: ' + collection, 'BAD_REQUEST');
+  return tab;
+}
+
+/* ================================ sheet helpers ================================ */
+
+let SS_ = null, TZ_ = null;
+function ss_() {
+  if (SS_) return SS_;
+  const id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  SS_ = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!SS_) throw apiError_('Spreadsheet not found. Bind the script to the sheet or set SHEET_ID in Script Properties.', 'NOT_CONFIGURED');
+  return SS_;
+}
+function sheet_(name) {
+  const sh = ss_().getSheetByName(name);
+  if (!sh) throw apiError_('The "' + name + '" tab is missing. In the sheet, run SSV Admin > Set up / repair sheets.', 'NOT_CONFIGURED');
+  return sh;
+}
+/** Column title -> internal name: "Image URL" -> "image_url". Older lower-case titles match too. */
+function normHeader_(h) { return String(h === null || h === undefined ? '' : h).trim().toLowerCase().replace(/[\s-]+/g, '_'); }
+function headers_(values) { return (values[0] || []).map(normHeader_); }
+function headerRow_(sh) { return sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(normHeader_); }
+/** Dates in the sheet belong to the spreadsheet's time zone (File > Settings). */
+function tz_() {
+  if (TZ_) return TZ_;
+  try { TZ_ = ss_().getSpreadsheetTimeZone(); } catch (err) { TZ_ = null; }
+  return (TZ_ = TZ_ || Session.getScriptTimeZone() || 'Asia/Kolkata');
+}
+function today_() { return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'); }
+function isTrue_(v) { return v === true || /^(true|yes|y|1)$/i.test(String(v).trim()); }
+function isFalse_(v) { return v === false || /^(false|no|n|0)$/i.test(String(v === null || v === undefined ? '' : v).trim()); }
+/** Empty for content purposes. Tick boxes (true/false) alone don't count as content. */
+function isBlank_(v) { return v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === ''; }
+function hex_(bytes) { return bytes.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join(''); }
+function sha256Hex_(text) { return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8)); }
+function isCheckbox_(rule) { return Boolean(rule) && rule.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.CHECKBOX; }
+function unique_(list) { return list.filter((v, i) => list.indexOf(v) === i); }
+function isCloudinaryUrl_(v) { return /^https?:\/\/res\.cloudinary\.com\//i.test(String(v === null || v === undefined ? '' : v).trim()); }
+function oneLine_(v) { return String(v === null || v === undefined ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function sameText_(a, b) {
+  const s = v => { const o = cellOut_(v); return String(o === null || o === undefined ? '' : o).trim(); };
+  return s(a) === s(b);
+}
+
+/** Sheets refuses to delete the last row under a frozen header, so that row is cleared instead. */
+function deleteRowSafe_(sh, row) {
+  if (sh.getMaxRows() - sh.getFrozenRows() > 1) sh.deleteRow(row);
+  else sh.getRange(row, 1, 1, Math.max(sh.getLastColumn(), 1)).clearContent();
+}
+
+/** Lower display_order first; rows without one go last. */
+function orderOf_(v) { const n = Number(v); return v === '' || v === null || v === undefined || isNaN(n) ? Infinity : n; }
+function cmp_(a, b) { return a === b ? 0 : (a < b ? -1 : 1); }
+function byOrder_(a, b) { return cmp_(orderOf_(a.display_order), orderOf_(b.display_order)); }
+function byPriority_(a, b) { return (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date)); }
+/** Most liked first, then newest. */
+function byLikes_(a, b) { return (Number(b.likes) || 0) - (Number(a.likes) || 0) || String(b.date).localeCompare(String(a.date)); }
+
+/** Value read from a cell -> JSON-friendly value. Dates become yyyy-MM-dd (plus HH:mm if a time is set). */
+function cellOut_(v) {
+  if (v instanceof Date) {
+    const tz = tz_(), time = Utilities.formatDate(v, tz, 'HH:mm');
+    return Utilities.formatDate(v, tz, 'yyyy-MM-dd') + (time === '00:00' ? '' : ' ' + time);
+  }
+  return v;
+}
+
+/** Value to write. Blocks formula injection (=, +, -, @) and keeps leading zeros. */
+function cellIn_(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'number' || typeof v === 'boolean' || v instanceof Date) return v;
+  let s = String(v).trim().slice(0, 5000);
+  if (/^[=+\-@]/.test(s) || /^0\d+$/.test(s)) s = "'" + s;
+  return s;
+}
+
+/** "Rahul Sharma!" -> "rahul-sharma" */
+function slug_(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+}
+
+/**
+ * A readable id for a new row: the tab's prefix plus the row's name or title,
+ * e.g. "tr-rahul-sharma", "plan-student", "rev-priya". A name already in use
+ * gets -2, -3…; rows without a usable name are numbered ("img-13"), and
+ * enquiries are numbered per day ("enq-2026-09-25-1"). The id then never
+ * changes, even if the item is renamed.
+ */
+function readableId_(name, label, taken) {
+  const prefix = ID_PREFIX[name] || 'row';
+  const numbered = name === 'Enquiries';
+  const base = slug_(numbered ? today_() : label);
+  const stem = base ? prefix + '-' + base : prefix;   // only a-z, 0-9 and "-"
+  if (base && !numbered && !taken[stem]) return stem;
+  const pattern = new RegExp('^' + stem + '-(\\d+)$');
+  let max = base && !numbered ? 1 : 0;
+  Object.keys(taken).forEach(id => { const m = id.match(pattern); if (m) max = Math.max(max, Number(m[1])); });
+  return stem + '-' + (max + 1);
+}
+
+/** Ids already used in a tab, as a lookup object. */
+function takenIds_(sh) {
+  const taken = {}, lastRow = sh.getLastRow();
+  if (lastRow < 2) return taken;
+  const idCol = headerRow_(sh).indexOf('id');
+  if (idCol < 0) return taken;
+  sh.getRange(2, idCol + 1, lastRow - 1, 1).getValues().forEach(r => { const id = String(r[0]).trim(); if (id) taken[id] = true; });
+  return taken;
+}
+
+/** What a row is called: its name, else its title. */
+function labelOf_(row, head) {
+  const cell = h => { const i = head.indexOf(h); return i >= 0 && row[i] !== null && row[i] !== undefined ? String(row[i]).trim() : ''; };
+  return cell('name') || cell('title');
+}
+
+/** True for a row that has content but no id yet (typed or pasted straight into the sheet). */
+function needsId_(row, idCol) {
+  return isBlank_(row[idCol]) && row.some((c, i) => i !== idCol && !isBlank_(c));
+}
+
+/**
+ * Gives id-less rows an id (plus sensible defaults) and puts tick boxes in their
+ * active/featured cells, keeping anything typed there. Rows first..last (default: all).
+ */
+function repairTab_(sh, name, first, last) {
+  const lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return 0;
+  const head = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(normHeader_);
+  const idCol = head.indexOf('id');
+  if (idCol < 0) return 0;
+  first = Math.max(first || 2, 2);
+  last = Math.min(last || lastRow, lastRow);
+  if (last < first) return 0;
+  const count = last - first + 1;
+  const rows = sh.getRange(first, 1, count, lastCol).getValues();
+  let fixed = 0, taken = null;
+  rows.forEach((row, n) => {
+    if (!needsId_(row, idCol)) return;
+    taken = taken || takenIds_(sh);
+    row[idCol] = readableId_(name, labelOf_(row, head), taken);
+    taken[row[idCol]] = true;
+    sh.getRange(first + n, idCol + 1).setValue(row[idCol]);
+    const defaults = NEW_ROW_DEFAULTS[name] ? NEW_ROW_DEFAULTS[name]() : {};
+    Object.keys(defaults).forEach(col => {
+      const c = head.indexOf(col);
+      if (c >= 0 && isBlank_(row[c])) sh.getRange(first + n, c + 1).setValue(cellIn_(defaults[col]));
+    });
+    fixed++;
+  });
+  BOOLEAN_COLUMNS.forEach(c => {
+    const col = head.indexOf(c);
+    if (col < 0) return;
+    const rules = sh.getRange(first, col + 1, count, 1).getDataValidations();
+    rows.forEach((row, n) => {
+      if (isBlank_(row[idCol]) || isCheckbox_(rules[n][0])) return;
+      const cell = sh.getRange(first + n, col + 1), ticked = isTrue_(row[col]);
+      cell.insertCheckboxes();            // resets the cell to unticked
+      if (ticked) cell.setValue(true);
+    });
+  });
+  return fixed;
+}
+
+function readTable_(name) {
+  const sh = ss_().getSheetByName(name);
+  if (!sh) return null;
+  let values = sh.getDataRange().getValues();
+  if (values.length < 2) return [];
+  let head = headers_(values);
+  const idCol = head.indexOf('id');
+  if (idCol >= 0 && values.some((r, i) => i > 0 && needsId_(r, idCol))) {
+    try {
+      withLock_(() => repairTab_(sh, name), 3000);
+      values = sh.getDataRange().getValues();
+      head = headers_(values);
+    } catch (err) { /* sheet busy: those rows get their id on the next read */ }
+  }
+  const keyCol = idCol >= 0 ? idCol : Math.max(head.indexOf('key'), 0);
+  return values.slice(1)
+    .filter(row => String(row[keyCol]).trim() !== '')
+    .map(row => { const o = {}; head.forEach((h, i) => { if (h) o[h] = cellOut_(row[i]); }); return o; });
+}
+
+function readKeyValues_(name) {
+  const rows = readTable_(name);
+  if (!rows) return null;
+  const out = {};
+  rows.forEach(r => { out[String(r.key).trim()] = r.value === undefined ? '' : r.value; });
+  return out;
+}
+
+/* ================================= public reads ================================= */
+
+function getPublicContent_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(CONTENT_CACHE_KEY);
+  if (hit) return JSON.parse(hit);
+
+  const today = today_();
+  const out = { general: readKeyValues_('General') || {}, updated: new Date().toISOString() };
+  Object.keys(COLLECTIONS).forEach(key => {
+    const rows = readTable_(COLLECTIONS[key]) || [];
+    if (key === 'reviews') {
+      out.reviews = rows.filter(r => String(r.status).trim() === 'Published' && String(r.review || '').trim())
+        .map(publicReview_).sort(byLikes_).slice(0, MAX_PUBLIC_REVIEWS);
+      return;
+    }
+    let list = rows.filter(r => isTrue_(r.active));
+    if (key === 'announcements') list = list.filter(r => !r.expiry || String(r.expiry).slice(0, 10) >= today).sort(byPriority_);
+    else list.sort(byOrder_);
+    out[key] = list;
+  });
+  try { cache.put(CONTENT_CACHE_KEY, JSON.stringify(out), CONTENT_CACHE_SECONDS); } catch (err) { /* over 100 KB: skip cache */ }
+  return out;
+}
+
+/** The parts of a review visitors see. */
+function publicReview_(r) {
+  return {
+    id: String(r.id), name: String(r.name || '').trim(),
+    rating: Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0))),
+    review: String(r.review || ''), likes: Math.max(0, Number(r.likes) || 0), date: String(r.date || '')
+  };
+}
+
+function getAdminData_() {
+  const out = { general: readKeyValues_('General') || {}, enquiries: readTable_('Enquiries') || [] };
+  Object.keys(COLLECTIONS).forEach(key => { out[key] = readTable_(COLLECTIONS[key]) || []; });
+  const cfg = readKeyValues_('Config') || {};
+  const base = baseFolder_(cfg);
+  out.meta = {
+    version: VERSION, timeZone: tz_(), sheetUrl: ss_().getUrl(),
+    cloudinaryConfigured: cloudinaryConfigured_(cfg), notifyEmail: notifyEmail_(cfg),
+    media: { base: base, sections: sectionFolders_(base) }
+  };
+  return out;
+}
+
+/**
+ * Address(es) told about new enquiries and reviews: NOTIFY_EMAIL in the Config
+ * tab, or the NOTIFY_EMAIL Script Property when the tab has none. Only valid
+ * addresses are kept, separated by commas.
+ */
+function notifyEmail_(cfg) {
+  cfg = cfg || readKeyValues_('Config') || {};
+  let to = String(cfg.NOTIFY_EMAIL || '').trim();
+  if (!to) to = String(PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL') || '').trim();
+  return to.split(/[\s,;]+/).filter(a => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a)).join(', ');
+}
+
+/* ==================================== writes ==================================== */
+
+/** Saves key/value pairs. Only cells whose value changed are written. Returns the replaced photo links too. */
+function saveKeyValues_(name, data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw apiError_('Nothing to save.', 'BAD_REQUEST');
+  const sh = sheet_(name);
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const keyCol = Math.max(head.indexOf('key'), 0);
+  const valCol = head.indexOf('value') >= 0 ? head.indexOf('value') : 1;
+  const rowOf = {};
+  values.forEach((r, i) => { const k = String(r[keyCol]).trim(); if (i > 0 && k && !(k in rowOf)) rowOf[k] = i; });
+  const replaced = [];
+  let next = sh.getLastRow() + 1;
+  Object.keys(data).forEach(key => {
+    if (!/^[A-Za-z0-9_]{1,64}$/.test(key)) return;
+    let value = data[key];
+    if (BOOLEAN_KEYS.indexOf(key) >= 0) value = isTrue_(value);
+    if (key in rowOf) {
+      const old = values[rowOf[key]][valCol];
+      if (sameText_(old, value)) return;
+      if (isCloudinaryUrl_(old)) replaced.push(String(old).trim());
+      sh.getRange(rowOf[key] + 1, valCol + 1).setValue(cellIn_(value));
+    } else {
+      sh.getRange(next, keyCol + 1).setValue(key);
+      const cell = sh.getRange(next, valCol + 1);
+      if (BOOLEAN_KEYS.indexOf(key) >= 0) cell.insertCheckboxes();
+      cell.setValue(cellIn_(value));
+      next++;
+    }
+  });
+  return { values: readKeyValues_(name), replaced: replaced };
+}
+
+/** Review text: normal line breaks, no control characters, at most REVIEW_MAX_CHARS. */
+function cleanReviewText_(v) {
+  return String(v === null || v === undefined ? '' : v).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ')
+    .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, REVIEW_MAX_CHARS);
+}
+
+/** Keeps known columns only and tidies values: tick boxes, dates, numbers, ratings, categories, image links. */
+function cleanRecord_(name, input) {
+  const out = {};
+  (SCHEMA[name] || []).forEach(col => {
+    if (col === 'id' || !Object.prototype.hasOwnProperty.call(input, col)) return;
+    if (name === 'Reviews' && ['likes', 'date', 'source'].indexOf(col) >= 0) return;   // set by the system, not the admin
+    let v = input[col];
+    if (v === null || v === undefined) v = '';
+    if (BOOLEAN_COLUMNS.indexOf(col) >= 0) v = isTrue_(v);
+    else if (DATE_COLUMNS.indexOf(col) >= 0) { const m = String(v).trim().match(/^(\d{4}-\d{2}-\d{2})/); v = m ? m[1] : String(v).trim(); }
+    else if (col === 'display_order' || col === 'priority') v = String(v).trim() === '' || isNaN(Number(v)) ? '' : Number(v);
+    else if (col === 'rating') { const n = Math.round(Number(v)); v = n >= 1 && n <= 5 ? n : ''; }
+    else if (col === 'category') v = String(v).trim().toLowerCase();
+    else if (col === 'image_url') v = cleanImageUrl_(v);
+    else if (col === 'status') {
+      v = String(v).trim();
+      if (REVIEW_STATUSES.indexOf(v) < 0) throw apiError_('Status must be Published, Pending or Hidden.', 'VALIDATION');
+    }
+    else if (col === 'review') v = cleanReviewText_(v);
+    else if (typeof v !== 'number') v = String(v);
+    out[col] = v;
+  });
+  return out;
+}
+
+function cleanImageUrl_(v) {
+  const s = String(v || '').trim();
+  if (!s || /^https?:\/\//i.test(s)) return s;
+  if (!/^[a-z][\w+.-]*:/i.test(s) && /^(\.{0,2}\/|[\w-]+\/)/.test(s)) return s; // a file on the website, e.g. assets/hero.jpg
+  throw apiError_('Links must start with https://', 'VALIDATION');
+}
+
+/**
+ * Creates a row (no id) or updates one. Only the columns sent are changed, so
+ * edits made in the sheet meanwhile are kept. An unknown id is an error, not a new row.
+ * Returns the saved row and any photo links it replaced.
+ */
+function saveRecord_(name, input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw apiError_('Missing record.', 'BAD_REQUEST');
+  const record = cleanRecord_(name, input);
+  const sh = sheet_(name);
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const idCol = head.indexOf('id');
+  if (idCol < 0) throw apiError_('The "' + name + '" tab needs an "ID" column.', 'NOT_CONFIGURED');
+
+  let id = String(input.id || '').trim(), rowIndex = -1;
+  if (id) {
+    rowIndex = values.findIndex((r, i) => i > 0 && String(r[idCol]).trim() === id);
+    if (rowIndex < 1) throw apiError_('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
+  } else {
+    const taken = {};
+    values.slice(1).forEach(r => { const v = String(r[idCol]).trim(); if (v) taken[v] = true; });
+    id = readableId_(name, record.name || record.title || '', taken);
+    if (name === 'Reviews') {   // added by the owner in the admin panel
+      record.likes = 0;
+      record.date = today_();
+      record.source = 'Admin';
+      if (!record.status) record.status = 'Published';
+    }
+  }
+  const existing = rowIndex > 0 ? values[rowIndex] : null;
+
+  const row = head.map((h, i) => {
+    if (h === 'id') return id;
+    if (h in record) return BOOLEAN_COLUMNS.indexOf(h) >= 0 ? record[h] : cellIn_(record[h]);
+    if (existing) return cellIn_(existing[i]);
+    return BOOLEAN_COLUMNS.indexOf(h) >= 0 ? false : '';
+  });
+
+  const required = REQUIRED[name] || {};
+  Object.keys(required).forEach(col => {
+    const i = head.indexOf(col);
+    if (i >= 0 && isBlank_(String(row[i]).replace(/^'/, ''))) throw apiError_(required[col] + ' is required.', 'VALIDATION');
+  });
+
+  const replaced = [];
+  if (existing) head.forEach((h, i) => {
+    if (h in record && isCloudinaryUrl_(existing[i]) && String(existing[i]).trim() !== String(record[h]).trim()) replaced.push(String(existing[i]).trim());
+  });
+
+  const rowNumber = existing ? rowIndex + 1 : sh.getLastRow() + 1;
+  if (!existing) {
+    // Add tick boxes first: insertCheckboxes() resets cells to FALSE.
+    BOOLEAN_COLUMNS.forEach(c => { const i = head.indexOf(c); if (i >= 0) sh.getRange(rowNumber, i + 1).insertCheckboxes(); });
+  }
+  sh.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+
+  const written = sh.getRange(rowNumber, 1, 1, head.length).getValues()[0];
+  const saved = {};
+  head.forEach((h, i) => { if (h) saved[h] = cellOut_(written[i]); });
+  return { record: saved, replaced: replaced };
+}
+
+function deleteRecord_(name, id) {
+  id = String(id || '').trim();
+  if (!id) throw apiError_('Missing id.', 'BAD_REQUEST');
+  const sh = sheet_(name);
+  const values = sh.getDataRange().getValues();
+  const idCol = headers_(values).indexOf('id');
+  const i = idCol < 0 ? -1 : values.findIndex((r, n) => n > 0 && String(r[idCol]).trim() === id);
+  if (i < 1) throw apiError_('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
+  const replaced = values[i].filter(v => isCloudinaryUrl_(v)).map(v => String(v).trim());
+  deleteRowSafe_(sh, i + 1);
+  return { id: id, replaced: replaced };
+}
+
+/** Sets display_order 1..n in the given order. Rows not listed keep their relative order after them. */
+function reorder_(name, ids) {
+  if (!Array.isArray(ids) || !ids.length) throw apiError_('Nothing to reorder.', 'BAD_REQUEST');
+  const sh = sheet_(name);
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const idCol = head.indexOf('id'), orderCol = head.indexOf('display_order');
+  if (idCol < 0 || orderCol < 0) throw apiError_('The "' + name + '" tab has no Display Order column.', 'BAD_REQUEST');
+  if (values.length < 2) return { reordered: 0 };
+  const position = {};
+  ids.forEach((id, i) => { const k = String(id).trim(); if (k && !(k in position)) position[k] = i + 1; });
+  let next = ids.length;
+  values.slice(1)
+    .map((r, i) => ({ i: i, id: String(r[idCol]).trim(), order: orderOf_(r[orderCol]) }))
+    .filter(x => x.id && !(x.id in position))
+    .sort((a, b) => cmp_(a.order, b.order) || a.i - b.i)
+    .forEach(x => { position[x.id] = ++next; });
+  const column = values.slice(1).map(r => { const id = String(r[idCol]).trim(); return [id ? position[id] : r[orderCol]]; });
+  sh.getRange(2, orderCol + 1, column.length, 1).setValues(column);
+  return { reordered: ids.length };
+}
+
+function updateEnquiryStatus_(id, status) {
+  if (ENQUIRY_STATUSES.indexOf(status) < 0) throw apiError_('Status must be New, Contacted or Closed.', 'BAD_REQUEST');
+  const sh = sheet_('Enquiries');
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const idCol = head.indexOf('id'), statusCol = head.indexOf('status');
+  if (idCol < 0 || statusCol < 0) throw apiError_('The "Enquiries" tab needs "ID" and "Status" columns.', 'NOT_CONFIGURED');
+  const i = values.findIndex((r, n) => n > 0 && String(r[idCol]).trim() === String(id).trim());
+  if (i < 1) throw apiError_('Enquiry not found. Refresh and try again.', 'NOT_FOUND');
+  sh.getRange(i + 1, statusCol + 1).setValue(status);
+  return { id: String(id), status: status };
+}
+
+/** Adds one row, matching values to columns by name. */
+function appendRecord_(sh, obj) {
+  const head = headerRow_(sh);
+  const row = sh.getLastRow() + 1;
+  BOOLEAN_COLUMNS.forEach(c => { const i = head.indexOf(c); if (i >= 0) sh.getRange(row, i + 1).insertCheckboxes(); });
+  sh.getRange(row, 1, 1, head.length).setValues([head.map(c => (c && c in obj ? cellIn_(obj[c]) : (BOOLEAN_COLUMNS.indexOf(c) >= 0 ? false : '')))]);
+}
+
+/* =================================== enquiries =================================== */
+
+function submitEnquiry_(q) {
+  if (!q || typeof q !== 'object') throw apiError_('Missing enquiry.', 'BAD_REQUEST');
+  if (q.website) return { received: true };   // honeypot filled in: quietly ignore bots
+  const name = oneLine_(q.name).slice(0, 80);
+  const phone = oneLine_(q.phone).slice(0, 20);
+  const message = String(q.message || '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').trim().slice(0, 1000);
+  const digits = phone.replace(/\D/g, '');
+  if (name.length < 2) throw apiError_('Enter your name.', 'VALIDATION');
+  if (digits.length < 10 || digits.length > 13) throw apiError_('Enter a valid phone number.', 'VALIDATION');
+
+  const cache = CacheService.getScriptCache();
+  if (cache.get('enq_' + digits)) throw apiError_('An enquiry from this number arrived a few minutes ago. The gym will be in touch.', 'DUPLICATE');
+  const hourKey = 'enq_hour_' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHH');
+  const count = Number(cache.get(hourKey) || 0);
+  if (count >= 30) throw apiError_('Too many enquiries right now. Please call or WhatsApp the gym instead.', 'RATE_LIMITED');
+
+  withLock_(() => {
+    const sh = sheet_('Enquiries');
+    appendRecord_(sh, { id: readableId_('Enquiries', '', takenIds_(sh)), name: name, phone: phone, message: message, date: new Date(), status: 'New' });
+  });
+  cache.put('enq_' + digits, '1', 600);
+  cache.put(hourKey, String(count + 1), 3600);
+  notifyEnquiry_(name, phone, message);
+  return { received: true };
+}
+
+/** International number without "+". 10-digit numbers are treated as Indian (+91). */
+function intlPhone_(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (d.length === 10) return '91' + d;
+  if (d.length === 11 && d[0] === '0') return '91' + d.slice(1);
+  return d.length >= 11 && d.length <= 15 ? d : '';
+}
+
+function notifyEnquiry_(name, phone, message) {
+  const to = notifyEmail_();
+  if (!to) return;
+  const intl = intlPhone_(phone);
+  const lines = ['Name: ' + name, 'Phone: ' + phone];
+  if (intl) lines.push('Call: tel:+' + intl, 'WhatsApp: https://wa.me/' + intl);
+  lines.push('', 'Message:', message || '(none)', '', 'Manage enquiries in the admin panel.');
+  try { MailApp.sendEmail(to, 'New SSV Gym enquiry from ' + name, lines.join('\n')); }
+  catch (err) { console.warn('Could not send the enquiry email: ' + err); }
+}
+
+/* ==================================== reviews ==================================== */
+
+/** A visitor's review. Published at once, or held for approval when review_approval is ticked. */
+function submitReview_(q) {
+  if (!q || typeof q !== 'object') throw apiError_('Missing review.', 'BAD_REQUEST');
+  if (q.website) return { received: true, status: 'Pending', review: null };   // honeypot: quietly ignore bots
+  const general = readKeyValues_('General') || {};
+  if (isFalse_(general.review_form)) throw apiError_('Reviews are closed at the moment.', 'CLOSED');
+  const name = oneLine_(q.name).slice(0, 60);
+  const rating = Math.round(Number(q.rating));
+  const review = cleanReviewText_(q.review);
+  if (name.length < 2) throw apiError_('Enter your name.', 'VALIDATION');
+  if (!(rating >= 1 && rating <= 5)) throw apiError_('Choose a rating from 1 to 5 stars.', 'VALIDATION');
+  if (review.length < 5) throw apiError_('Write a few words about your experience.', 'VALIDATION');
+  if (LINK_PATTERN.test(name + ' ' + review)) throw apiError_('Please remove links from your review.', 'VALIDATION');
+
+  const cache = CacheService.getScriptCache();
+  const hourKey = 'rev_hour_' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHH');
+  const count = Number(cache.get(hourKey) || 0);
+  if (count >= 20) throw apiError_('Too many reviews right now. Please try again later.', 'RATE_LIMITED');
+
+  const pending = isTrue_(general.review_approval);
+  const status = pending ? 'Pending' : 'Published';
+  const saved = withLock_(() => {
+    const sh = sheet_('Reviews');
+    const values = sh.getDataRange().getValues(), col = headers_(values).indexOf('review');
+    const same = review.toLowerCase().replace(/\s+/g, ' ');
+    if (col >= 0 && values.some((r, i) => i > 0 && String(r[col]).toLowerCase().replace(/\s+/g, ' ').trim() === same)) {
+      throw apiError_('This review has already been posted.', 'DUPLICATE');
+    }
+    const row = { id: readableId_('Reviews', name, takenIds_(sh)), name: name, rating: rating, review: review, likes: 0, date: new Date(), source: 'Website', status: status };
+    appendRecord_(sh, row);
+    return row;
+  });
+  cache.put(hourKey, String(count + 1), 3600);
+  if (!pending) cache.remove(CONTENT_CACHE_KEY);
+  notifyReview_(saved, pending);
+  return {
+    received: true, status: status,
+    review: pending ? null : publicReview_({ id: saved.id, name: name, rating: rating, review: review, likes: 0, date: cellOut_(saved.date) })
+  };
+}
+
+/** Adds (like = true) or removes (like = false) one like. Returns the new count. */
+function likeReview_(id, like) {
+  id = String(id || '').trim();
+  if (!/^[\w-]{1,80}$/.test(id)) throw apiError_('Unknown review.', 'BAD_REQUEST');
+  const add = !(like === false || isFalse_(like));
+  const cache = CacheService.getScriptCache();
+  const slot = 'likes_' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHHmm').slice(0, 11);   // 10-minute window
+  const count = Number(cache.get(slot) || 0);
+  if (count >= 200) throw apiError_('Too many likes right now. Try again in a few minutes.', 'RATE_LIMITED');
+  const likes = withLock_(() => {
+    const sh = sheet_('Reviews');
+    const values = sh.getDataRange().getValues(), head = headers_(values);
+    const idCol = head.indexOf('id'), likesCol = head.indexOf('likes'), statusCol = head.indexOf('status');
+    const i = values.findIndex((r, n) => n > 0 && String(r[idCol]).trim() === id);
+    if (i < 1 || likesCol < 0 || String(values[i][statusCol]).trim() !== 'Published') throw apiError_('This review is no longer available.', 'NOT_FOUND');
+    const next = Math.max(0, (Number(values[i][likesCol]) || 0) + (add ? 1 : -1));
+    sh.getRange(i + 1, likesCol + 1).setValue(next);
+    return next;
+  });
+  cache.put(slot, String(count + 1), 900);
+  patchCachedReview_(id, likes);
+  return { id: id, likes: likes };
+}
+
+/** Updates one like count in the cached website content instead of rebuilding it. */
+function patchCachedReview_(id, likes) {
+  try {
+    const cache = CacheService.getScriptCache(), hit = cache.get(CONTENT_CACHE_KEY);
+    if (!hit) return;
+    const content = JSON.parse(hit);
+    const r = (content.reviews || []).find(x => x.id === id);
+    if (!r) return;
+    r.likes = likes;
+    content.reviews.sort(byLikes_);
+    cache.put(CONTENT_CACHE_KEY, JSON.stringify(content), CONTENT_CACHE_SECONDS);
+  } catch (err) { /* the cache rebuilds itself */ }
+}
+
+function notifyReview_(row, pending) {
+  const to = notifyEmail_();
+  if (!to) return;
+  const stars = '★★★★★'.slice(0, row.rating) + '☆☆☆☆☆'.slice(0, 5 - row.rating);
+  const lines = [row.name + ' rated SSV Gym ' + row.rating + '/5 ' + stars, '', row.review, '',
+    pending ? 'It is waiting for your approval: admin panel > Reviews.' : 'It is live on the website. To hide or delete it: admin panel > Reviews.'];
+  try { MailApp.sendEmail(to, 'New review on the SSV Gym website (' + row.rating + '/5)', lines.join('\n')); }
+  catch (err) { console.warn('Could not send the review email: ' + err); }
+}
+
+/* ================================ authentication ================================ */
+
+function safeEqual_(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function login_(password) {
+  const cache = CacheService.getScriptCache();
+  const failures = Number(cache.get('login_failures') || 0);
+  if (failures >= MAX_LOGIN_FAILURES) throw apiError_('Too many incorrect attempts. Sign-in is locked for 15 minutes. The owner can unlock it in the Google Sheet: SSV Admin > Unlock admin sign-in.', 'LOCKED');
+  const props = PropertiesService.getScriptProperties();
+  const hash = props.getProperty('ADMIN_PASSWORD_HASH'), salt = props.getProperty('ADMIN_PASSWORD_SALT');
+  if (!hash || !salt) throw apiError_('No admin password is set yet. In the Google Sheet, use SSV Admin > Set admin password.', 'NOT_CONFIGURED');
+  if (!password || !safeEqual_(sha256Hex_(salt + String(password)), hash)) {
+    cache.put('login_failures', String(failures + 1), LOCK_SECONDS);
+    Utilities.sleep(700);
+    throw apiError_('Incorrect password.', 'AUTH_FAILED');
+  }
+  cache.remove('login_failures');
+  const token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  cache.put('sess_' + token, sessionEpoch_(), SESSION_SECONDS);
+  return { token: token, expiresIn: SESSION_SECONDS };
+}
+
+function requireSession_(token) {
+  if (!token || !/^[a-f0-9]{64}$/.test(String(token))) throw apiError_('Please sign in.', 'AUTH_REQUIRED');
+  const cache = CacheService.getScriptCache();
+  const epoch = sessionEpoch_();
+  if (cache.get('sess_' + token) !== epoch) throw apiError_('Your session has expired. Please sign in again.', 'AUTH_REQUIRED');
+  cache.put('sess_' + token, epoch, SESSION_SECONDS);
+}
+
+/** Changing SESSION_EPOCH signs out every existing session. */
+function sessionEpoch_() { return PropertiesService.getScriptProperties().getProperty('SESSION_EPOCH') || '1'; }
+
+/* ================================== Cloudinary ================================== */
+
+function cloudName_(cfg) {
+  cfg = cfg || readKeyValues_('Config') || {};
+  const name = String(cfg.CLOUDINARY_CLOUD_NAME || PropertiesService.getScriptProperties().getProperty('CLOUDINARY_CLOUD_NAME') || '').trim();
+  return /^YOUR_/i.test(name) ? '' : name;
+}
+
+/** Folder path with only letters, digits, spaces, "-" and "_" in each part. */
+function cleanFolderPath_(value) {
+  return String(value || '').split('/')
+    .map(part => part.replace(/[^A-Za-z0-9 _-]/g, '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean).join('/');
+}
+
+/** "SSV-Gym" unless CLOUDINARY_FOLDER in the Config tab says otherwise. */
+function baseFolder_(cfg) { return cleanFolderPath_((cfg || {}).CLOUDINARY_FOLDER) || 'SSV-Gym'; }
+function sectionNames_() { return Object.keys(MEDIA_SECTIONS).map(k => MEDIA_SECTIONS[k]); }
+function sectionFolders_(base) {
+  const out = {};
+  Object.keys(MEDIA_SECTIONS).forEach(k => { out[k] = base + '/' + MEDIA_SECTIONS[k]; });
+  return out;
+}
+
+/** Cloudinary settings, or null while the cloud name, API key or secret is missing. */
+function cloudinary_(cfg) {
+  cfg = cfg || readKeyValues_('Config') || {};
+  const p = PropertiesService.getScriptProperties();
+  const apiKey = p.getProperty('CLOUDINARY_API_KEY'), secret = p.getProperty('CLOUDINARY_API_SECRET'), cloud = cloudName_(cfg);
+  if (!apiKey || !secret || !cloud) return null;
+  const base = baseFolder_(cfg);
+  return { cloud: cloud, apiKey: apiKey, secret: secret, base: base, roots: [base].concat(LEGACY_FOLDERS.filter(f => f !== base)) };
+}
+
+function requireCloudinary_(cfg) {
+  const c = cloudinary_(cfg);
+  if (!c) throw apiError_('Photo uploads are not set up. Put CLOUDINARY_CLOUD_NAME in the Config tab, then use SSV Admin > Set Cloudinary keys in the Google Sheet.', 'NOT_CONFIGURED');
+  return c;
+}
+
+function cloudinaryConfigured_(cfg) { return Boolean(cloudinary_(cfg)); }
+
+/**
+ * Cloudinary Admin API call. The API key and secret never leave Apps Script.
+ * A missing Google permission (the script may not reach other websites yet) is
+ * reported with the fix instead of a generic server error.
+ */
+function cloudinaryApi_(cld, method, path, query) {
+  const qs = [];
+  Object.keys(query || {}).forEach(k => {
+    [].concat(query[k]).forEach(v => {
+      if (v !== undefined && v !== null && v !== '') qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+    });
+  });
+  const url = 'https://api.cloudinary.com/v1_1/' + encodeURIComponent(cld.cloud) + '/' + path + (qs.length ? '?' + qs.join('&') : '');
+  let res;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      method: method,
+      headers: { Authorization: 'Basic ' + Utilities.base64Encode(cld.apiKey + ':' + cld.secret) },
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    const msg = String(err && err.message ? err.message : err);
+    if (/permission|authori[sz]|external_request/i.test(msg)) {
+      throw apiError_('Apps Script is not allowed to connect to Cloudinary yet. In the Google Sheet, run SSV Admin > Set Cloudinary keys and allow access when Google asks, then try again.', 'NEEDS_PERMISSION');
+    }
+    throw apiError_('Could not reach Cloudinary: ' + msg, 'CLOUDINARY_ERROR');
+  }
+  const status = res.getResponseCode();
+  let json = {};
+  try { json = JSON.parse(res.getContentText() || '{}'); } catch (err) { json = {}; }
+  if (status >= 200 && status < 300) return json;
+  const message = (json && json.error && json.error.message) || ('HTTP ' + status);
+  throw apiError_('Cloudinary: ' + message, status === 404 ? 'CLOUDINARY_NOT_FOUND' : (status === 401 || status === 403 ? 'CLOUDINARY_AUTH' : 'CLOUDINARY_ERROR'));
+}
+
+function encodePath_(path) { return String(path).split('/').map(encodeURIComponent).join('/'); }
+function folderCacheKey_(base) { return 'cld_folders_v2:' + base; }
+
+/**
+ * The folder an upload goes into: exactly one of the section folders
+ * (<base>/Home, Facilities, Trainers, Gallery or Events). The admin panel
+ * can't create any other folder.
+ */
+function uploadFolder_(requested, base) {
+  const path = cleanFolderPath_(requested);
+  const allowed = sectionNames_().map(s => base + '/' + s);
+  if (allowed.indexOf(path) < 0) throw apiError_('Uploads go into one of the website folders: ' + allowed.join(', ') + '.', 'VALIDATION');
+  return path;
+}
+
+/** Signs one upload into a section folder: a photo (JPG, PNG, WebP) or, with kind "video", a video (MP4, MOV, WebM). */
+function getUploadSignature_(requested, kind) {
+  const cld = requireCloudinary_();
+  const folder = uploadFolder_(requested || cld.base + '/' + MEDIA_SECTIONS.general, cld.base);
+  const video = kind === 'video';
+  const params = { allowed_formats: video ? VIDEO_FORMATS : UPLOAD_FORMATS, folder: folder, timestamp: Math.floor(Date.now() / 1000), unique_filename: 'true', use_filename: 'true' };
+  const toSign = Object.keys(params).sort().map(k => k + '=' + params[k]).join('&');
+  const signature = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, toSign + cld.secret, Utilities.Charset.UTF_8));
+  return { cloudName: cld.cloud, apiKey: cld.apiKey, params: params, signature: signature, resourceType: video ? 'video' : 'image' };
+}
+
+/** The main folder, the section folders (which exist once used) and any subfolders made in Cloudinary. Cached 10 minutes. */
+function mediaFolders_(fresh) {
+  const cld = requireCloudinary_();
+  const cache = CacheService.getScriptCache(), key = folderCacheKey_(cld.base);
+  if (!fresh) { const hit = cache.get(key); if (hit) return JSON.parse(hit); }
+  const found = {};
+  found[cld.base] = true;
+  let calls = 0;
+  const walk = (path, depth) => {
+    if (calls++ >= 40) return;
+    let res;
+    try { res = cloudinaryApi_(cld, 'get', 'folders/' + encodePath_(path), { max_results: 500 }); }
+    catch (err) { if (err.code === 'CLOUDINARY_NOT_FOUND') return; throw err; }
+    (res.folders || []).forEach(f => {
+      if (!f || !f.path) return;
+      found[f.path] = true;
+      if (depth + 1 < MAX_FOLDER_DEPTH) walk(f.path, depth + 1);
+    });
+  };
+  walk(cld.base, 0);
+  const sections = sectionFolders_(cld.base);
+  Object.keys(sections).forEach(s => { found[sections[s]] = true; });
+  const out = { base: cld.base, sections: sections, folders: Object.keys(found).sort() };
+  try { cache.put(key, JSON.stringify(out), FOLDER_CACHE_SECONDS); } catch (err) { /* too big to cache */ }
+  return out;
+}
+
+/** Folders, photos and videos, each file with the places in the sheet that use it. Includes older uploads. */
+function mediaLibrary_(fresh) {
+  const cld = requireCloudinary_();
+  const tree = mediaFolders_(fresh);
+  const usedIn = imageUsage_(cld.roots);
+  const images = [], seen = {}, legacy = [];
+  let truncated = false;
+  cld.roots.forEach(root => {
+    ['image', 'video'].forEach(type => {
+      let cursor = null, pages = 0;
+      do {
+        const res = cloudinaryApi_(cld, 'get', 'resources/' + type + '/upload', { prefix: root + '/', max_results: 500, next_cursor: cursor });
+        (res.resources || []).forEach(r => {
+          const id = String(r.public_id || '');
+          if (seen[type + ':' + id] || id.indexOf(root + '/') !== 0) return;
+          seen[type + ':' + id] = true;
+          const folder = typeof r.asset_folder === 'string' && r.asset_folder.indexOf(root) === 0 ? r.asset_folder : id.slice(0, id.lastIndexOf('/'));
+          images.push({ id: id, type: type, url: r.secure_url || r.url || '', folder: folder, bytes: r.bytes || 0, width: r.width || 0, height: r.height || 0, duration: r.duration || 0, created: r.created_at || '', usedIn: usedIn(id) });
+        });
+        cursor = res.next_cursor || null;
+      } while (cursor && ++pages < 4);
+      if (cursor) truncated = true;
+    });
+    if (root !== cld.base && images.some(i => i.id.indexOf(root + '/') === 0)) legacy.push(root);
+  });
+  const folders = tree.folders.slice();
+  images.forEach(i => {
+    const parts = i.folder.split('/');
+    for (let n = 1; n <= parts.length; n++) { const p = parts.slice(0, n).join('/'); if (p && folders.indexOf(p) < 0) folders.push(p); }
+  });
+  folders.sort();
+  return { base: tree.base, sections: tree.sections, legacy: legacy, folders: folders, images: images, truncated: truncated };
+}
+
+/**
+ * Deletes an empty folder: a folder of older uploads (such as ssv-gym) or a
+ * subfolder made on the Cloudinary website. The section folders always stay.
+ */
+function deleteFolder_(path) {
+  const cld = requireCloudinary_();
+  const clean = cleanFolderPath_(path);
+  const legacy = cld.roots.some(r => r !== cld.base && (clean === r || clean.indexOf(r + '/') === 0));
+  const inSection = sectionNames_().some(s => clean.indexOf(cld.base + '/' + s + '/') === 0);
+  if (!legacy && !inSection) throw apiError_('The main website folders can\'t be deleted.', 'VALIDATION');
+  const inside = ['image', 'video'].some(type => (cloudinaryApi_(cld, 'get', 'resources/' + type + '/upload', { prefix: clean + '/', max_results: 1 }).resources || []).length > 0);
+  if (inside) throw apiError_('This folder still has files. Delete them first.', 'VALIDATION');
+  try { cloudinaryApi_(cld, 'delete', 'folders/' + encodePath_(clean)); }
+  catch (err) { if (err.code !== 'CLOUDINARY_NOT_FOUND') throw err; }
+  CacheService.getScriptCache().remove(folderCacheKey_(cld.base));
+  return { deleted: clean };
+}
+
+/** Deletes files (links or public IDs) that nothing in the sheet uses. Files in use are kept and reported. */
+function deleteImages_(list) {
+  const cld = requireCloudinary_();
+  if (!Array.isArray(list) || !list.length) throw apiError_('Nothing to delete.', 'BAD_REQUEST');
+  const assets = uniqueAssets_(list.slice(0, 500).map(v => assetOf_(v, cld)).filter(Boolean));
+  const usedIn = imageUsage_(cld.roots);
+  const kept = assets.filter(a => usedIn(a.id).length > 0);
+  const gone = assets.filter(a => kept.indexOf(a) < 0);
+  deleteAssets_(cld, gone);
+  return { deleted: gone.map(a => a.id), kept: kept.map(a => a.id) };
+}
+
+/** After a save or delete: removes the files it replaced if nothing else uses them. Never fails the save. */
+function removeUnusedImages_(urls) {
+  if (!urls || !urls.length) return;
+  try {
+    const cld = cloudinary_();
+    if (!cld) return;
+    const assets = uniqueAssets_(urls.map(u => assetOf_(u, cld)).filter(Boolean));
+    if (!assets.length) return;
+    const usedIn = imageUsage_(cld.roots);
+    const unused = assets.filter(a => usedIn(a.id).length === 0);
+    if (unused.length) deleteAssets_(cld, unused);
+  } catch (err) {
+    console.warn('Clean-up skipped: ' + (err && err.message));
+  }
+}
+
+function uniqueAssets_(list) {
+  const seen = {};
+  return list.filter(a => { const k = a.type + ':' + a.id; if (seen[k]) return false; seen[k] = true; return true; });
+}
+
+function deleteAssets_(cld, assets) {
+  ['image', 'video'].forEach(type => {
+    const ids = assets.filter(a => a.type === type).map(a => a.id);
+    for (let i = 0; i < ids.length; i += 100) {
+      cloudinaryApi_(cld, 'delete', 'resources/' + type + '/upload', { 'public_ids[]': ids.slice(i, i + 100), invalidate: 'true' });
+    }
+  });
+}
+
+/** { id, type } of a photo or video in this Cloudinary account inside the website's folders, or null. */
+function assetOf_(value, cld) {
+  let id = String(value || '').trim(), type = 'image';
+  const m = id.match(/^https?:\/\/res\.cloudinary\.com\/([^/]+)\/(image|video)\/upload\/([^?#]+)/i);
+  if (m) {
+    if (m[1] !== cld.cloud) return null;
+    type = m[2].toLowerCase();
+    const parts = m[3].split('/');
+    const v = parts.findIndex(p => /^v\d+$/.test(p));
+    try { id = decodeURIComponent((v >= 0 ? parts.slice(v + 1) : parts).join('/')); } catch (err) { return null; }
+    id = id.replace(/\.[a-z0-9]{2,5}$/i, '');
+  } else if (/^[a-z][\w+.-]*:/i.test(id)) {
+    return null;
+  }
+  return id.indexOf('..') < 0 && cld.roots.some(r => id.indexOf(r + '/') === 0) ? { id: id, type: type } : null;
+}
+
+/**
+ * Where each file is used. Returns a lookup: public ID -> labels such as
+ * "Trainers: Rahul" or "General information: Top photo". Hidden rows count
+ * too, so a file in use is never deleted.
+ */
+function imageUsage_(roots) {
+  const ss = ss_(), entries = [];
+  const markers = [];
+  roots.forEach(r => { markers.push(r + '/'); markers.push(encodeURI(r) + '/'); });
+  const friendly = { hero_image: 'Top photo', about_image: 'About photo' };
+  const scan = (tab, labelOf) => {
+    const sh = ss.getSheetByName(tab);
+    if (!sh) return;
+    const values = sh.getDataRange().getValues();
+    const head = headers_(values);
+    values.slice(1).forEach(row => {
+      const text = row.map(v => String(v)).join('\n');
+      if (markers.some(m => text.indexOf(m) >= 0)) entries.push({ text: text, label: labelOf(row, head) });
+    });
+  };
+  scan('General', (row, head) => { const key = String(row[Math.max(head.indexOf('key'), 0)]).trim(); return 'General information: ' + (friendly[key] || key); });
+  Object.keys(COLLECTIONS).forEach(key => {
+    const tab = COLLECTIONS[key];
+    if (tab === 'Reviews') return;
+    scan(tab, (row, head) => {
+      const cell = h => { const i = head.indexOf(h); return i >= 0 ? String(row[i]).trim() : ''; };
+      const hidden = head.indexOf('active') >= 0 && !isTrue_(row[head.indexOf('active')]);
+      return tab + ': ' + (cell('name') || cell('title') || cell('id') || 'untitled') + (hidden ? ' (hidden)' : '');
+    });
+  });
+  return id => {
+    const alt = encodeURI(id);
+    return entries.filter(e => e.text.indexOf(id) >= 0 || e.text.indexOf(alt) >= 0).map(e => e.label);
+  };
+}
+
+/* ============================ sheet menu & setup ============================ */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('SSV Admin')
+    .addItem('Set up / repair sheets', 'setupSheets')
+    .addItem('Set admin password', 'setAdminPassword')
+    .addItem('Set Cloudinary keys', 'setCloudinaryKeys')
+    .addSeparator()
+    .addItem('Clear website cache', 'clearWebsiteCache')
+    .addItem('Unlock admin sign-in', 'unlockSignIn')
+    .addItem('Sign out all admin sessions', 'signOutAllSessions')
+    .addToUi();
+}
+
+/**
+ * Simple trigger. Sheet edits show on the website straight away (after the
+ * visitor's short browser cache), and rows typed in by hand get an id and tick boxes.
+ */
+function onEdit(e) {
+  try { CacheService.getScriptCache().remove(CONTENT_CACHE_KEY); } catch (err) { /* ignore */ }
+  try {
+    const range = e && e.range;
+    if (!range) return;
+    const sh = range.getSheet(), name = sh.getName();
+    if (!ID_PREFIX[name] || range.getNumRows() > 500) return;
+    repairTab_(sh, name, range.getRow(), range.getLastRow());
+  } catch (err) { /* a simple trigger must never interrupt editing */ }
+}
+
+/**
+ * Creates, repairs and styles every tab. Safe to run any time.
+ * One-time steps for older sheets: 1.1 sample content is upgraded (1.3), empty
+ * sections get sample content (1.4), and the new address, opening hours,
+ * phone numbers and settings are added (1.5). Values you changed are kept.
+ */
+function setupSheets() {
+  const ss = ss_();
+  const scriptTz = Session.getScriptTimeZone();
+  if (scriptTz && ss.getSpreadsheetTimeZone() !== scriptTz) ss.setSpreadsheetTimeZone(scriptTz);
+  TZ_ = null;
+  const props = PropertiesService.getScriptProperties();
+  const level = ss.getSheetByName('General') ? (props.getProperty('SEED_VERSION') || '1.1.0') : SEED_LEVEL;
+  renameTab_(ss, 'Plans', 'Membership Plans');
+  renameTab_(ss, 'Leads', 'Enquiries');
+  migrateTestimonials_(ss);
+  const seeds = seedRows_();
+  let repaired = 0;
+  Object.keys(SCHEMA).forEach(name => {
+    const cols = SCHEMA[name];
+    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    if (sh.getLastRow() === 0) {
+      sh.getRange(1, 1, 1, cols.length).setValues([cols.map(c => LABELS[c] || c)]);
+      sh.setFrozenRows(1);
+      writeRows_(sh, cols, seeds[name] || []);
+    } else {
+      relabelHeaders_(sh, cols);
+      if (ID_PREFIX[name]) repaired += withLock_(() => repairTab_(sh, name));
+    }
+  });
+  if (olderThan_(level, '1.3.0')) upgradeSampleContent_(ss, seeds);
+  if (olderThan_(level, '1.4.0')) fillSamples_(ss, seeds);
+  if (olderThan_(level, '1.5.0')) upgradeTo150_(ss, seeds);
+  props.setProperty('SEED_VERSION', SEED_LEVEL);
+  fillNotes_(ss.getSheetByName('General'), noteFor_);
+  fillNotes_(ss.getSheetByName('Config'), configNoteFor_);
+  BOOLEAN_KEYS.forEach(k => makeCheckbox_(ss.getSheetByName('General'), k));
+  statusDropdown_(ss.getSheetByName('Enquiries'), ENQUIRY_STATUSES);
+  statusDropdown_(ss.getSheetByName('Reviews'), REVIEW_STATUSES);
+  const blank = ss.getSheetByName('Sheet1');
+  if (blank && blank.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(blank);
+  Object.keys(SCHEMA).forEach(name => { const sh = ss.getSheetByName(name); if (sh) styleTab_(sh); });
+  orderTabs_(ss);
+  const cache = CacheService.getScriptCache();
+  cache.remove(CONTENT_CACHE_KEY);
+  cache.remove(folderCacheKey_(baseFolder_(readKeyValues_('Config') || {})));
+  try { removeSecretRows_(SpreadsheetApp.getUi()); } catch (err) { /* run from the editor: no dialogs */ }
+  toast_('Sheets are ready' + (repaired ? ' (' + repaired + ' rows got an ID)' : '') + '. Next: Set admin password (if not done) and Set Cloudinary keys.');
+}
+
+function olderThan_(a, b) {
+  const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+}
+
+function renameTab_(ss, from, to) {
+  const sh = ss.getSheetByName(from);
+  if (sh && !ss.getSheetByName(to)) sh.setName(to);
+}
+
+/** Header cells: bold, size 10, centred, green text on the dark brand colour. */
+function styleHeader_(range) {
+  return range.setFontWeight('bold').setFontSize(10).setFontColor('#8FE05A').setBackground('#151917')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP)
+    .setBorder(false, false, false, false, false, false);
+}
+
+/**
+ * A tidy, plain look for a whole tab: styled header row, plain rows in size 10,
+ * every cell clipped to one line, sensible column widths, short values centred.
+ * Runs with Set up / repair sheets, so running it again restores the look.
+ */
+function styleTab_(sh) {
+  const lastCol = sh.getLastColumn();
+  if (lastCol < 1) return;
+  if (sh.getMaxRows() < 2) sh.insertRowsAfter(1, 50);
+  const rows = sh.getMaxRows() - 1;
+  const head = headerRow_(sh);
+  styleHeader_(sh.getRange(1, 1, 1, lastCol));
+  sh.setRowHeight(1, 26);
+  if (sh.getFrozenRows() !== 1) sh.setFrozenRows(1);
+  sh.getBandings().forEach(b => b.remove());   // plain rows: no alternating colours
+  sh.getRange(2, 1, rows, lastCol).setFontSize(10).setFontWeight('normal').setVerticalAlignment('middle')
+    .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP).setBorder(false, false, false, false, false, false);
+  head.forEach((key, i) => {
+    const style = COLUMN_STYLE[key];
+    if (!style) return;
+    sh.setColumnWidth(i + 1, style[0]);
+    sh.getRange(2, i + 1, rows, 1).setHorizontalAlignment(style[1]);
+  });
+  const name = sh.getName();
+  sh.setTabColor(name === 'Config' ? '#7E8580' : (name === 'Reviews' || name === 'Enquiries' ? '#E9C46A' : '#6DBE45'));
+}
+
+/** Writes rows (arrays in column order, or objects keyed by column) under the header of an empty tab. */
+function writeRows_(sh, cols, rows) {
+  if (!rows.length) return;
+  const matrix = rows.map(r => (Array.isArray(r)
+    ? cols.map((c, i) => (r[i] === undefined ? '' : r[i]))
+    : cols.map(c => (c in r ? r[c] : (BOOLEAN_COLUMNS.indexOf(c) >= 0 ? false : '')))));
+  BOOLEAN_COLUMNS.forEach(c => { const i = cols.indexOf(c); if (i >= 0) sh.getRange(2, i + 1, matrix.length, 1).insertCheckboxes(); });
+  sh.getRange(2, 1, matrix.length, cols.length).setValues(matrix.map(r => r.map(v => cellIn_(v))));
+}
+
+/** Gives known columns their proper titles and adds missing ones. Your own extra columns stay. */
+function relabelHeaders_(sh, cols) {
+  const raw = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+  const have = raw.map(normHeader_);
+  raw.forEach((h, i) => {
+    const key = have[i];
+    if (cols.indexOf(key) >= 0 && LABELS[key] && String(h) !== LABELS[key]) sh.getRange(1, i + 1).setValue(LABELS[key]);
+  });
+  cols.filter(c => have.indexOf(c) < 0).forEach(c => sh.getRange(1, sh.getLastColumn() + 1).setValue(LABELS[c] || c));
+  if (!sh.getFrozenRows()) sh.setFrozenRows(1);
+}
+
+/** Moves genuine testimonials into the new Reviews tab (the three samples are left behind). */
+function migrateTestimonials_(ss) {
+  const old = ss.getSheetByName('Testimonials');
+  if (!old || ss.getSheetByName('Reviews')) return;
+  const values = old.getDataRange().getValues();
+  const head = headers_(values);
+  const at = (r, h) => { const i = head.indexOf(h); return i >= 0 ? r[i] : ''; };
+  const samples = { 'rev-1': 'Rohit P.', 'rev-2': 'Sneha D.', 'rev-3': 'Karan M.' };
+  const rows = values.slice(1)
+    .filter(r => String(at(r, 'name')).trim() && samples[String(at(r, 'id')).trim()] !== String(at(r, 'name')).trim())
+    .map(r => ({ id: String(at(r, 'id')).trim(), name: at(r, 'name'), rating: at(r, 'rating'), review: at(r, 'review'), likes: 0, date: today_(), source: 'Admin', status: isTrue_(at(r, 'active')) ? 'Published' : 'Hidden' }));
+  const sh = ss.insertSheet('Reviews');
+  const cols = SCHEMA.Reviews;
+  sh.getRange(1, 1, 1, cols.length).setValues([cols.map(c => LABELS[c])]);
+  sh.setFrozenRows(1);
+  writeRows_(sh, cols, rows);
+  ss.deleteSheet(old);
+}
+
+/**
+ * One-time upgrade from the sample content of version 1.1: sample values you
+ * never changed are replaced with the real details, made-up rows are removed.
+ */
+function upgradeSampleContent_(ss, seeds) {
+  const OLD = oldSamples_();
+  const fresh = {};
+  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
+  const general = ss.getSheetByName('General'), config = ss.getSheetByName('Config');
+  const cfg = readKeyValues_('Config') || {}, gen = readKeyValues_('General') || {};
+  const moved = { WHATSAPP_NUMBER: 'whatsapp', GOOGLE_MAPS_URL: 'maps_url', INSTAGRAM_URL: 'instagram_url' };
+  Object.keys(moved).forEach(k => {
+    const value = String(cfg[k] === undefined ? '' : cfg[k]).trim(), target = moved[k];
+    if (value && (isBlank_(gen[target]) || sameText_(gen[target], OLD.general[target]))) setKeyValue_(general, target, value);
+  });
+  updateKeyValues_(general, (key, value) => {
+    if (key === 'sample_content') return null;
+    if (key in OLD.general && sameText_(value, OLD.general[key])) return key in fresh ? fresh[key] : null;
+    return undefined;
+  });
+  appendMissingKeys_(general, seeds.General.filter(r => ['maps_embed_url', 'facebook_url', 'review_form', 'review_approval'].indexOf(r[0]) >= 0));
+  if (config) {
+    updateKeyValues_(config, (key, value) => {
+      if (key in moved || key === 'GOOGLE_SHEET_ID' || key === 'CLOUDINARY_UPLOAD_PRESET') return null;
+      if (key === 'CLOUDINARY_FOLDER' && sameText_(value, 'ssv-gym')) return 'SSV-Gym';
+      return undefined;
+    });
+    appendMissingKeys_(config, seeds.Config.filter(r => r[0] === 'NOTIFY_EMAIL'));
+  }
+  upgradeRows_(ss.getSheetByName('Facilities'), OLD.facilities, seeds.Facilities, ['name', 'tags', 'description', 'category']);
+  upgradeRows_(ss.getSheetByName('Membership Plans'), OLD.plans, seeds['Membership Plans'], ['description', 'features']);
+  upgradeRows_(ss.getSheetByName('Trainers'), OLD.trainers, [], []);
+  upgradeRows_(ss.getSheetByName('Gallery'), OLD.gallery, [], []);
+}
+
+/**
+ * One-time step (1.4): nothing on the website is left empty. Missing or empty
+ * General values, empty tabs, plans without a price and an empty NOTIFY_EMAIL
+ * get the sample content, to be replaced with the gym's own later. Reviews are
+ * left to real visitors.
+ */
+function fillSamples_(ss, seeds) {
+  const general = ss.getSheetByName('General');
+  const sample = {};
+  seeds.General.forEach(r => { sample[r[0]] = r[1]; });
+  updateKeyValues_(general, (key, value) => (key in sample && isBlank_(value) && !isBlank_(sample[key]) ? sample[key] : undefined));
+  appendMissingKeys_(general, seeds.General);
+  ['Facilities', 'Membership Plans', 'Trainers', 'Gallery', 'Announcements'].forEach(name => {
+    const sh = ss.getSheetByName(name);
+    if (sh && sh.getLastRow() < 2) seeds[name].forEach(r => appendRecord_(sh, r));
+  });
+  const plans = ss.getSheetByName('Membership Plans');
+  if (plans && plans.getLastRow() > 1) {
+    const values = plans.getDataRange().getValues(), head = headers_(values);
+    const idCol = head.indexOf('id'), priceCol = head.indexOf('price');
+    const prices = {};
+    seeds['Membership Plans'].forEach(p => { prices[p.id] = p.price; });
+    if (idCol >= 0 && priceCol >= 0) values.forEach((r, i) => {
+      const id = String(r[idCol]).trim();
+      if (i > 0 && isBlank_(r[priceCol]) && prices[id] !== undefined) plans.getRange(i + 1, priceCol + 1).setValue(prices[id]);
+    });
+  }
+  const config = ss.getSheetByName('Config');
+  updateKeyValues_(config, (key, value) => (key === 'NOTIFY_EMAIL' && isBlank_(value) ? NOTIFY_DEFAULT : undefined));
+  appendMissingKeys_(config, seeds.Config.filter(r => r[0] === 'NOTIFY_EMAIL'));
+}
+
+/**
+ * One-time step (1.5): the gym's new address, opening hours (Sunday differs)
+ * and phone numbers (gym and owner), plus the new settings. Only values still
+ * equal to the old starting content are replaced; anything you edited stays.
+ * The Services tab (personal training, diet plans) is created with its rows
+ * like any new tab.
+ */
+function upgradeTo150_(ss, seeds) {
+  const general = ss.getSheetByName('General');
+  if (!general) return;
+  const fresh = {};
+  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
+  const old = {
+    phone: '+91 75586 08585',
+    address: 'Kamanwala Nagar, Sheetal Nagar | Virar West, Maharashtra 401303',
+    opening_hours: 'Open all 7 days | 6:00 AM – 11:00 PM'
+  };
+  updateKeyValues_(general, (key, value) => (key in old && sameText_(value, old[key]) ? fresh[key] : undefined));
+  appendMissingKeys_(general, seeds.General.filter(r => ['phone_2', 'services_heading', 'gallery_categories'].indexOf(r[0]) >= 0));
+}
+
+/** fn(key, value) for each key/value row: a returned value replaces the cell, null deletes the row, undefined leaves it. */
+function updateKeyValues_(sh, fn) {
+  if (!sh) return;
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const k = Math.max(head.indexOf('key'), 0), v = head.indexOf('value') >= 0 ? head.indexOf('value') : 1;
+  const deletions = [];
+  values.forEach((row, i) => {
+    const key = String(row[k]).trim();
+    if (i === 0 || !key) return;
+    const next = fn(key, row[v]);
+    if (next === null) deletions.push(i + 1);
+    else if (next !== undefined && !sameText_(row[v], next)) sh.getRange(i + 1, v + 1).setValue(cellIn_(next));
+  });
+  deletions.sort((a, b) => b - a).forEach(r => deleteRowSafe_(sh, r));
+}
+
+function setKeyValue_(sh, key, value) {
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const k = Math.max(head.indexOf('key'), 0), v = head.indexOf('value') >= 0 ? head.indexOf('value') : 1;
+  const i = values.findIndex((r, n) => n > 0 && String(r[k]).trim() === key);
+  if (i > 0) sh.getRange(i + 1, v + 1).setValue(cellIn_(value));
+  else appendMissingKeys_(sh, [[key, value, '']]);
+}
+
+/** Adds [key, value, note] rows whose key is missing. */
+function appendMissingKeys_(sh, rows) {
+  if (!sh || !rows || !rows.length) return;
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const k = Math.max(head.indexOf('key'), 0), v = head.indexOf('value') >= 0 ? head.indexOf('value') : 1, n = head.indexOf('notes');
+  const have = {};
+  values.slice(1).forEach(r => { have[String(r[k]).trim()] = true; });
+  let row = sh.getLastRow() + 1;
+  rows.filter(r => !have[r[0]]).forEach(r => {
+    sh.getRange(row, k + 1).setValue(r[0]);
+    const cell = sh.getRange(row, v + 1);
+    if (BOOLEAN_KEYS.indexOf(r[0]) >= 0) cell.insertCheckboxes();
+    cell.setValue(cellIn_(r[1]));
+    if (n >= 0 && r[2]) sh.getRange(row, n + 1).setValue(r[2]);
+    row++;
+  });
+}
+
+/**
+ * Replaces rows that still hold old sample content: a row whose ID and values
+ * match an old sample is updated to the new version (listed fields only), or
+ * deleted if the new version doesn't have it. New rows are added only when old
+ * samples were found. Rows you changed are left alone.
+ */
+function upgradeRows_(sh, oldRows, newRows, fields) {
+  if (!sh || sh.getLastRow() < 2) return;
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const idCol = head.indexOf('id');
+  if (idCol < 0) return;
+  const newById = {};
+  newRows.forEach(r => { newById[r.id] = r; });
+  let found = false;
+  const deletions = [];
+  values.forEach((row, i) => {
+    if (i === 0) return;
+    const id = String(row[idCol]).trim();
+    const old = oldRows.find(o => o.id === id);
+    if (!old) return;
+    const untouched = Object.keys(old).every(key => key === 'id' || (head.indexOf(key) >= 0 && sameText_(row[head.indexOf(key)], old[key])));
+    if (!untouched) return;
+    found = true;
+    const next = newById[id];
+    if (!next) { deletions.push(i + 1); return; }
+    fields.forEach(f => { const c = head.indexOf(f); if (c >= 0) sh.getRange(i + 1, c + 1).setValue(cellIn_(next[f] === undefined ? '' : next[f])); });
+  });
+  deletions.sort((a, b) => b - a).forEach(r => deleteRowSafe_(sh, r));
+  if (!found) return;
+  const have = takenIds_(sh);
+  newRows.filter(r => !have[r.id]).forEach(r => appendRecord_(sh, r));
+}
+
+/** Fills empty Notes cells for known keys; notes are shown in grey. */
+function fillNotes_(sh, noteFn) {
+  if (!sh || sh.getLastRow() < 2) return;
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const k = Math.max(head.indexOf('key'), 0), n = head.indexOf('notes');
+  if (n < 0) return;
+  values.forEach((r, i) => {
+    const key = String(r[k]).trim(), note = i > 0 && key && isBlank_(r[n]) ? noteFn(key) : '';
+    if (note) sh.getRange(i + 1, n + 1).setValue(note);
+  });
+  sh.getRange(2, n + 1, sh.getLastRow() - 1, 1).setFontColor('#6B7280').setFontStyle('normal');
+}
+
+/** Turns the value cell of a key/value row into a tick box, keeping its current value. */
+function makeCheckbox_(sh, key) {
+  if (!sh) return;
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const k = Math.max(head.indexOf('key'), 0), v = head.indexOf('value') >= 0 ? head.indexOf('value') : 1;
+  const i = values.findIndex((r, n) => n > 0 && String(r[k]).trim() === key);
+  if (i < 1) return;
+  const cell = sh.getRange(i + 1, v + 1);
+  if (isCheckbox_(cell.getDataValidation())) return;
+  const on = isTrue_(values[i][v]);
+  cell.insertCheckboxes();
+  if (on) cell.setValue(true);
+}
+
+function statusDropdown_(sh, list) {
+  if (!sh) return;
+  const col = headerRow_(sh).indexOf('status') + 1;
+  if (col < 1) return;
+  sh.getRange(2, col, Math.max(sh.getMaxRows() - 1, 1), 1)
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build());
+}
+
+/** Puts the tabs in the same order as the admin panel. */
+function orderTabs_(ss) {
+  Object.keys(SCHEMA).forEach((name, i) => {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getIndex() === i + 1) return;
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(i + 1);
+  });
+  const first = ss.getSheetByName('General');
+  if (first) ss.setActiveSheet(first);
+}
+
+/** Offers to delete rows in the Config and General tabs that look like passwords or API secrets. */
+function removeSecretRows_(ui) {
+  const found = [];
+  ['Config', 'General'].forEach(name => {
+    const sh = ss_().getSheetByName(name);
+    if (!sh) return;
+    const values = sh.getDataRange().getValues();
+    const k = Math.max(headers_(values).indexOf('key'), 0);
+    values.forEach((r, i) => {
+      const key = String(r[k]).trim();
+      if (i > 0 && key && SECRET_KEY_PATTERN.test(key)) found.push({ sh: sh, row: i + 1, label: name + ' tab: ' + key });
+    });
+  });
+  if (!found.length) return 0;
+  const answer = ui.alert('Secrets found in the sheet',
+    'These rows look like passwords or API secrets:\n\n' + found.map(f => '• ' + f.label).join('\n') +
+    '\n\nThe website never reads them from the sheet, and anyone who can open the sheet can see them. ' +
+    'Set the admin password and Cloudinary keys from this SSV Admin menu instead.\n\nDelete these rows now?', ui.ButtonSet.YES_NO);
+  if (answer !== ui.Button.YES) return 0;
+  found.sort((a, b) => b.row - a.row).forEach(f => deleteRowSafe_(f.sh, f.row));
+  return found.length;
+}
+
+function setAdminPassword() {
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt('Set admin password', 'Choose a password for admin.html (at least 10 characters). Anyone with this password can edit the website.', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  const password = res.getResponseText();
+  if (password.length < 10) { ui.alert('Use at least 10 characters. The password was not changed.'); return; }
+  const salt = Utilities.getUuid();
+  PropertiesService.getScriptProperties().setProperties({
+    ADMIN_PASSWORD_SALT: salt,
+    ADMIN_PASSWORD_HASH: sha256Hex_(salt + password),
+    SESSION_EPOCH: String(Date.now())
+  });
+  CacheService.getScriptCache().remove('login_failures');
+  ui.alert('Admin password saved. Anyone signed in to the admin panel has been signed out.');
+}
+
+/** Saves the Cloudinary API key and secret in Script Properties after testing them. Running it also gives Google's permission to reach Cloudinary. */
+function setCloudinaryKeys() {
+  const ui = SpreadsheetApp.getUi();
+  const cfg = readKeyValues_('Config') || {};
+  const cloud = cloudName_(cfg);
+  if (!cloud) { ui.alert('Put your Cloudinary cloud name in the Config tab first (CLOUDINARY_CLOUD_NAME), then run this again.'); return; }
+  const k = ui.prompt('Cloudinary API key', 'Paste the API key from Cloudinary (Settings > API Keys).', ui.ButtonSet.OK_CANCEL);
+  if (k.getSelectedButton() !== ui.Button.OK) return;
+  const s = ui.prompt('Cloudinary API secret', 'Paste the API secret for that key. It is saved in Script Properties, never in the sheet.', ui.ButtonSet.OK_CANCEL);
+  if (s.getSelectedButton() !== ui.Button.OK) return;
+  const apiKey = k.getResponseText().trim(), secret = s.getResponseText().trim();
+  if (!/^[A-Za-z0-9]{6,}$/.test(apiKey) || !/^[A-Za-z0-9_-]{10,}$/.test(secret)) { ui.alert('That doesn\'t look like a Cloudinary API key and secret. Nothing was changed.'); return; }
+  try { cloudinaryApi_({ cloud: cloud, apiKey: apiKey, secret: secret }, 'get', 'ping'); }
+  catch (err) {
+    const again = ui.alert('Cloudinary did not accept these keys', err.message + '\n\nCheck the cloud name in the Config tab, the key and the secret. Save them anyway?', ui.ButtonSet.YES_NO);
+    if (again !== ui.Button.YES) return;
+  }
+  PropertiesService.getScriptProperties().setProperties({ CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: secret });
+  CacheService.getScriptCache().remove(folderCacheKey_(baseFolder_(cfg)));
+  ui.alert('Cloudinary keys saved. Uploads and the media library in the admin panel are ready.');
+  removeSecretRows_(ui);
+}
+
+function clearWebsiteCache() {
+  CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+  toast_('Website cache cleared.');
+}
+
+function unlockSignIn() {
+  CacheService.getScriptCache().remove('login_failures');
+  toast_('Admin sign-in unlocked.');
+}
+
+function signOutAllSessions() {
+  PropertiesService.getScriptProperties().setProperty('SESSION_EPOCH', String(Date.now()));
+  toast_('All admin sessions have been signed out.');
+}
+
+function toast_(message) { try { ss_().toast(message, 'SSV Admin', 8); } catch (err) { console.log(message); } }
+
+/* ================================ starting content ================================
+   Written by setupSheets() into empty tabs. Contact details, hours, services,
+   Facebook and Instagram are the gym's own. Trainers, statistics and most
+   photos are SAMPLE content (photos from Unsplash) for the owner to replace.
+   Reviews are left to real visitors. */
+
+function seedRows_() {
+  const stock = id => 'https://images.unsplash.com/' + id;   // stand-in photos until photos of SSV are uploaded
+  const features = 'Full gym access | Cardio equipment | Complimentary locker';
+  return {
+    General: [
+      ['gym_name', 'SSV Gym'],
+      ['full_name', 'Shree Siddhi Vinayak Gym'],
+      ['tagline', 'Train strong. Live strong.'],
+      ['description', 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.'],
+      ['hero_heading', 'Train strong. | Live strong.'],
+      ['hero_subtitle', 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.'],
+      ['hero_image', stock('photo-1623874514711-0f321325f318')],
+      ['facility_strip', 'Main Gym | CrossFit | Cardio | Steam Room'],
+      ['stat_1_value', '5+'], ['stat_1_label', 'Years in Virar'],
+      ['stat_2_value', '40+'], ['stat_2_label', 'Machines and stations'],
+      ['stat_3_value', '3'], ['stat_3_label', 'Expert trainers'],
+      ['stat_4_value', '7'], ['stat_4_label', 'Days a week'],
+      ['about_heading', 'Shree Siddhi Vinayak Gym'],
+      ['about_text', 'SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal. | Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.'],
+      ['about_image', stock('photo-1534438327276-14e5300c3a48')],
+      ['about_highlights', 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers'],
+      ['facilities_intro', 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.'],
+      ['services_heading', 'Personal training and diet plans'],
+      ['phone', '+91 77588 78588'],
+      ['phone_2', '+91 75586 08585'],
+      ['whatsapp', '+91 75586 08585'],
+      ['address', 'Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303'],
+      ['opening_hours', 'Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM'],
+      ['maps_url', 'https://maps.app.goo.gl/EX4aAEYxKCztUjqv6'],
+      ['maps_embed_url', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin'],
+      ['instagram_url', 'https://www.instagram.com/ssvgym2021/'],
+      ['facebook_url', 'https://www.facebook.com/p/SSV-GYM-100069942823280/'],
+      ['featured_badge_text', 'Best value'],
+      ['gallery_categories', 'Gym | CrossFit | Training | Equipment | Events'],
+      ['review_form', true],
+      ['review_approval', false]
+    ].map(r => [r[0], r[1], noteFor_(r[0])]),
+    Facilities: [
+      { id: 'fac-main', name: 'Main Gym', tags: 'Strength | Bodybuilding | Machines', description: 'The main floor for strength training, bodybuilding and machine work.', image_url: stock('photo-1637430308606-86576d8fef3c'), category: 'major', active: true, display_order: 1 },
+      { id: 'fac-crossfit', name: 'CrossFit', tags: 'Functional Training | Conditioning', description: 'A dedicated zone for CrossFit, functional movements and conditioning circuits.', image_url: stock('photo-1536922246289-88c42f957773'), category: 'major', active: true, display_order: 2 },
+      { id: 'fac-steam', name: 'Steam Room', tags: 'Recovery | Relaxation', description: 'Unwind and recover in the steam room after your workout.', image_url: stock('photo-1759216852954-88e547b8e01f'), category: 'major', active: true, display_order: 3 },
+      { id: 'fac-cardio', name: 'Cardio', tags: '', description: 'Cardio equipment for warm-ups, endurance and fat loss.', image_url: '', category: 'additional', active: true, display_order: 4 },
+      { id: 'fac-personal-training', name: 'Personal Training', tags: '', description: 'One-to-one coaching built around your goal.', image_url: '', category: 'additional', active: true, display_order: 5 },
+      { id: 'fac-weight-loss', name: 'Weight Loss Programme', tags: '', description: 'Training and guidance to lose fat.', image_url: '', category: 'additional', active: true, display_order: 6 },
+      { id: 'fac-weight-gain', name: 'Weight Gain Programme', tags: '', description: 'Training and guidance to build muscle and gain healthy weight.', image_url: '', category: 'additional', active: true, display_order: 7 },
+      { id: 'fac-lockers', name: 'Complimentary Lockers', tags: '', description: 'Keep your things safe while you train.', image_url: '', category: 'additional', active: true, display_order: 8 }
+    ],
+    'Membership Plans': [
+      { id: 'plan-monthly', name: 'Monthly', duration: '1 Month', price: 1200, description: 'Month-to-month membership.', features: features, featured: false, active: true, display_order: 1 },
+      { id: 'plan-quarterly', name: 'Quarterly', duration: '3 Months', price: 3000, description: 'Three months to build a steady routine.', features: features, featured: false, active: true, display_order: 2 },
+      { id: 'plan-half-yearly', name: 'Half Yearly', duration: '6 Months', price: 5500, description: 'Six months of consistent training.', features: features, featured: false, active: true, display_order: 3 },
+      { id: 'plan-yearly', name: 'Yearly', duration: '12 Months', price: 9000, description: 'A full year of training.', features: features + ' | Diet guidance', featured: true, active: true, display_order: 4 }
+    ],
+    Services: [
+      { id: 'svc-personal-training', name: 'Personal Training', price: 5000, price_note: 'Starting price', description: 'One-on-one personal training sessions built around your goal.', active: true, display_order: 1 },
+      { id: 'svc-diet-plan', name: 'Diet Plan', price: 1250, price_note: 'Per session', description: 'A personalised diet plan to support your training.', active: true, display_order: 2 }
+    ],
+    Trainers: [
+      { id: 'tr-aman-verma', name: 'Aman Verma', role: 'Head Trainer', specialization: 'Strength training and bodybuilding', bio: 'Helps members build strength with sound technique and a clear plan.', image_url: stock('photo-1567013127542-490d757e51fc'), active: true, display_order: 1 },
+      { id: 'tr-neha-kulkarni', name: 'Neha Kulkarni', role: 'Fitness Coach', specialization: 'Weight loss and functional training', bio: 'Builds sustainable routines for fat loss and everyday fitness.', image_url: stock('photo-1594381898411-846e7d193883'), active: true, display_order: 2 },
+      { id: 'tr-vikram-singh', name: 'Vikram Singh', role: 'CrossFit Coach', specialization: 'CrossFit and conditioning', bio: 'Runs high-energy conditioning sessions for all fitness levels.', image_url: stock('photo-1583454110551-21f2fa2afe61'), active: true, display_order: 3 }
+    ],
+    Gallery: [
+      ['main-gym-floor', '1728486145245-d4cb0c9c3470', 'Main gym floor', 'gym', 'Machines and free weights on the main floor.'],
+      ['battle-ropes', '1548690312-e3b507d8c110', 'Battle ropes', 'crossfit', 'Conditioning work in the CrossFit zone.'],
+      ['strength-machines', '1571902943202-507ec2618e8f', 'Strength machines', 'equipment', 'Machines for every major muscle group.'],
+      ['barbell-session', '1517836357463-d25dfeac3438', 'Barbell session', 'training', 'Heavy compound lifts with good form.'],
+      ['dumbbell-rack', '1576678927484-cc907957088c', 'Dumbbell rack', 'equipment', 'A full range of dumbbells.'],
+      ['kettlebell-work', '1601422407692-ec4eeec1d9b3', 'Kettlebell work', 'crossfit', 'Functional movements and circuits.'],
+      ['weights-area', '1689877020200-403d8542d95d', 'Weights area', 'gym', 'Space to train with free weights.'],
+      ['focused-training', '1526506118085-60ce8714f8c5', 'Focused training', 'training', 'Training towards a clear goal.'],
+      ['steam-room', '1759216852954-88e547b8e01f', 'Steam room', 'gym', 'Recover after your workout.'],
+      ['group-session', '1593079831268-3381b0db4a77', 'Group session', 'events', 'Training together.'],
+      ['equipment-detail', '1590487988256-9ed24133863e', 'Equipment', 'equipment', 'Well-kept equipment.'],
+      ['lifting-practice', '1605296867304-46d5465a13f1', 'Lifting practice', 'training', 'Building strength step by step.']
+    ].map((g, i) => ({ id: 'img-' + g[0], image_url: stock('photo-' + g[1]), title: g[2], category: g[3], caption: g[4], active: true, display_order: i + 1 })),
+    Reviews: [],
+    Announcements: [
+      { id: 'ann-welcome', title: 'Welcome to the new SSV Gym website', description: 'Membership plans, photos and reviews are all here. Questions? Call or WhatsApp us.', image_url: '', date: today_(), expiry: '', active: true, priority: 1 }
+    ],
+    Enquiries: [],
+    Config: [
+      ['APPS_SCRIPT_URL', ''],
+      ['CLOUDINARY_CLOUD_NAME', ''],
+      ['CLOUDINARY_FOLDER', 'SSV-Gym'],
+      ['NOTIFY_EMAIL', NOTIFY_DEFAULT]
+    ].map(r => [r[0], r[1], configNoteFor_(r[0])])
+  };
+}
+
+function noteFor_(key) {
+  const notes = {
+    gym_name: 'Short name, used at the top of the page and in the contact section.',
+    full_name: 'Full name of the gym.',
+    tagline: 'Line in the footer. Empty = hidden.',
+    description: 'Summary shown in Google search results.',
+    hero_heading: 'Big heading at the top of the page. A | starts a new line.',
+    hero_subtitle: 'Text under the big heading. Empty = hidden.',
+    hero_image: 'Top photo (sample until replaced). Upload it in the admin panel (General information).',
+    facility_strip: 'Words in the strip under the top photo, separated by |. Empty = hidden.',
+    about_heading: 'Heading of the About section.',
+    about_text: 'About section text. A | starts a new paragraph.',
+    about_image: 'About section photo (sample until replaced).',
+    about_highlights: 'Short points in the About section, separated by |.',
+    facilities_intro: 'Text next to the Facilities heading. Empty = hidden.',
+    services_heading: 'Heading above personal training and diet plans (Services tab).',
+    phone: 'Gym phone number with country code. Used for the Call buttons.',
+    phone_2: "Owner's phone number, shown as a second number. Empty = hidden.",
+    whatsapp: 'WhatsApp number with country code. Empty = the gym phone is used.',
+    address: 'Address. A | starts a new line.',
+    opening_hours: 'One line per group of days, e.g. "Monday – Saturday: 6:00 AM – 11:00 PM". A | starts a new line.',
+    maps_url: 'Google Maps link to the gym (Share > Copy link).',
+    maps_embed_url: 'Map on the website (Google Maps > Share > Embed a map).',
+    instagram_url: 'Instagram profile link or @handle. Empty = hidden.',
+    facebook_url: 'Facebook page link. Empty = hidden.',
+    featured_badge_text: 'Label on highlighted membership plans.',
+    gallery_categories: 'Gallery categories in filter order, separated by |. Also editable in the admin panel (Gallery > Categories).',
+    review_form: 'Ticked: visitors can write reviews on the website.',
+    review_approval: 'Ticked: new reviews wait for your approval before they appear.'
+  };
+  if (notes[key]) return notes[key];
+  const m = String(key).match(/^stat_(\d)_(value|label)$/);
+  if (m) return m[2] === 'value' ? 'Sample figure for statistic ' + m[1] + ', e.g. 10+. Empty = hidden.' : 'Label for statistic ' + m[1] + ', e.g. Years in Virar.';
+  return '';
+}
+
+function configNoteFor_(key) {
+  return {
+    APPS_SCRIPT_URL: 'For reference: the website\'s backend link (the same one is in js/config.js).',
+    CLOUDINARY_CLOUD_NAME: 'Cloudinary cloud name. The API key and secret are set from SSV Admin > Set Cloudinary keys.',
+    CLOUDINARY_FOLDER: 'Main Cloudinary folder for website photos and videos.',
+    NOTIFY_EMAIL: 'Who gets an email for each new enquiry and review. Separate several addresses with commas. This does not give access to the admin panel.'
+  }[key] || '';
+}
+
+/** Sample content written by version 1.1, used by the one-time upgrade. */
+function oldSamples_() {
+  const stock = id => 'https://images.unsplash.com/' + id;
+  return {
+    general: {
+      description: 'A fitness space for strength, conditioning and wellness.',
+      hero_subtitle: 'A complete fitness space for strength, conditioning and wellness.',
+      facility_strip: 'Main Gym | CrossFit | Steam Room',
+      about_text: 'SSV Gym is a fitness space focused on strength training, conditioning and overall fitness. | Train on the main gym floor, build conditioning in the CrossFit and functional training area, and recover in the steam room.',
+      about_highlights: 'Quality Equipment | Dedicated Training Areas | Trainer Support | Fitness-focused Environment',
+      facilities_intro: 'The main gym floor, a CrossFit and functional training zone, and a steam room for recovery.',
+      stat_1_value: '10+', stat_1_label: 'Years of Fitness', stat_2_value: '20+', stat_2_label: 'Training Machines',
+      stat_3_value: '500+', stat_3_label: 'Members', stat_4_value: '2', stat_4_label: 'Training Zones',
+      phone: '+91 00000 00000', whatsapp: '+91 00000 00000',
+      address: 'Shop No. 1, Sample Complex, Main Road | City, State 000000',
+      opening_hours: 'Mon – Sat: 6:00 AM – 10:00 PM | Sunday: 7:00 AM – 12:00 PM',
+      maps_url: 'https://www.google.com/maps/search/?api=1&query=Shree+Siddhi+Vinayak+Gym',
+      maps_embed_url: '',
+      instagram_url: 'https://www.instagram.com/'
+    },
+    facilities: [
+      { id: 'fac-main', name: 'Main Gym', description: 'The main training floor for strength work, cardio and machine training.' },
+      { id: 'fac-crossfit', name: 'CrossFit', description: 'A dedicated area for functional movements, circuits and conditioning.' },
+      { id: 'fac-steam', name: 'Steam Room', description: 'Unwind after training and support recovery in the steam room.' },
+      { id: 'fac-cardio', name: 'Cardio Area', description: 'Treadmills, bikes and cross-trainers for warm-ups and endurance work.' },
+      { id: 'fac-weights', name: 'Free Weights', description: 'Dumbbells, barbells and benches for free-weight training.' },
+      { id: 'fac-machines', name: 'Strength Machines', description: 'Machines for training every major muscle group.' }
+    ],
+    plans: [
+      { id: 'plan-monthly', price: 1200 }, { id: 'plan-quarterly', price: 3000 },
+      { id: 'plan-half-yearly', price: 5500 }, { id: 'plan-yearly', price: 9000 }
+    ],
+    trainers: [{ id: 'tr-1', name: 'Aman Verma' }, { id: 'tr-2', name: 'Neha Kulkarni' }, { id: 'tr-3', name: 'Vikram Singh' }],
+    gallery: ['1728486145245-d4cb0c9c3470', '1548690312-e3b507d8c110', '1571902943202-507ec2618e8f', '1517836357463-d25dfeac3438',
+      '1576678927484-cc907957088c', '1601422407692-ec4eeec1d9b3', '1689877020200-403d8542d95d', '1526506118085-60ce8714f8c5',
+      '1759216852954-88e547b8e01f', '1593079831268-3381b0db4a77', '1590487988256-9ed24133863e', '1605296867304-46d5465a13f1']
+      .map((p, i) => ({ id: 'img-' + (i + 1), image_url: stock('photo-' + p) }))
+  };
+}
+```
+
+---
+
+## `apps-script/README.md`
+
+```markdown
+# Apps Script backend (v1.5.0)
+
+`Code.gs` turns the Google Sheet into the website's backend: it serves content to
+visitors, saves enquiries and reviews, and lets the admin panel edit everything.
+
+## First-time setup
+
+1. Open the Google Sheet › **Extensions › Apps Script**.
+2. Replace the contents of `Code.gs` with this file and save. The default
+   `appsscript.json` needs no changes.
+3. **Project Settings:** time zone *(GMT+05:30) India Standard Time*.
+4. Reload the Google Sheet. An **SSV Admin** menu appears after Help. Run, in order:
+   - **Set up / repair sheets** (Google asks for permission the first time: tick **Select all**)
+   - **Set admin password**
+   - **Set Cloudinary keys** (after putting the cloud name in the Config tab)
+5. **Deploy › New deployment › Web app**. Execute as: **Me**. Who has access: **Anyone**.
+6. Copy the URL ending in `/exec` into `js/config.js` › `API_URL`.
+
+## Updating
+
+Paste the new `Code.gs`, save, reload the sheet, run **SSV Admin › Set up / repair
+sheets**, then **Deploy › Manage deployments › Edit (pencil) › Version: New version ›
+Deploy**. The web app URL stays the same.
+
+## SSV Admin menu
+
+| Item | What it does |
+|---|---|
+| Set up / repair sheets | Creates missing tabs and columns, gives rows an ID, runs one-time upgrades, and styles every tab |
+| Set admin password | Sets the admin panel password and signs everyone out |
+| Set Cloudinary keys | Tests and saves the Cloudinary API key and secret. Also gives Google's permission to reach Cloudinary |
+| Clear website cache | Makes the website read the sheet again now |
+| Unlock admin sign-in | Clears the 15-minute lock after 5 wrong passwords |
+| Sign out all admin sessions | Signs out every browser signed in to the admin panel |
+
+## Tabs
+
+General, Facilities, Membership Plans, **Services** (personal training, diet plans),
+Trainers, Gallery (photos, uploaded videos and YouTube links), Reviews, Announcements
+(an Image URL turns an announcement into an event card), Enquiries, Config.
+
+## Where settings live
+
+| Setting | Place |
+|---|---|
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_FOLDER` | Config tab |
+| `NOTIFY_EMAIL` (who gets enquiry and review emails; commas between addresses) | Config tab |
+| `ADMIN_PASSWORD_HASH`, `ADMIN_PASSWORD_SALT`, `SESSION_EPOCH` | Script Properties (set by the menu) |
+| `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Script Properties (set by the menu) |
+| `SEED_VERSION` | Script Properties: remembers which one-time upgrades have run |
+| `SHEET_ID` (optional) | Script Properties, only if the script isn't bound to the sheet |
+
+Never type passwords or API secrets into the sheet. Set up / repair sheets offers to
+delete rows that look like secrets.
+
+## Photos and videos (Cloudinary)
+
+Each upload goes into its section's folder: `SSV-Gym/Home` (top and About photos),
+`SSV-Gym/Facilities`, `SSV-Gym/Trainers`, `SSV-Gym/Gallery` or `SSV-Gym/Events`
+(announcement photos). The admin panel can't create other folders; it can only delete
+empty old ones (such as `ssv-gym`). Photos: JPG, PNG, WebP. Videos: MP4, MOV, WebM,
+up to 100 MB each on the free plan. Each upload is signed by the backend, so the API
+secret never reaches the browser. When a file is replaced or an item deleted, the old
+file is deleted from Cloudinary if nothing else uses it.
+
+## API
+
+`GET ?action=content` returns everything the website shows. `GET ?action=health`
+returns the version. `POST` (JSON body as text/plain) with `action`:
+
+- Public: `submitEnquiry`, `submitReview`, `likeReview`, `login`
+- Admin (with `token`): `verify`, `logout`, `adminGetAll`, `getInbox`, `saveGeneral`,
+  `saveRecord`, `deleteRecord`, `reorder`, `updateEnquiryStatus`, `getUploadSignature`
+  (with `kind: "video"` for videos), `mediaFolders`, `mediaLibrary`, `deleteFolder`, `deleteImages`
+
+Responses are `{ ok: true, data }` or `{ ok: false, error, code }`.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| "Apps Script is not allowed to connect to Cloudinary yet" | Run SSV Admin › Set Cloudinary keys and allow access when Google asks (tick Select all) |
+| An upload says "cloud_name is disabled" | Cloudinary has switched the account off. Sign in at cloudinary.com to see why (unverified email, plan limits) |
+| Admin panel says the backend is older | Deploy › Manage deployments › Edit › Version: New version › Deploy |
+| "Photo uploads are not set up" | Put CLOUDINARY_CLOUD_NAME in the Config tab, then Set Cloudinary keys |
+| No emails arrive | Check NOTIFY_EMAIL in the Config tab and the spam folder |
+| Anything else | Apps Script › Executions shows the full error |
+```
+
+---
+
+## `demo/admin.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Demo · SSV Admin</title>
+  <link rel="icon" href="../assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="../css/admin.css?v=1.5.0">
+</head>
+<body>
+  <!-- DEMO: sample data kept in this browser. Any password works. -->
+  <main class="login" id="login-view">
+    <div class="login__card">
+      <div class="brand"><span class="brand__bar" aria-hidden="true"></span><div><strong>SSV Admin</strong><span>Website Manager · demo</span></div></div>
+      <p class="login__intro">This is the demo admin panel. It runs on sample data in your browser. <strong>Type any password</strong> to sign in.</p>
+      <form id="login-form" novalidate hidden>
+        <label class="field"><span class="field__label">Admin password (any password works in the demo)</span><input type="password" name="password" autocomplete="off" required></label>
+        <button class="btn btn--primary btn--block" type="submit">Sign in</button>
+        <p class="login__msg" id="login-msg" role="alert"></p>
+      </form>
+      <div class="login__setup" id="login-setup" hidden>
+        <p><strong>Not connected yet.</strong></p>
+      </div>
+      <p class="login__foot">Nothing here changes the real website or the real Google Sheet.</p>
+    </div>
+  </main>
+
+  <div class="app" id="app" hidden>
+    <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+      <div class="brand"><span class="brand__bar" aria-hidden="true"></span><div><strong>SSV Admin</strong><span>Website Manager · demo</span></div></div>
+      <nav class="sidebar__nav">
+        <a href="#dashboard" data-view="dashboard">Dashboard</a>
+        <p class="sidebar__group">Website content</p>
+        <a href="#general" data-view="general">General information</a>
+        <a href="#facilities" data-view="facilities">Facilities</a>
+        <a href="#plans" data-view="plans">Membership plans</a>
+        <a href="#services" data-view="services">Personal training &amp; diet</a>
+        <a href="#trainers" data-view="trainers">Trainers</a>
+        <a href="#gallery" data-view="gallery">Gallery</a>
+        <a href="#reviews" data-view="reviews">Reviews <span class="nav-badge" id="nav-reviews-badge" hidden></span></a>
+        <a href="#announcements" data-view="announcements">Announcements &amp; events</a>
+        <p class="sidebar__group">Photos</p>
+        <a href="#media" data-view="media">Media library</a>
+        <p class="sidebar__group">Members &amp; setup</p>
+        <a href="#enquiries" data-view="enquiries">Enquiries <span class="nav-badge" id="nav-enquiries-badge" hidden></span></a>
+        <a href="#settings" data-view="settings">Settings</a>
+      </nav>
+      <div class="sidebar__foot">
+        <a class="btn btn--ghost btn--sm" href="index.html" target="_blank" rel="noopener">View demo website</a>
+        <button class="btn btn--ghost btn--sm" type="button" id="logout-btn">Sign out</button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <h1 id="view-title" tabindex="-1">Dashboard</h1>
+        <div class="topbar__right">
+          <span class="conn is-live" id="conn-status">Connected</span>
+          <button class="btn btn--ghost btn--sm" type="button" id="refresh-btn">Refresh</button>
+        </div>
+      </header>
+      <section class="view" id="view"></section>
+    </div>
+  </div>
+
+  <dialog class="modal" id="modal" aria-labelledby="modal-title">
+    <form class="modal__form" id="modal-form" method="dialog" novalidate>
+      <header class="modal__head">
+        <h2 id="modal-title">Edit</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="modal__body" id="modal-body"></div>
+      <footer class="modal__foot">
+        <button class="btn btn--ghost" type="button" data-close>Cancel</button>
+        <button class="btn btn--primary" type="submit" id="modal-save">Save</button>
+      </footer>
+    </form>
+    <div class="toasts" id="modal-toasts" aria-live="polite"></div>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <input type="file" id="file-picker" accept="image/jpeg,image/png,image/webp" hidden>
+
+  <script src="../js/config.js?v=1.5.0"></script>
+  <script src="../js/utils.js?v=1.5.0"></script>
+  <script src="demo-data.js?v=1.5.0"></script>
+  <script src="demo-api.js?v=1.5.0"></script>
+  <script src="../js/admin.js?v=1.5.0"></script>
+  <script>
+    (function () {
+      var bar = document.createElement('div');
+      bar.setAttribute('role', 'note');
+      bar.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:900;display:flex;align-items:center;gap:10px;white-space:nowrap;padding:6px 6px 6px 14px;border:1px solid rgba(233,196,106,.55);border-radius:999px;background:rgba(13,15,14,.95);color:#F3DC9C;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45)';
+      bar.innerHTML = 'Demo · sample data <a href="index.html" style="color:#8FE05A;text-decoration:underline">Demo website</a> <button type="button" style="padding:6px 12px;border:1px solid rgba(245,245,242,.25);border-radius:999px;background:none;color:#F5F5F2;font:inherit;cursor:pointer">Reset</button>';
+      bar.querySelector('button').addEventListener('click', function () {
+        if (!confirm('Restore the sample data? Changes made in the demo are lost.')) return;
+        API.reset();
+        location.reload();
+      });
+      document.body.appendChild(bar);
+    })();
+  </script>
+</body>
+</html>
+```
+
+---
+
+## `demo/demo-api.js`
+
+```javascript
+/* ==========================================================================
+   SSV GYM — DEMO API (replaces js/api.js on the demo pages)          v1.5.0
+   Same functions as js/api.js, but everything is kept in this browser
+   (localStorage), so the demo website and demo admin share the same data.
+   Nothing reaches the real Google Sheet or Cloudinary. Any password signs in.
+   ========================================================================== */
+const API = (() => {
+  const STATE_KEY = 'ssv_demo_state_v2';
+  const TOKEN_KEY = 'ssv_demo_token';
+  const BASE = 'SSV-Gym';
+  const SECTIONS = { general: `${BASE}/Home`, facilities: `${BASE}/Facilities`, trainers: `${BASE}/Trainers`, gallery: `${BASE}/Gallery`, announcements: `${BASE}/Events` };
+  const TABS = { facilities: 'Facilities', plans: 'Membership Plans', services: 'Services', trainers: 'Trainers', gallery: 'Gallery', reviews: 'Reviews', announcements: 'Announcements' };
+  const PREFIX = { facilities: 'fac', plans: 'plan', services: 'svc', trainers: 'tr', gallery: 'img', reviews: 'rev', announcements: 'ann', enquiries: 'enq' };
+  const REQUIRED = {
+    facilities: { name: 'Name' }, plans: { name: 'Plan name', duration: 'Duration' }, services: { name: 'Name' }, trainers: { name: 'Name' },
+    gallery: { image_url: 'Photo or video' }, reviews: { name: 'Name', review: 'Review' }, announcements: { title: 'Title' }
+  };
+  const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
+
+  class ApiError extends Error {
+    constructor(message, code = 'ERROR') { super(message); this.name = 'ApiError'; this.code = code; }
+  }
+
+  const clone = v => JSON.parse(JSON.stringify(v));
+  const pause = (ms = 200) => new Promise(r => setTimeout(r, ms));
+  const pad = n => String(n).padStart(2, '0');
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const stamp = () => { const d = new Date(); return `${today()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const truthy = v => v === true || /^(true|yes|y|1)$/i.test(String(v ?? '').trim());
+  const slug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+  const orderOf = v => (v === '' || v === null || v === undefined || isNaN(Number(v)) ? Infinity : Number(v));
+  const byOrder = (a, b) => (orderOf(a.display_order) - orderOf(b.display_order)) || 0;
+  const isVideoFile = file => Boolean(file) && /^video\//.test(file.type);
+
+  /* ---------- stored data ---------- */
+  function read() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STATE_KEY));
+      if (saved && saved.general && saved.media) return saved;
+    } catch { /* use the sample data */ }
+    return clone(DEMO_DATA);
+  }
+  let db = read();
+  function persist() {
+    try { localStorage.setItem(STATE_KEY, JSON.stringify(db)); }
+    catch { throw new ApiError('The demo storage in this browser is full. Use Reset to start again.', 'STORAGE_FULL'); }
+  }
+  function reset() {
+    try { localStorage.removeItem(STATE_KEY); localStorage.removeItem('ssv_demo_state'); sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+    db = clone(DEMO_DATA);
+  }
+  try { localStorage.removeItem('ssv_demo_state'); } catch { /* data saved by the previous demo */ }
+  window.addEventListener('storage', e => { if (e.key === STATE_KEY) db = read(); });
+
+  const getToken = () => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } };
+  const setToken = token => { try { if (token) sessionStorage.setItem(TOKEN_KEY, token); else sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ } };
+
+  /* Admin calls: short delay like a real server, then the sign-in check. */
+  async function admin(fn) {
+    await pause();
+    if (!getToken()) throw new ApiError('Please sign in.', 'AUTH_REQUIRED');
+    db = read();
+    return fn();
+  }
+
+  function newId(key, label) {
+    const taken = new Set((db[key] || []).map(r => r.id));
+    const numbered = key === 'enquiries';
+    const base = slug(numbered ? today() : label);
+    const stem = base ? `${PREFIX[key]}-${base}` : PREFIX[key];
+    if (base && !numbered && !taken.has(stem)) return stem;
+    let n = base && !numbered ? 2 : 1;
+    while (taken.has(`${stem}-${n}`)) n++;
+    return `${stem}-${n}`;
+  }
+
+  /* ---------- website ---------- */
+  function content() {
+    const t = today();
+    const active = key => clone((db[key] || []).filter(r => truthy(r.active)).sort(byOrder));
+    return {
+      general: clone(db.general),
+      facilities: active('facilities'), plans: active('plans'), services: active('services'), trainers: active('trainers'), gallery: active('gallery'),
+      announcements: clone((db.announcements || []).filter(a => truthy(a.active) && (!a.expiry || String(a.expiry).slice(0, 10) >= t))
+        .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0) || String(b.date).localeCompare(String(a.date)))),
+      reviews: db.reviews.filter(r => r.status === 'Published' && String(r.review || '').trim())
+        .map(r => ({ id: r.id, name: r.name, rating: Number(r.rating) || 0, review: r.review, likes: Number(r.likes) || 0, date: r.date }))
+        .sort((a, b) => b.likes - a.likes || String(b.date).localeCompare(String(a.date)))
+    };
+  }
+
+  async function getContent() {
+    await pause(120);
+    db = read();
+    return { source: 'live', ...content() };
+  }
+
+  async function submitEnquiry(q = {}) {
+    await pause(400);
+    if (q.website) return { received: true };
+    const name = String(q.name || '').trim().slice(0, 80), phone = String(q.phone || '').trim().slice(0, 20);
+    const digits = phone.replace(/\D/g, '');
+    if (name.length < 2) throw new ApiError('Enter your name.', 'VALIDATION');
+    if (digits.length < 10 || digits.length > 13) throw new ApiError('Enter a valid phone number.', 'VALIDATION');
+    db = read();
+    db.enquiries.push({ id: newId('enquiries'), name, phone, message: String(q.message || '').trim().slice(0, 1000), date: stamp(), status: 'New' });
+    persist();
+    return { received: true };
+  }
+
+  async function submitReview(q = {}) {
+    await pause(400);
+    db = read();
+    if (q.website) return { received: true, status: 'Pending', review: null };
+    if (/^(false|no|n|0)$/i.test(String(db.general.review_form))) throw new ApiError('Reviews are closed at the moment.', 'CLOSED');
+    const name = String(q.name || '').trim().slice(0, 60), rating = Math.round(Number(q.rating)), review = String(q.review || '').trim().slice(0, 800);
+    if (name.length < 2) throw new ApiError('Enter your name.', 'VALIDATION');
+    if (!(rating >= 1 && rating <= 5)) throw new ApiError('Choose a rating from 1 to 5 stars.', 'VALIDATION');
+    if (review.length < 5) throw new ApiError('Write a few words about your experience.', 'VALIDATION');
+    if (LINK_PATTERN.test(`${name} ${review}`)) throw new ApiError('Please remove links from your review.', 'VALIDATION');
+    const same = review.toLowerCase().replace(/\s+/g, ' ');
+    if (db.reviews.some(r => String(r.review).toLowerCase().replace(/\s+/g, ' ').trim() === same)) throw new ApiError('This review has already been posted.', 'DUPLICATE');
+    const pending = truthy(db.general.review_approval);
+    const row = { id: newId('reviews', name), name, rating, review, likes: 0, date: stamp(), source: 'Website', status: pending ? 'Pending' : 'Published' };
+    db.reviews.push(row);
+    persist();
+    return { received: true, status: row.status, review: pending ? null : { id: row.id, name, rating, review, likes: 0, date: row.date } };
+  }
+
+  async function likeReview(id, like) {
+    await pause(150);
+    db = read();
+    const r = db.reviews.find(x => x.id === id && x.status === 'Published');
+    if (!r) throw new ApiError('This review is no longer available.', 'NOT_FOUND');
+    r.likes = Math.max(0, (Number(r.likes) || 0) + (like === false ? -1 : 1));
+    persist();
+    return { id, likes: r.likes };
+  }
+
+  /* ---------- admin: content ---------- */
+  function adminData() {
+    return {
+      general: clone(db.general), enquiries: clone(db.enquiries),
+      facilities: clone(db.facilities), plans: clone(db.plans), services: clone(db.services || []), trainers: clone(db.trainers),
+      gallery: clone(db.gallery), reviews: clone(db.reviews), announcements: clone(db.announcements),
+      meta: {
+        version: '1.5.0', timeZone: 'Asia/Kolkata', sheetUrl: '', cloudinaryConfigured: true,
+        notifyEmail: 'owner@example.com (demo: no emails are sent)', media: { base: BASE, sections: SECTIONS }
+      }
+    };
+  }
+
+  function saveRecord(collection, input) {
+    if (!TABS[collection]) throw new ApiError('Unknown collection.', 'BAD_REQUEST');
+    if (!Array.isArray(db[collection])) db[collection] = [];
+    const rows = db[collection];
+    const rec = { ...(input || {}) };
+    ['active', 'featured'].forEach(k => { if (k in rec) rec[k] = truthy(rec[k]); });
+    if ('rating' in rec) rec.rating = Number(rec.rating) || '';
+    if ('price' in rec && /^\d+(\.\d+)?$/.test(String(rec.price))) rec.price = Number(rec.price);
+    if ('category' in rec) rec.category = String(rec.category || '').trim().toLowerCase();
+    const existing = rec.id ? rows.find(r => r.id === rec.id) : null;
+    if (rec.id && !existing) throw new ApiError('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
+    if (collection === 'reviews') { delete rec.likes; delete rec.source; delete rec.date; }
+    const merged = existing ? { ...existing, ...rec } : { ...rec, id: newId(collection, rec.name || rec.title) };
+    if (!existing && collection === 'reviews') Object.assign(merged, { likes: 0, date: stamp(), source: 'Admin', status: rec.status || 'Published' });
+    for (const [key, label] of Object.entries(REQUIRED[collection] || {})) {
+      if (!String(merged[key] ?? '').trim()) throw new ApiError(`${label} is required.`, 'VALIDATION');
+    }
+    if (existing) Object.assign(existing, merged); else rows.push(merged);
+    persist();
+    return clone(merged);
+  }
+
+  function reorder(collection, ids) {
+    const position = {};
+    ids.forEach((id, i) => { position[id] = i + 1; });
+    let next = ids.length;
+    (db[collection] || []).slice().sort(byOrder).forEach(r => { r.display_order = position[r.id] || ++next; });
+    persist();
+    return { reordered: ids.length };
+  }
+
+  /* ---------- admin: photos (kept as small copies in the browser) ---------- */
+  function usage() {
+    const entries = [];
+    const friendly = { hero_image: 'Top photo', about_image: 'About photo' };
+    Object.keys(db.general).forEach(k => { const v = db.general[k]; if (typeof v === 'string' && v) entries.push([v, `General information: ${friendly[k] || k}`]); });
+    ['facilities', 'trainers', 'gallery', 'announcements'].forEach(key => (db[key] || []).forEach(r => {
+      if (r.image_url) entries.push([r.image_url, `${TABS[key]}: ${r.name || r.title || r.id}${truthy(r.active) ? '' : ' (hidden)'}`]);
+    }));
+    return url => entries.filter(([v]) => v === url).map(([, label]) => label);
+  }
+
+  function removeImages(list) {
+    const used = usage(), deleted = [], kept = [];
+    (Array.isArray(list) ? list : []).forEach(v => {
+      const img = db.media.images.find(i => i.url === v || i.id === v);
+      if (!img) return;
+      if (used(img.url).length) kept.push(img.id);
+      else { deleted.push(img.id); db.media.images = db.media.images.filter(i => i !== img); }
+    });
+    persist();
+    return { deleted, kept };
+  }
+
+  async function shrink(file) {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (bitmap.close) bitmap.close();
+    return { url: canvas.toDataURL('image/jpeg', 0.8), width: canvas.width, height: canvas.height };
+  }
+
+  async function uploadMedia(file, { folder = SECTIONS.general, onProgress = null } = {}) {
+    if (!getToken()) throw new ApiError('Please sign in.', 'AUTH_REQUIRED');
+    if (isVideoFile(file)) throw new ApiError('Videos can\'t be uploaded in the demo (the real admin panel sends them to Cloudinary). Try "Add by link" with a YouTube link.', 'INVALID_FILE');
+    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) throw new ApiError('Choose a JPG, PNG or WebP photo.', 'INVALID_FILE');
+    for (const p of [15, 45, 80]) { if (onProgress) onProgress(p); await pause(120); }
+    let img;
+    try { img = await shrink(file); } catch { throw new ApiError('This photo could not be read.', 'INVALID_FILE'); }
+    const name = slug(String(file.name || '').replace(/\.[^.]+$/, '')) || 'photo';
+    const id = `${folder}/${name}-${Date.now().toString(36)}`;
+    db = read();
+    db.media.images.push({ id, type: 'image', url: img.url, folder, bytes: Math.round(img.url.length * 0.75), width: img.width, height: img.height, created: new Date().toISOString() });
+    persist();
+    if (onProgress) onProgress(100);
+    return { url: img.url, publicId: id, width: img.width, height: img.height, kind: 'image' };
+  }
+
+  const folderList = () => db.media.folders.slice().sort();
+  const sectionOf = path => Object.values(SECTIONS).find(s => path === s || String(path).startsWith(s + '/')) || '';
+
+  function deleteFolder(path) {
+    const section = sectionOf(path);
+    if (!section || path === section) throw new ApiError('The main website folders can\'t be deleted.', 'VALIDATION');
+    if (db.media.images.some(i => i.folder === path || i.folder.startsWith(path + '/'))) throw new ApiError('This folder still has files. Delete them first.', 'VALIDATION');
+    db.media.folders = db.media.folders.filter(f => f !== path && !f.startsWith(path + '/'));
+    persist();
+    return { deleted: path };
+  }
+
+  /* ---------- sign in ---------- */
+  async function login(password) {
+    await pause(300);
+    if (!String(password || '').length) throw new ApiError('Type any password: this is the demo.', 'AUTH_FAILED');
+    const token = `demo-${Date.now().toString(36)}`;
+    setToken(token);
+    return { token, expiresIn: 21600 };
+  }
+
+  return {
+    ApiError, getToken, setToken, reset, isVideoFile,
+    isConfigured: () => true,
+    clearCache: () => {},
+
+    /* website */
+    getContent, submitEnquiry, submitReview, likeReview,
+    setReviewLikes: () => {}, addReview: () => {},
+    health: async () => ({ status: 'ok', version: '1.5.0 (demo)' }),
+
+    /* admin */
+    login,
+    logout: async () => { setToken(null); },
+    verifySession: () => admin(() => ({ valid: true, version: '1.5.0' })),
+    getAdminData: () => admin(adminData),
+    getInbox: () => admin(() => ({ enquiries: clone(db.enquiries), reviews: clone(db.reviews) })),
+    updateEnquiryStatus: (id, status) => admin(() => {
+      const e = db.enquiries.find(x => x.id === id);
+      if (!e) throw new ApiError('Enquiry not found. Refresh and try again.', 'NOT_FOUND');
+      e.status = status;
+      persist();
+      return { id, status };
+    }),
+    saveGeneralData: general => admin(() => {
+      Object.keys(general || {}).forEach(k => {
+        if (!/^[A-Za-z0-9_]{1,64}$/.test(k)) return;
+        db.general[k] = ['review_form', 'review_approval'].includes(k) ? truthy(general[k]) : general[k];
+      });
+      persist();
+      return clone(db.general);
+    }),
+    saveRecord: (collection, record) => admin(() => saveRecord(collection, record)),
+    deleteRecord: (collection, id) => admin(() => {
+      const rows = db[collection] || [];
+      const i = rows.findIndex(r => r.id === id);
+      if (i < 0) throw new ApiError('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
+      rows.splice(i, 1);
+      persist();
+      return { deleted: id };
+    }),
+    reorder: (collection, ids) => admin(() => reorder(collection, ids)),
+    uploadMedia,
+    uploadImage: uploadMedia,
+    mediaFolders: () => admin(() => ({ base: BASE, sections: SECTIONS, folders: folderList() })),
+    mediaLibrary: () => admin(() => {
+      const used = usage();
+      return { base: BASE, sections: SECTIONS, legacy: [], folders: folderList(), images: db.media.images.map(i => ({ type: 'image', ...i, usedIn: used(i.url) })), truncated: false };
+    }),
+    deleteFolder: path => admin(() => deleteFolder(path)),
+    deleteImages: images => admin(() => removeImages(images)),
+    deleteImagesOnExit: images => { try { db = read(); removeImages(images); } catch { /* ignore */ } return true; }
+  };
+})();
+```
+
+---
+
+## `demo/demo-data.js`
+
+```javascript
+/* SSV GYM — sample data for the demo pages (demo/index.html and demo/admin.html). v1.5.0 */
+const DEMO_DATA = (() => {
+  const stock = id => `https://images.unsplash.com/photo-${id}`;
+  const day = n => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const features = 'Full gym access | Cardio equipment | Complimentary locker';
+
+  const gallery = [
+    ['main-gym-floor', '1728486145245-d4cb0c9c3470', 'Main gym floor', 'gym', 'Machines and free weights on the main floor.'],
+    ['battle-ropes', '1548690312-e3b507d8c110', 'Battle ropes', 'crossfit', 'Conditioning work in the CrossFit zone.'],
+    ['strength-machines', '1571902943202-507ec2618e8f', 'Strength machines', 'equipment', 'Machines for every major muscle group.'],
+    ['barbell-session', '1517836357463-d25dfeac3438', 'Barbell session', 'training', 'Heavy compound lifts with good form.'],
+    ['dumbbell-rack', '1576678927484-cc907957088c', 'Dumbbell rack', 'equipment', 'A full range of dumbbells.'],
+    ['kettlebell-work', '1601422407692-ec4eeec1d9b3', 'Kettlebell work', 'crossfit', 'Functional movements and circuits.'],
+    ['weights-area', '1689877020200-403d8542d95d', 'Weights area', 'gym', 'Space to train with free weights.'],
+    ['focused-training', '1526506118085-60ce8714f8c5', 'Focused training', 'training', 'Training towards a clear goal.'],
+    ['steam-room', '1759216852954-88e547b8e01f', 'Steam room', 'gym', 'Recover after your workout.'],
+    ['group-session', '1593079831268-3381b0db4a77', 'Group session', 'events', 'Training together.']
+  ].map((g, i) => ({ id: `img-${g[0]}`, image_url: stock(g[1]), title: g[2], category: g[3], caption: g[4], active: true, display_order: i + 1 }));
+
+  const trainers = [
+    { id: 'tr-aman-verma', name: 'Aman Verma', role: 'Head Trainer', specialization: 'Strength training and bodybuilding', bio: 'Helps members build strength with sound technique and a clear plan.', image_url: stock('1567013127542-490d757e51fc'), active: true, display_order: 1 },
+    { id: 'tr-neha-kulkarni', name: 'Neha Kulkarni', role: 'Fitness Coach', specialization: 'Weight loss and functional training', bio: 'Builds sustainable routines for fat loss and everyday fitness.', image_url: stock('1594381898411-846e7d193883'), active: true, display_order: 2 },
+    { id: 'tr-vikram-singh', name: 'Vikram Singh', role: 'CrossFit Coach', specialization: 'CrossFit and conditioning', bio: 'Runs high-energy conditioning sessions for all fitness levels.', image_url: stock('1583454110551-21f2fa2afe61'), active: true, display_order: 3 }
+  ];
+
+  const facilities = [
+    { id: 'fac-main', name: 'Main Gym', tags: 'Strength | Bodybuilding | Machines', description: 'The main floor for strength training, bodybuilding and machine work.', image_url: stock('1637430308606-86576d8fef3c'), category: 'major', active: true, display_order: 1 },
+    { id: 'fac-crossfit', name: 'CrossFit', tags: 'Functional Training | Conditioning', description: 'A dedicated zone for CrossFit, functional movements and conditioning circuits.', image_url: stock('1536922246289-88c42f957773'), category: 'major', active: true, display_order: 2 },
+    { id: 'fac-steam', name: 'Steam Room', tags: 'Recovery | Relaxation', description: 'Unwind and recover in the steam room after your workout.', image_url: stock('1759216852954-88e547b8e01f'), category: 'major', active: true, display_order: 3 },
+    { id: 'fac-cardio', name: 'Cardio', tags: '', description: 'Cardio equipment for warm-ups, endurance and fat loss.', image_url: '', category: 'additional', active: true, display_order: 4 },
+    { id: 'fac-personal-training', name: 'Personal Training', tags: '', description: 'One-to-one coaching built around your goal.', image_url: '', category: 'additional', active: true, display_order: 5 },
+    { id: 'fac-weight-loss', name: 'Weight Loss Programme', tags: '', description: 'Training and guidance to lose fat.', image_url: '', category: 'additional', active: true, display_order: 6 },
+    { id: 'fac-weight-gain', name: 'Weight Gain Programme', tags: '', description: 'Training and guidance to build muscle and gain healthy weight.', image_url: '', category: 'additional', active: true, display_order: 7 },
+    { id: 'fac-lockers', name: 'Complimentary Lockers', tags: '', description: 'Keep your things safe while you train.', image_url: '', category: 'additional', active: true, display_order: 8 }
+  ];
+
+  const announcements = [
+    { id: 'ann-push-up-challenge', title: 'Push-up challenge', description: 'How many push-ups can you do in one minute? Open to members and friends, with prizes for the top three.', image_url: stock('1517836357463-d25dfeac3438'), date: day(-10), expiry: day(-11), active: true, priority: 2 },
+    { id: 'ann-turf-cricket', title: 'SSV turf cricket tournament', description: 'Six-a-side teams, one evening of cricket. Make a team with your gym friends and register at the front desk.', image_url: stock('1593079831268-3381b0db4a77'), date: day(-24), expiry: day(-25), active: true, priority: 1 },
+    { id: 'ann-demo', title: 'This is the demo website', description: 'Everything here is sample content. Try the demo admin panel: any password works.', image_url: '', date: day(0), expiry: '', active: true, priority: 2 }
+  ];
+
+  const media = [
+    ['Home', 'hero', stock('1623874514711-0f321325f318')],
+    ['Home', 'about', stock('1534438327276-14e5300c3a48')],
+    ...facilities.filter(f => f.image_url).map(f => ['Facilities', f.id.replace('fac-', ''), f.image_url]),
+    ...trainers.map(t => ['Trainers', t.id.replace('tr-', ''), t.image_url]),
+    ...gallery.map(g => ['Gallery', g.id.replace('img-', ''), g.image_url]),
+    ...announcements.filter(a => a.image_url).map(a => ['Events', a.id.replace('ann-', ''), a.image_url])
+  ].map(([folder, name, url], i) => ({ id: `SSV-Gym/${folder}/${name}`, type: 'image', url, folder: `SSV-Gym/${folder}`, bytes: 180000 + i * 7919, width: 1600, height: 1067, created: `${day(30 - i)}T10:00:00Z` }));
+
+  return {
+    general: {
+      gym_name: 'SSV Gym',
+      full_name: 'Shree Siddhi Vinayak Gym',
+      tagline: 'Train strong. Live strong.',
+      description: 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.',
+      hero_heading: 'Train strong. | Live strong.',
+      hero_subtitle: 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.',
+      hero_image: stock('1623874514711-0f321325f318'),
+      facility_strip: 'Main Gym | CrossFit | Cardio | Steam Room',
+      stat_1_value: '5+', stat_1_label: 'Years in Virar',
+      stat_2_value: '40+', stat_2_label: 'Machines and stations',
+      stat_3_value: '3', stat_3_label: 'Expert trainers',
+      stat_4_value: '7', stat_4_label: 'Days a week',
+      about_heading: 'Shree Siddhi Vinayak Gym',
+      about_text: 'SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal. | Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.',
+      about_image: stock('1534438327276-14e5300c3a48'),
+      about_highlights: 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers',
+      facilities_intro: 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.',
+      services_heading: 'Personal training and diet plans',
+      phone: '+91 77588 78588',
+      phone_2: '+91 75586 08585',
+      whatsapp: '+91 75586 08585',
+      address: 'Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303',
+      opening_hours: 'Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM',
+      maps_url: 'https://maps.app.goo.gl/EX4aAEYxKCztUjqv6',
+      maps_embed_url: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin',
+      instagram_url: 'https://www.instagram.com/ssvgym2021/',
+      facebook_url: 'https://www.facebook.com/p/SSV-GYM-100069942823280/',
+      featured_badge_text: 'Best value',
+      gallery_categories: 'Gym | CrossFit | Training | Equipment | Events',
+      review_form: true,
+      review_approval: false
+    },
+    facilities,
+    plans: [
+      { id: 'plan-monthly', name: 'Monthly', duration: '1 Month', price: 1800, description: 'Month-to-month membership.', features: 'Full gym access | Cardio equipment | Complimentary locker and steam | General trainer assistance', featured: false, active: true, display_order: 1 },
+      { id: 'plan-quarterly', name: 'Quarterly', duration: '3 Months', price: 4500, description: 'Three months to build a steady routine.', features, featured: false, active: true, display_order: 2 },
+      { id: 'plan-half-yearly', name: 'Half Yearly', duration: '6 Months', price: 6100, description: 'Six months of consistent training.', features, featured: false, active: true, display_order: 3 },
+      { id: 'plan-yearly', name: 'Yearly', duration: '12 Months', price: 8100, description: 'A full year of training.', features, featured: true, active: true, display_order: 4 }
+    ],
+    services: [
+      { id: 'svc-personal-training', name: 'Personal Training', price: 5000, price_note: 'Starting price', description: 'One-on-one personal training sessions built around your goal.', active: true, display_order: 1 },
+      { id: 'svc-diet-plan', name: 'Diet Plan', price: 1250, price_note: 'Per session', description: 'A personalised diet plan to support your training.', active: true, display_order: 2 }
+    ],
+    trainers,
+    gallery,
+    reviews: [
+      { id: 'rev-rohit', name: 'Rohit P.', rating: 5, review: 'Great equipment and the trainers actually check your form. Lost 8 kg in four months on the weight loss programme.', likes: 14, date: day(12), source: 'Website', status: 'Published' },
+      { id: 'rev-sneha', name: 'Sneha D.', rating: 5, review: 'Clean, well kept and never too crowded in the mornings. The steam room after a workout is the best part.', likes: 9, date: day(20), source: 'Website', status: 'Published' },
+      { id: 'rev-karan', name: 'Karan M.', rating: 4, review: 'Good CrossFit sessions with a friendly group. Parking can be tight in the evening.', likes: 6, date: day(5), source: 'Website', status: 'Published' },
+      { id: 'rev-pooja', name: 'Pooja S.', rating: 5, review: 'Joined as a complete beginner and felt welcome from day one. The coaches set up a plan that fits my schedule and keep me motivated every week. Highly recommended for anyone in Virar West who wants to get fit without feeling judged.', likes: 4, date: day(3), source: 'Website', status: 'Published' },
+      { id: 'rev-amit', name: 'Amit K.', rating: 4, review: 'Solid gym with everything you need. Would love a few more squat racks.', likes: 2, date: day(1), source: 'Website', status: 'Published' },
+      { id: 'rev-nikhil', name: 'Nikhil R.', rating: 5, review: 'Open till 11 PM, which is perfect after work.', likes: 0, date: day(0), source: 'Website', status: 'Pending' },
+      { id: 'rev-promo', name: 'Best Deals', rating: 1, review: 'Cheap supplements, message me for offers!!!', likes: 0, date: day(2), source: 'Website', status: 'Hidden' }
+    ],
+    announcements,
+    enquiries: [
+      { id: 'enq-demo-1', name: 'Rahul Patil', phone: '+91 98200 00001', message: 'What are the timings for the CrossFit batch?', date: `${day(0)} 09:40`, status: 'New' },
+      { id: 'enq-demo-2', name: 'Priya Naik', phone: '+91 98200 00002', message: 'Is there a trial session for new members?', date: `${day(1)} 18:15`, status: 'New' },
+      { id: 'enq-demo-3', name: 'Suresh Gawde', phone: '+91 98200 00003', message: 'I am interested in the Yearly plan.', date: `${day(3)} 11:05`, status: 'Contacted' },
+      { id: 'enq-demo-4', name: 'Meera Joshi', phone: '+91 98200 00004', message: '', date: `${day(9)} 07:30`, status: 'Closed' }
+    ],
+    media: {
+      folders: ['SSV-Gym', 'SSV-Gym/Home', 'SSV-Gym/Facilities', 'SSV-Gym/Trainers', 'SSV-Gym/Gallery', 'SSV-Gym/Events'],
+      images: media
+    }
+  };
+})();
+```
+
+---
+
+## `demo/index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Demo · SSV Gym | Shree Siddhi Vinayak Gym, Virar West</title>
+  <meta name="description" content="Demo of the SSV Gym website with sample content.">
+  <meta name="theme-color" content="#0D0F0E">
+  <link rel="icon" href="../assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=1.5.1">
+  <script>document.documentElement.classList.add('js');</script>
+  <script type="application/json" id="fallback-general">
+  {
+    "gym_name": "SSV Gym",
+    "full_name": "Shree Siddhi Vinayak Gym",
+    "phone": "+91 77588 78588",
+    "phone_2": "+91 75586 08585",
+    "whatsapp": "+91 75586 08585",
+    "address": "Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303",
+    "opening_hours": "Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM",
+    "maps_url": "https://maps.app.goo.gl/EX4aAEYxKCztUjqv6",
+    "instagram_url": "https://www.instagram.com/ssvgym2021/",
+    "facebook_url": "https://www.facebook.com/p/SSV-GYM-100069942823280/",
+    "review_form": false
+  }
+  </script>
+</head>
+<body class="has-mobile-bar">
+  <!-- DEMO WEBSITE: sample content from demo-data.js, kept in this browser. -->
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="logo" href="#home" aria-label="SSV Gym, back to top">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <nav class="nav" id="site-nav" aria-label="Main">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="#home">Home</a></li>
+          <li><a class="nav__link" href="#about">About</a></li>
+          <li><a class="nav__link" href="#facilities">Facilities</a></li>
+          <li><a class="nav__link" href="#membership">Membership</a></li>
+          <li><a class="nav__link" href="#trainers">Trainers</a></li>
+          <li><a class="nav__link" href="#gallery">Gallery</a></li>
+          <li><a class="nav__link" href="#contact">Contact</a></li>
+        </ul>
+        <a class="btn btn--primary btn--sm nav__cta" href="#membership" data-requires="membership">View membership plans</a>
+      </nav>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero__media media" id="hero-media" data-label="Hero photo"></div>
+      <div class="hero__shade" aria-hidden="true"></div>
+      <div class="container hero__inner">
+        <h1 class="hero__title" id="hero-title">
+          <span class="hero__brand"><b data-g="gym_name">SSV Gym</b><span data-g="full_name">Shree Siddhi Vinayak Gym</span></span>
+          <span class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></span>
+        </h1>
+        <p class="hero__sub" data-g="hero_subtitle" data-optional></p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#facilities" data-requires="facilities">View facilities</a>
+          <a class="btn btn--ghost" href="#membership" data-requires="membership">Membership plans</a>
+        </div>
+      </div>
+      <div class="hero__strip">
+        <div class="container">
+          <ul class="facility-strip" data-g-list="facility_strip" aria-label="Areas at SSV Gym"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" id="stats" aria-label="SSV Gym at a glance" hidden>
+      <div class="container"><dl class="stats__grid" id="stats-grid"></dl></div>
+    </section>
+
+    <section class="notice" id="announcements" aria-labelledby="notice-title" hidden>
+      <div class="container notice__inner">
+        <h2 class="notice__label" id="notice-title">Announcements</h2>
+        <ul class="notice__list" id="notice-list"></ul>
+      </div>
+    </section>
+
+    <section class="section about" id="about" aria-labelledby="about-title">
+      <div class="container about__grid">
+        <div class="about__media reveal">
+          <div class="media media--portrait" id="about-media" data-label="About photo"></div>
+          <p class="about__tag" hidden><strong id="zone-count">3</strong> dedicated areas</p>
+        </div>
+        <div class="about__body reveal">
+          <p class="section-label">About SSV</p>
+          <h2 id="about-title" data-g="about_heading">Shree Siddhi Vinayak Gym</h2>
+          <div class="about__text" id="about-text"><p>SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness.</p></div>
+          <ul class="highlights" id="about-highlights"></ul>
+          <div class="about__actions">
+            <a class="btn btn--primary" href="#contact">Contact SSV</a>
+            <a class="text-link" href="#facilities" data-requires="facilities">Explore facilities</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section events" id="events" aria-labelledby="events-title" hidden>
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Events</p>
+            <h2 id="events-title">What's on at SSV</h2>
+          </div>
+          <p class="section-head__lead">Tournaments, competitions and special sessions at the gym. Tap Ask about this to register your interest.</p>
+        </header>
+        <div class="event-grid reveal" id="event-grid"></div>
+      </div>
+    </section>
+
+    <section class="section facilities" id="facilities" aria-labelledby="facilities-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Facilities</p>
+            <h2 id="facilities-title">Strength, conditioning, recovery</h2>
+          </div>
+          <p class="section-head__lead" data-g="facilities_intro" data-optional></p>
+        </header>
+        <div class="facility-grid reveal" id="facility-grid"></div>
+        <div class="facility-extra" id="facility-extra" hidden>
+          <h3 class="facility-extra__title">Also at SSV</h3>
+          <ul class="facility-extra__list" id="facility-extra-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section plans" id="membership" aria-labelledby="plans-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Membership</p>
+            <h2 id="plans-title">Membership plans</h2>
+          </div>
+          <p class="section-head__lead">Pick the duration that suits your routine, then tap Enquire to ask about joining.</p>
+        </header>
+        <div class="plan-board reveal" id="plan-grid"></div>
+        <p class="plans__note" id="plans-note">Call or WhatsApp the gym to confirm current fees and offers.</p>
+        <div class="services reveal" id="services" hidden>
+          <h3 class="services__title" data-g="services_heading">Personal training and diet plans</h3>
+          <div class="service-grid" id="service-grid"></div>
+          <p class="services__call" data-row="call">Call for assistance <a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section trainers" id="trainers" aria-labelledby="trainers-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="section-label">Trainers</p>
+          <h2 id="trainers-title">Coaches on the floor</h2>
+        </header>
+        <div class="trainer-grid reveal" id="trainer-grid"></div>
+      </div>
+    </section>
+
+    <section class="section gallery" id="gallery" aria-labelledby="gallery-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h2 id="gallery-title">Inside SSV</h2>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events.</p>
+        </header>
+        <div class="gallery__bar">
+          <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+        </div>
+        <div class="gallery-grid" id="gallery-grid"></div>
+      </div>
+    </section>
+
+    <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Reviews</p>
+            <h2 id="reviews-title">What members say</h2>
+          </div>
+          <div class="reviews__aside">
+            <div class="reviews__summary" id="reviews-summary" hidden>
+              <strong class="reviews__avg" id="reviews-avg">0.0</strong>
+              <div><div id="reviews-avg-stars"></div><span class="reviews__count" id="reviews-count"></span></div>
+            </div>
+            <div class="reviews__actions">
+              <button class="btn btn--primary btn--sm" type="button" id="write-review" hidden>Write a review</button>
+              <a class="text-link" id="google-reviews" href="#reviews" target="_blank" rel="noopener" hidden>See us on Google Maps</a>
+            </div>
+          </div>
+        </header>
+        <p class="reviews__note" id="reviews-note" role="status" hidden></p>
+        <div class="review-grid reveal" id="review-grid"></div>
+        <div class="reviews__more" id="reviews-more" hidden>
+          <button class="btn btn--ghost" type="button" id="all-reviews">See all <span id="all-reviews-count"></span> reviews</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container contact__grid">
+        <div class="contact__info reveal">
+          <p class="section-label">Contact</p>
+          <h2 id="contact-title">Visit <span data-g="gym_name">SSV Gym</span></h2>
+          <p class="contact__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+          <dl class="contact__list">
+            <div data-row="address"><dt>Address</dt><dd data-g-lines="address"></dd></div>
+            <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
+            <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
+            <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
+            <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
+            <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
+            <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
+          </dl>
+          <div class="contact__actions">
+            <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
+            <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+            <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
+          </div>
+        </div>
+        <div class="contact__side reveal">
+          <form class="enquiry" id="enquiry-form" novalidate>
+            <h3>Send an enquiry</h3>
+            <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
+            <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
+            <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+            <div class="field"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
+            <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+            <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
+            <p class="enquiry__status" id="enquiry-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+      <div class="container contact__map reveal" hidden>
+        <figure class="map" id="map-embed"></figure>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <a class="logo" href="#home" aria-label="SSV Gym, back to top"><span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span></a>
+        <p class="footer__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        <p class="footer__tagline" data-g="tagline" data-optional></p>
+        <ul class="facility-strip facility-strip--small" data-g-list="facility_strip"></ul>
+      </div>
+      <nav class="footer__col" aria-label="Footer">
+        <h2 class="footer__title">Explore</h2>
+        <ul class="footer__nav">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#events">Events</a></li>
+          <li><a href="#facilities">Facilities</a></li>
+          <li><a href="#membership">Membership</a></li>
+          <li><a href="#trainers">Trainers</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#reviews">Reviews</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="footer__col" id="footer-connect">
+        <h2 class="footer__title">Connect</h2>
+        <ul class="footer__links">
+          <li><a data-link="phone" href="tel:+917758878588"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Call</a></li>
+          <li><a data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>WhatsApp</a></li>
+          <li><a data-link="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/><path d="M16.5 7.5v.01"/></svg>Instagram</a></li>
+          <li><a data-link="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v4h3v7h4v-7h3l1-4h-4V8a1 1 0 0 1 1-1h3V3h-3a5 5 0 0 0-5 5v2H7"/></svg>Facebook</a></li>
+          <li><a data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Directions</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym. Demo with sample content.</p>
+      <a href="#home">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong><span id="lb-caption"></span></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <dialog class="sheet" id="reviews-dialog" aria-labelledby="reviews-dialog-title">
+    <div class="sheet__panel">
+      <header class="sheet__head">
+        <h2 id="reviews-dialog-title">All reviews</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__bar">
+        <div class="chips" role="group" aria-label="Sort reviews">
+          <button type="button" class="chip" data-sort="top" aria-pressed="true">Most liked</button>
+          <button type="button" class="chip" data-sort="new" aria-pressed="false">Newest</button>
+        </div>
+      </div>
+      <div class="sheet__body">
+        <div class="review-list" id="review-list"></div>
+        <button class="btn btn--ghost btn--block" type="button" id="review-list-more" hidden>Show more reviews</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="sheet sheet--narrow" id="review-dialog" aria-labelledby="review-dialog-title">
+    <form class="sheet__panel review-form" id="review-form" novalidate>
+      <header class="sheet__head">
+        <h2 id="review-dialog-title">Write a review</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__body">
+        <fieldset class="stars-input">
+          <legend>Your rating</legend>
+          <div class="stars-input__row">
+            <input type="radio" id="rate-5" name="rating" value="5"><label for="rate-5"><span class="sr-only">5 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-4" name="rating" value="4"><label for="rate-4"><span class="sr-only">4 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-3" name="rating" value="3"><label for="rate-3"><span class="sr-only">3 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-2" name="rating" value="2"><label for="rate-2"><span class="sr-only">2 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-1" name="rating" value="1"><label for="rate-1"><span class="sr-only">1 star</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+          </div>
+          <span class="stars-input__text" id="rating-text" aria-hidden="true">Tap a star</span>
+        </fieldset>
+        <div class="field"><label for="rev-name">Your name</label><input id="rev-name" name="name" type="text" autocomplete="name" maxlength="60" required></div>
+        <div class="field"><label for="rev-text">Your review</label><textarea id="rev-text" name="review" rows="5" maxlength="800" required></textarea><small class="field__count"><span id="rev-count">0</span> / 800</small></div>
+        <div class="hp" aria-hidden="true"><label for="rev-website">Leave this empty</label><input id="rev-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <button class="btn btn--primary btn--block" type="submit">Post review</button>
+        <p class="enquiry__status" id="review-status" role="status" aria-live="polite"></p>
+        <p class="review-form__note">Demo: reviews are kept in this browser only.</p>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="../js/config.js?v=1.5.0"></script>
+  <script src="../js/utils.js?v=1.5.0"></script>
+  <script src="demo-data.js?v=1.5.0"></script>
+  <script src="demo-api.js?v=1.5.0"></script>
+  <script src="../js/gallery.js?v=1.5.0"></script>
+  <script src="../js/main.js?v=1.5.0"></script>
+  <script>
+    (function () {
+      var small = window.matchMedia('(max-width: 760px)').matches;
+      var bar = document.createElement('div');
+      bar.setAttribute('role', 'note');
+      bar.style.cssText = 'position:fixed;left:12px;bottom:' + (small ? '88px' : '12px') + ';z-index:45;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;border:1px solid rgba(233,196,106,.55);border-radius:999px;background:rgba(13,15,14,.95);color:#F3DC9C;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45)';
+      bar.innerHTML = 'Demo · sample content <a href="admin.html" style="color:#8FE05A;text-decoration:underline">Demo admin</a> <button type="button" style="padding:6px 12px;border:1px solid rgba(245,245,242,.25);border-radius:999px;background:none;color:#F5F5F2;font:inherit;cursor:pointer">Reset</button>';
+      bar.querySelector('button').addEventListener('click', function () {
+        if (!confirm('Restore the sample data? Changes made in the demo are lost.')) return;
+        API.reset();
+        location.reload();
+      });
+      document.body.appendChild(bar);
+    })();
+  </script>
+</body>
+</html>
+```
+
+---
+
+## `demo/README.md`
+
+```markdown
+# Demo
+
+A separate copy of the website and admin panel that runs on sample data, for showing
+the site before the real content is ready.
+
+- `demo/index.html`: the demo website (hidden from search engines)
+- `demo/admin.html`: the demo admin panel. **Any password works.**
+
+Everything is stored in your own browser (localStorage). The demo never touches the
+real Google Sheet or Cloudinary. The demo website and demo admin share the same data,
+so changes made in the demo admin show on the demo website. Uploaded photos are kept
+as small copies in the browser.
+
+The **Reset** button on both pages restores the sample data.
+
+The real website never loads any demo files. To remove the demo, delete the `demo/`
+folder.
+```
