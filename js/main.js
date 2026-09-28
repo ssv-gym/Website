@@ -1,12 +1,12 @@
 /* ==========================================================================
-   SSV GYM — WEBSITE LOGIC                                            v1.5.0
+   SSV GYM — WEBSITE LOGIC                                            v1.6.0
    Renders every section from the Google Sheet via API.getContent(). Saved
    content shows at once and is refreshed in the background. If the sheet
    can't be reached on a first visit, the details built into index.html stay.
    ========================================================================== */
 (() => {
   'use strict';
-  const { esc, text, truthy, isFalse, splitList, isPlaceholder, realPhone, linkUrl, instagramUrl, mapEmbedSrc,
+  const { esc, text, truthy, isFalse, splitList, isPlaceholder, realPhone, safeUrl, linkUrl, instagramUrl, mapEmbedSrc,
     pad2, toDate, isoDate, formatDate, timeAgo, formatPrice, durationMonths, activeSorted, initials, img, media } = Utils;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -17,10 +17,10 @@
   const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const GYM_TIME_ZONE = 'Asia/Kolkata';
   const LIKED_KEY = 'ssv_liked_reviews';
-  const TOP_REVIEWS = 3, PAGE_SIZE = 10, CLAMP_CHARS = 280;
+  const TOP_REVIEWS = 3, PAGE_SIZE = 10, CLAMP_CHARS = 280, HOME_GALLERY = 6;
   const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
 
-  const state = { general: {}, gymName: 'SSV Gym', links: {}, reviews: [], reviewForm: false, sort: 'top', listCount: PAGE_SIZE, openedFrom: null };
+  const state = { general: {}, gymName: 'SSV Gym', links: {}, reviews: [], google: { reviews: [] }, tab: 'google', reviewForm: false, sort: 'top', listCount: PAGE_SIZE, openedFrom: null };
 
   /* ---------- small DOM helpers ---------- */
   function setText(key, value) {
@@ -256,9 +256,6 @@
     });
     const connect = $('#footer-connect');
     if (connect) connect.hidden = !$$('.footer__links li', connect).some(li => !li.hidden);
-    const google = $('#google-reviews');
-    google.hidden = !L.maps;
-    if (L.maps) google.href = L.maps;
     // The quick-contact bar only appears on phones when there is a real number to call.
     $('#mobile-bar').hidden = !L.phone && !L.whatsapp;
     document.body.classList.toggle('has-mobile-bar', Boolean(L.phone || L.whatsapp));
@@ -354,16 +351,18 @@
     }).join('');
   }
 
-  /* ---------- facilities: information cards (no links) ---------- */
+  /* ---------- facilities: main areas as photo cards, the rest as a list ---------- */
   function renderFacilities(list) {
     const items = activeSorted(list);
     const major = items.filter(f => text(f.category).toLowerCase() !== 'additional');
     const extra = items.filter(f => text(f.category).toLowerCase() === 'additional');
     toggleSection('facilities', items.length > 0);
-    $('#facility-grid').innerHTML = major.map((f, i) => {
+    const grid = $('#facility-grid');
+    grid.style.setProperty('--cols', Math.min(Math.max(major.length, 1), 4));
+    grid.innerHTML = major.map((f, i) => {
       const tags = splitList(f.tags).map(esc).join(' <i>/</i> ');
       return `<article class="facility-card">
-        ${media(f.image_url, f.name, f.name, { cls: `facility-card__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1024px) 33vw, (min-width: 760px) 50vw, 100vw' })}
+        ${media(f.image_url, f.name, f.name, { cls: `facility-card__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1024px) 33vw, (min-width: 760px) 50vw, 86vw' })}
         <div class="facility-card__body">
           <h3 class="facility-card__title">${esc(f.name)}</h3>
           ${tags ? `<p class="facility-card__tags">${tags}</p>` : ''}
@@ -371,7 +370,7 @@
         </div>
       </article>`;
     }).join('');
-    $('#facility-grid').hidden = !major.length;
+    grid.hidden = !major.length;
     const tag = $('.about__tag');
     if (tag) { tag.hidden = !major.length; $('#zone-count').textContent = major.length; }
     $('#facility-extra').hidden = !extra.length;
@@ -428,7 +427,7 @@
     toggleSection('trainers', items.length > 0);
     $('#trainer-grid').innerHTML = items.map((t, i) => `
       <article class="trainer">
-        ${media(t.image_url, t.name, t.name, { cls: `trainer__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1100px) 25vw, (min-width: 600px) 45vw, 100vw', widths: [400, 700, 1000] })}
+        ${media(t.image_url, t.name, t.name, { cls: `trainer__media tone-${(i % 3) + 1}`, sizes: '(min-width: 1100px) 25vw, (min-width: 600px) 45vw, 80vw', widths: [400, 700, 1000] })}
         <div class="trainer__body">
           <h3 class="trainer__name">${esc(t.name)}</h3>
           ${text(t.role) ? `<p class="trainer__role">${esc(t.role)}</p>` : ''}
@@ -438,26 +437,30 @@
       </article>`).join('');
   }
 
+  /* The first six items; "See the full gallery" opens gallery.html with everything. */
   function renderGallery(list, general) {
     const items = activeSorted(list).filter(i => text(i.image_url));
     toggleSection('gallery', items.length > 0);
-    Gallery.init(items, splitList(general.gallery_categories));
+    Gallery.init(items, splitList(general.gallery_categories), { limit: HOME_GALLERY });
   }
 
-  /* ---------- reviews ---------- */
-  const avatar = name => `<span class="avatar" aria-hidden="true">${esc(initials(name))}</span>`;
+  /* ---------- reviews: the Google rating and Google reviews, and reviews written here ---------- */
+  const avatar = (name, photo) => {
+    const src = safeUrl(photo);
+    return `<span class="avatar" aria-hidden="true">${esc(initials(name))}${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>`;
+  };
   const byTop = (a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0) || String(b.date).localeCompare(String(a.date));
   const byNew = (a, b) => String(b.date).localeCompare(String(a.date)) || (Number(b.likes) || 0) - (Number(a.likes) || 0);
+  const clamp = words => (words.length > CLAMP_CHARS
+    ? `<blockquote class="review__text is-clamped"><p>${esc(words)}</p></blockquote><button class="review__more" type="button" aria-expanded="false">Read more</button>`
+    : `<blockquote class="review__text"><p>${esc(words)}</p></blockquote>`);
 
   function reviewHtml(r) {
-    const words = String(r.review || '');
-    const long = words.length > CLAMP_CHARS;
     const likes = Number(r.likes) || 0;
     const on = liked().includes(r.id);
     return `<article class="review" data-id="${esc(r.id)}">
       <div class="review__top">${starRow(r.rating)}${toDate(r.date) ? `<time datetime="${esc(isoDate(r.date))}">${esc(timeAgo(r.date))}</time>` : ''}</div>
-      <blockquote class="review__text${long ? ' is-clamped' : ''}"><p>${esc(words)}</p></blockquote>
-      ${long ? '<button class="review__more" type="button" aria-expanded="false">Read more</button>' : ''}
+      ${clamp(String(r.review || ''))}
       <div class="review__foot">
         <div class="review__who">${avatar(r.name)}<span>${esc(r.name)}</span></div>
         <button class="like" type="button" data-like="${esc(r.id)}" aria-pressed="${on}" aria-label="${on ? 'Remove like' : 'Like this review'}">${HEART}<span class="like__count">${likes}</span></button>
@@ -465,29 +468,78 @@
     </article>`;
   }
 
-  function renderReviews(list, general) {
+  /* A review from Google, credited to its author as Google asks. */
+  function googleReviewHtml(r) {
+    const who = `${avatar(r.name, r.photo)}<span>${esc(r.name)}</span>`;
+    const profile = safeUrl(r.profile);
+    return `<article class="review review--google">
+      <div class="review__top">${starRow(r.rating)}${text(r.time) ? `<span class="review__time">${esc(r.time)}</span>` : ''}</div>
+      ${clamp(String(r.text || ''))}
+      <div class="review__foot">
+        ${profile ? `<a class="review__who" href="${esc(profile)}" target="_blank" rel="noopener">${who}</a>` : `<div class="review__who">${who}</div>`}
+        <span class="review__source">on Google</span>
+      </div>
+    </article>`;
+  }
+
+  function renderReviews(list, general, google) {
     state.reviews = (Array.isArray(list) ? list : []).filter(r => text(r.review));
     state.reviewForm = !isFalse(general.review_form);
-    const items = state.reviews.slice().sort(byTop);
-    const total = items.length;
-    toggleSection('reviews', total > 0 || state.reviewForm);
+    const g = google && typeof google === 'object' ? google : {};
+    g.reviews = (Array.isArray(g.reviews) ? g.reviews : []).filter(r => r && text(r.text));
+    state.google = g;
+    const rating = Number(g.rating) || 0;
+    const tabs = [];
+    if (g.reviews.length) tabs.push('google');
+    if (state.reviews.length || state.reviewForm) tabs.push('site');
+    if (!tabs.includes(state.tab)) state.tab = tabs[0] || 'site';
+    toggleSection('reviews', tabs.length > 0 || rating > 0);
     $('#write-review').hidden = !state.reviewForm;
+    $('#review-tabs').hidden = tabs.length < 2;
 
-    const rated = items.filter(r => Number(r.rating) > 0);
-    $('#reviews-summary').hidden = !rated.length;
-    if (rated.length) {
-      const avg = rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length;
+    // Summary: the Google rating when there is one, else the average of reviews on this site.
+    const rated = state.reviews.filter(r => Number(r.rating) > 0);
+    const avg = rating || (rated.length ? rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length : 0);
+    $('#reviews-summary').hidden = !avg;
+    if (avg) {
       $('#reviews-avg').textContent = avg.toFixed(1);
       $('#reviews-avg-stars').innerHTML = starRow(avg, `Average rating ${avg.toFixed(1)} out of 5`);
-      $('#reviews-count').textContent = `${rated.length} review${rated.length === 1 ? '' : 's'}`;
+      $('#reviews-count').textContent = rating
+        ? `${(Number(g.count) || 0).toLocaleString('en-IN')} reviews on Google`
+        : `${rated.length} review${rated.length === 1 ? '' : 's'}`;
     }
-
-    $('#review-grid').innerHTML = total
-      ? items.slice(0, TOP_REVIEWS).map(reviewHtml).join('')
-      : `<p class="reviews__empty">No reviews yet.${state.reviewForm ? ' Trained at SSV? Be the first to share your experience.' : ''}</p>`;
-    $('#reviews-more').hidden = total <= TOP_REVIEWS;
-    $('#all-reviews-count').textContent = total;
+    const googleUrl = safeUrl(g.reviewsUrl) || safeUrl(g.mapsUrl);
+    const link = $('#google-reviews');
+    const url = googleUrl || state.links.maps;
+    link.hidden = !url;
+    if (url) { link.href = url; link.textContent = googleUrl ? 'See all reviews on Google' : 'See us on Google Maps'; }
+    const write = safeUrl(g.writeUrl);
+    $('#google-write-row').hidden = !write;
+    if (write) $('#google-write').href = write;
+    renderReviewPanel();
     if ($('#reviews-dialog').open) renderReviewList();
+  }
+
+  function renderReviewPanel() {
+    const g = state.google;
+    const onGoogle = state.tab === 'google' && g.reviews.length > 0;
+    const site = state.reviews.slice().sort(byTop);
+    $$('#review-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+    let html = '';
+    if (onGoogle) html = g.reviews.slice(0, TOP_REVIEWS).map(googleReviewHtml).join('');
+    else if (site.length) html = site.slice(0, TOP_REVIEWS).map(reviewHtml).join('');
+    else if (state.reviewForm) html = '<p class="reviews__empty">No reviews on this website yet. Trained at SSV? Be the first to share your experience.</p>';
+    $('#review-grid').innerHTML = html;
+    const all = $('#all-reviews'), more = $('#google-more');
+    all.hidden = onGoogle || site.length <= TOP_REVIEWS;
+    $('#all-reviews-count').textContent = site.length;
+    const url = safeUrl(g.reviewsUrl) || safeUrl(g.mapsUrl);
+    more.hidden = !onGoogle || !url;
+    if (!more.hidden) {
+      more.href = url;
+      more.textContent = Number(g.count) > 0 ? `Read all ${Number(g.count).toLocaleString('en-IN')} reviews on Google` : 'Read more reviews on Google';
+    }
+    $('#reviews-more').hidden = all.hidden && more.hidden;
   }
 
   function renderReviewList() {
@@ -550,6 +602,10 @@
         more.setAttribute('aria-expanded', String(open));
       }
     });
+    $('#review-tabs').addEventListener('click', e => {
+      const b = e.target.closest('[data-tab]');
+      if (b) { state.tab = b.dataset.tab; renderReviewPanel(); }
+    });
     const all = $('#reviews-dialog'), write = $('#review-dialog');
     $('#all-reviews').addEventListener('click', e => { state.listCount = PAGE_SIZE; renderReviewList(); openDialog(all, e.currentTarget); });
     $('#review-list-more').addEventListener('click', () => { state.listCount += PAGE_SIZE; renderReviewList(); });
@@ -592,7 +648,8 @@
         if (res.review) {
           state.reviews.unshift(res.review);
           API.addReview(res.review);
-          renderReviews(state.reviews, state.general);
+          state.tab = 'site';
+          renderReviews(state.reviews, state.general, state.google);
           msg.textContent = 'Thank you! Your review is now on the website.';
         } else {
           msg.textContent = 'Thank you! Your review will appear once the gym approves it.';
@@ -726,7 +783,7 @@
     toggleSection('membership', plans + services > 0);
     renderTrainers(c.trainers);
     renderGallery(c.gallery, g);
-    renderReviews(c.reviews, g);
+    renderReviews(c.reviews, g, c.google);
   }
 
   async function init() {
@@ -740,7 +797,7 @@
       content = await API.getContent({ onUpdate: fresh => { render(fresh); $$('.reveal').forEach(el => el.classList.add('is-visible')); } });
     } catch (err) {
       console.error('[SSV] Could not load content:', err);
-      content = { source: 'offline', general: {}, facilities: [], plans: [], services: [], trainers: [], gallery: [], reviews: [], announcements: [] };
+      content = { source: 'offline', general: {}, google: null, facilities: [], plans: [], services: [], trainers: [], gallery: [], reviews: [], announcements: [] };
     }
     document.body.classList.remove('is-loading');
     render(content);

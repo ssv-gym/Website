@@ -1,29 +1,38 @@
 /* ==========================================================================
-   SSV GYM — ADMIN PANEL                                              v1.5.0
+   SSV GYM — ADMIN PANEL                                              v1.6.0
    Signs in with the password checked by Apps Script, then edits the Google
    Sheet through the API: general information, collections, reviews, photos
-   and videos (Cloudinary) and enquiries. Works on phones too. Uploads always
-   go into their section's folder (Home, Facilities, Trainers, Gallery, Events).
+   and videos (Cloudinary) and enquiries. Lists reorder by dragging (or the
+   arrows) and ticked items can be deleted together. Uploads always go into
+   their section's folder (Home, Facilities, Trainers, Gallery, Events).
+   Works on phones too.
    ========================================================================== */
 (() => {
   'use strict';
-  const BACKEND_VERSION = '1.5.0';   // the Code.gs version this panel expects
+  const BACKEND_VERSION = '1.6.0';   // the Code.gs version this panel expects
   const { esc, text, truthy, splitList, isoDate, formatDate, timeAgo, formatPrice, byOrder, cld, safeUrl, realPhone, mediaKind, videoPoster } = Utils;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg>';
   const PLAY = '<span class="play-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>';
+  const GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2" cy="2" r="1.4"/><circle cx="8" cy="2" r="1.4"/><circle cx="2" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="2" cy="14" r="1.4"/><circle cx="8" cy="14" r="1.4"/></svg>';
   const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
   const MEDIA_ACCEPT = 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm';
-
-  /* Sample content written by the sheet setup, to be replaced with the gym's own. */
-  const SAMPLE = {
-    trainers: ['tr-aman-verma', 'tr-neha-kulkarni', 'tr-vikram-singh'],
-    prices: { 'plan-monthly': '1200', 'plan-quarterly': '3000', 'plan-half-yearly': '5500', 'plan-yearly': '9000' },
-    stats: { stat_1_value: '5+', stat_2_value: '40+', stat_3_value: '3', stat_4_value: '7' }
-  };
-  const isStock = url => /images\.unsplash\.com/i.test(String(url || ''));
   const DEFAULT_CATEGORIES = ['Gym', 'CrossFit', 'Training', 'Equipment', 'Events'];
+  const NOUNS = { enquiries: ['enquiry', 'enquiries'], media: ['file', 'files'] };
+  /* Keys kept in Script Properties: key, label, where to set it. */
+  const SECRETS = [
+    ['ADMIN_PASSWORD', 'Admin password', 'SSV Admin › Set admin password'],
+    ['CLOUDINARY_API_KEY', 'Cloudinary API key', 'SSV Admin › Set Cloudinary keys'],
+    ['CLOUDINARY_API_SECRET', 'Cloudinary API secret', 'SSV Admin › Set Cloudinary keys'],
+    ['GOOGLE_PLACES_API_KEY', 'Google Places API key', 'SSV Admin › Set Google Places key']
+  ];
+  const SHORTCUTS = [
+    ['Add photos or videos to the gallery', '#gallery'],
+    ['Post an announcement or event', '#announcements'],
+    ['Update opening hours or contact details', '#general'],
+    ['Edit membership plans', '#plans']
+  ];
 
   /* Each collection: labels and the fields of its editor. */
   const COLLECTIONS = {
@@ -77,9 +86,8 @@
       one: 'item', many: 'items', ordered: true, media: 'gallery',
       fields: [
         { key: 'image_url', label: 'Photo or video', type: 'image', video: true, required: true, hint: 'Upload a photo or a video (MP4, MOV or WebM, up to 100 MB), or paste a YouTube link under "Link".' },
-        { key: 'title', label: 'Title' },
+        { key: 'title', label: 'Title', full: true, hint: 'Shown when a visitor opens the photo.' },
         { key: 'category', label: 'Category', type: 'category' },
-        { key: 'caption', label: 'Caption', type: 'textarea', full: true },
         { key: 'active', label: 'Show on the website', type: 'check' }
       ]
     },
@@ -161,7 +169,7 @@
 
   const state = {
     data: null, view: 'dashboard', dirty: false, lib: null, libFolder: '',
-    reviewFilter: 'all', enquiryFilter: 'all', pending: new Set(), lastHash: ''
+    reviewFilter: 'all', enquiryFilter: 'all', pending: new Set(), lastHash: '', selected: new Set()
   };
 
   /* ---------------------------------------------------------------- helpers */
@@ -174,7 +182,7 @@
   };
   const cloudinaryReady = () => Boolean(meta().cloudinaryConfigured);
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-  const plain = v => text(v).replace(/[₹,\s]/g, '');
+  const nouns = key => (COLLECTIONS[key] ? [COLLECTIONS[key].one, COLLECTIONS[key].many] : (NOUNS[key] || ['item', 'items']));
   const olderThan = (a, b) => {
     const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
     for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
@@ -195,6 +203,13 @@
   };
   const sizeText = b => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b || 0} B`);
   const statusText = s => { const v = text(s) || 'New'; return `<span class="status status--${esc(v.toLowerCase())}">${esc(v)}</span>`; };
+
+  /* Tick boxes for selecting several rows or cards. */
+  const selectAllCell = () => '<th class="col-select"><input class="check" type="checkbox" data-select-all aria-label="Select all"></th>';
+  const selectCell = (id, label = 'Select') => `<td class="col-select"><input class="check" type="checkbox" data-select="${esc(id)}"${state.selected.has(id) ? ' checked' : ''} aria-label="${esc(label)}"></td>`;
+  const pickBox = (id, label) => `<label class="media-card__pick"><input class="check" type="checkbox" data-select="${esc(id)}"${state.selected.has(id) ? ' checked' : ''} aria-label="${esc(label)}"></label>`;
+  const handle = () => `<span class="drag" data-drag title="Drag to reorder">${GRIP}</span>`;
+  const rowClass = (muted, id) => [muted ? 'is-muted' : '', state.selected.has(id) ? 'is-selected' : ''].filter(Boolean).join(' ');
 
   /* Gallery categories: names in filter order, kept in General › gallery_categories. */
   function galleryCategories() {
@@ -243,7 +258,7 @@
 
   async function signOut(message = '') {
     cleanupPending();
-    state.data = null; state.dirty = false; state.lib = null;
+    state.data = null; state.dirty = false; state.lib = null; state.selected.clear();
     await API.logout();
     showLogin(message);
   }
@@ -286,7 +301,9 @@
   /* ---------------------------------------------------------------- routing */
   function route() {
     const name = location.hash.replace('#', '');
-    state.view = VIEWS[name] ? name : 'dashboard';
+    const next = VIEWS[name] ? name : 'dashboard';
+    if (next !== state.view) state.selected.clear();
+    state.view = next;
     $$('.sidebar__nav a').forEach(a => { if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     $('#view-title').textContent = VIEWS[state.view];
     document.title = `${VIEWS[state.view]} · SSV Admin`;
@@ -304,6 +321,7 @@
     else if (v === 'enquiries') renderEnquiries(root);
     else if (v === 'settings') renderSettings(root);
     else renderCollection(root, v);
+    syncSelection();
   }
 
   function closeSidebar() {
@@ -318,20 +336,150 @@
       : '';
   }
 
+  /* ------------------------------------------------------- select & delete */
+  /* Keeps the "N selected" bar and the select-all box in step with the ticked items. */
+  function syncSelection() {
+    const root = $('#view');
+    const boxes = $$('[data-select]', root);
+    const present = new Set(boxes.map(b => b.dataset.select));
+    [...state.selected].forEach(id => { if (!present.has(id)) state.selected.delete(id); });
+    const n = state.selected.size;
+    $('#bulk-bar').hidden = !n;
+    $('#bulk-count').textContent = `${n} selected`;
+    document.body.classList.toggle('has-bulk', n > 0);
+    const all = $('[data-select-all]', root);
+    if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+  }
+
+  function select(box, on) {
+    box.checked = on;
+    if (on) state.selected.add(box.dataset.select); else state.selected.delete(box.dataset.select);
+    const item = box.closest('tr, .media-card');
+    if (item) item.classList.toggle('is-selected', on);
+  }
+
+  async function bulkDelete() {
+    const key = state.view, ids = [...state.selected], n = ids.length;
+    if (!n) return;
+    const [one, many] = nouns(key);
+    if (!confirm(`Delete ${n} ${n === 1 ? one : many}? This can't be undone.`)) return;
+    const btn = $('#bulk-delete');
+    btn.disabled = true;
+    try {
+      if (key === 'media') {
+        const res = await API.deleteImages(ids);
+        const gone = (res.deleted || []).length, kept = (res.kept || []).length;
+        state.selected.clear();
+        toast(kept ? `${gone} deleted. ${kept} used on the website, so kept.` : `${gone} ${gone === 1 ? one : many} deleted.`, kept ? 'warn' : 'ok');
+        await renderMedia($('#view'), true);
+        return;
+      }
+      const res = await API.deleteRecords(key, ids);
+      const gone = new Set(res.deleted || []);
+      state.data[key] = list(key).filter(r => !gone.has(r.id));
+      state.selected.clear();
+      toast(`${gone.size} ${gone.size === 1 ? one : many} deleted.`);
+      updateBadges();
+      render();
+    } catch (err) {
+      fail(err, 'Could not delete.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* ----------------------------------------------------- drag to reorder */
+  /* With a mouse, drag the row or card itself. On touch screens, drag the ⠿ handle,
+     so the page still scrolls normally. */
+  function enableSort(root, key) {
+    const box = $('[data-sortable]', root);
+    if (!box) return;
+    const grid = box.dataset.sortable === 'grid';
+    const ids = () => $$('[data-sort-id]', box).map(el => el.dataset.sortId);
+    let drag = null;
+    const hit = () => {
+      const over = document.elementFromPoint(drag.x, drag.y);
+      const target = over && over.closest('[data-sort-id]');
+      if (!target || target === drag.item || target.parentNode !== box) return;
+      const r = target.getBoundingClientRect();
+      const after = grid ? drag.x > r.left + r.width / 2 : drag.y > r.top + r.height / 2;
+      box.insertBefore(drag.item, after ? target.nextSibling : target);
+    };
+    const tick = () => {   // scrolls the page while dragging near its top or bottom edge
+      if (!drag) return;
+      if (drag.on) {
+        const edge = 80, y = drag.y, h = window.innerHeight;
+        const dy = y < edge ? -(edge - y) / 5 : (y > h - edge ? (y - h + edge) / 5 : 0);
+        if (dy) { window.scrollBy(0, dy); hit(); }
+      }
+      drag.raf = requestAnimationFrame(tick);
+    };
+    const move = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.x = e.clientX; drag.y = e.clientY;
+      if (!drag.on) {
+        if (Math.abs(drag.x - drag.x0) + Math.abs(drag.y - drag.y0) < 6) return;
+        drag.on = true;
+        drag.item.classList.add('is-dragging');
+        document.body.classList.add('is-sorting');
+      }
+      e.preventDefault();
+      hit();
+    };
+    const end = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const d = drag;
+      drag = null;
+      cancelAnimationFrame(d.raf);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      d.item.classList.remove('is-dragging');
+      document.body.classList.remove('is-sorting');
+      if (!d.on) return;
+      const now = ids();
+      if (now.join('\n') !== d.start.join('\n')) applyOrder(key, now);
+    };
+    box.addEventListener('pointerdown', e => {
+      const item = e.target.closest('[data-sort-id]');
+      if (drag || !item || item.parentNode !== box || e.button > 0) return;
+      const onHandle = e.target.closest('[data-drag]');
+      if (!onHandle && (e.pointerType !== 'mouse' || e.target.closest('button, a, input, select, textarea, label, summary'))) return;
+      e.preventDefault();
+      drag = { item, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, start: ids() };
+      drag.raf = requestAnimationFrame(tick);
+      window.addEventListener('pointermove', move, { passive: false });
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+    });
+  }
+
+  /* Saves a new order: ids from first to last. */
+  async function applyOrder(key, ids) {
+    const byId = new Map(list(key).map(r => [r.id, r]));
+    ids.forEach((id, n) => { const r = byId.get(id); if (r) r.display_order = n + 1; });
+    render();
+    try { await API.reorder(key, ids); }
+    catch (err) { fail(err, 'Could not change the order.'); if (await loadData()) render(); }
+  }
+
+  function move(key, id, dir) {
+    const ids = sortedRows(key).map(r => r.id);
+    const i = ids.indexOf(id), j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    applyOrder(key, ids);
+  }
+
   /* -------------------------------------------------------------- dashboard */
   function todo() {
-    const g = general(), items = [];
+    const m = meta(), items = [];
     const active = key => list(key).filter(r => truthy(r.active));
     if (!cloudinaryReady()) items.push(['Set up photo uploads (Cloudinary)', '#settings']);
-    if (!meta().notifyEmail) items.push(['Get an email for every enquiry and review', '#settings']);
-    const photos = [g.hero_image, g.about_image, ...list('facilities').map(f => f.image_url), ...list('trainers').map(t => t.image_url), ...list('gallery').map(p => p.image_url)];
-    if (photos.some(isStock)) items.push(['Replace the stand-in photos with photos of SSV', '#gallery']);
-    if (!active('trainers').length) items.push(['Add your trainers', '#trainers']);
-    else if (list('trainers').some(t => SAMPLE.trainers.includes(t.id))) items.push(['Replace the sample trainers with your own team', '#trainers']);
-    const plans = active('plans');
-    if (plans.some(p => !text(p.price))) items.push(['Add membership prices', '#plans']);
-    else if (plans.some(p => SAMPLE.prices[p.id] !== undefined && plain(p.price) === SAMPLE.prices[p.id])) items.push(['Replace the sample membership prices', '#plans']);
-    if (Object.keys(SAMPLE.stats).every(k => text(g[k]) === SAMPLE.stats[k])) items.push(['Check the sample statistics', '#general']);
+    if (!m.notifyEmail) items.push(['Get an email for every enquiry and review', '#settings']);
+    if (m.google && !m.google.keySet) items.push(['Show your Google rating and reviews', '#settings']);
+    if (!active('plans').length) items.push(['Add membership plans', '#plans']);
+    else if (active('plans').some(p => !text(p.price))) items.push(['Add membership prices', '#plans']);
     if (!active('gallery').length) items.push(['Add photos to the gallery', '#gallery']);
     return items;
   }
@@ -340,13 +488,15 @@
     const enquiries = list('enquiries').slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const newCount = enquiries.filter(e => (text(e.status) || 'New') === 'New').length;
     const waiting = list('reviews').filter(r => text(r.status) === 'Pending').length;
+    const google = meta().google || {};
     const items = todo();
     const card = (label, value, href, alert) => `<a class="stat-card${alert ? ' stat-card--alert' : ''}" href="${href}"><span class="stat-card__label">${label}</span><span class="stat-card__value">${value}</span></a>`;
+    const links = (rows, cls) => `<ul class="checklist${cls}">${rows.map(([label, href]) => `<li><a href="${href}">${esc(label)}</a></li>`).join('')}</ul>`;
     root.innerHTML = `${versionWarning()}
       <div class="stat-cards">
         ${card('New enquiries', newCount, '#enquiries', newCount > 0)}
         ${card('Reviews waiting', waiting, '#reviews', waiting > 0)}
-        ${card('Membership plans', list('plans').filter(p => truthy(p.active)).length, '#plans')}
+        ${google.rating ? card(`Google rating · ${esc(String(google.count || 0))} reviews`, Number(google.rating).toFixed(1), '#settings') : card('Membership plans', list('plans').filter(p => truthy(p.active)).length, '#plans')}
         ${card('Gallery items', list('gallery').filter(p => truthy(p.active)).length, '#gallery')}
       </div>
       <div class="dash-grid">
@@ -360,8 +510,9 @@
             : '<p class="muted">No enquiries yet. They appear here when visitors send the form on the website.</p>'}
         </section>
         <section class="panel">
-          <div class="panel__head"><h2>Finish your website</h2><small>${items.length ? `${items.length} to do` : 'All done'}</small></div>
-          ${items.length ? `<ul class="checklist">${items.map(([label, href]) => `<li><a href="${href}">${esc(label)}</a></li>`).join('')}</ul>` : '<p class="muted">Everything is set up.</p>'}
+          ${items.length
+            ? `<div class="panel__head"><h2>To set up</h2><small>${items.length} left</small></div>${links(items, '')}`
+            : `<div class="panel__head"><h2>Shortcuts</h2></div>${links(SHORTCUTS, ' checklist--links')}`}
         </section>
       </div>`;
   }
@@ -412,9 +563,8 @@
             <button class="btn btn--ghost btn--sm" type="button" data-upload${cloudinaryReady() ? '' : ' disabled title="Set up photo uploads in Settings first"'}>${v ? `Replace ${noun}` : `Upload ${noun}`}</button>
           </div>
           <div class="progress" hidden><span></span></div>
-          <details class="image-field__link"${v && !/res\.cloudinary\.com/i.test(v) ? ' open' : ''}><summary>Link</summary><input type="url" name="${f.key}" value="${esc(v)}" placeholder="https://…" inputmode="url"></details>
+          <details class="image-field__link"${v && !/res\.cloudinary\.com|^data:/i.test(v) ? ' open' : ''}><summary>Link</summary><input type="url" name="${f.key}" value="${esc(v)}" placeholder="https://…" inputmode="url"></details>
           ${f.hint ? `<small class="field__hint">${esc(f.hint)}</small>` : ''}
-          ${isStock(v) ? '<small class="field__warn">Stand-in photo. Replace it with a photo of SSV.</small>' : ''}
         </div>
       </div>
     </div>`;
@@ -524,7 +674,7 @@
   function editCategories() {
     openModal({
       title: 'Gallery categories',
-      body: `<div class="form-grid">${fieldHtml({ key: 'gallery_categories', label: 'Categories', type: 'list', hint: 'One per line, in the order of the filter buttons on the website. Renaming or removing one here does not change photos that already use it.' }, galleryCategories().join(' | '))}</div>`,
+      body: `<div class="form-grid">${fieldHtml({ key: 'gallery_categories', label: 'Categories', type: 'list', hint: 'One per line, in the order of the filter buttons on the gallery page. Renaming or removing one here does not change photos that already use it.' }, galleryCategories().join(' | '))}</div>`,
       saveLabel: 'Save categories',
       onSave: async form => {
         const names = splitList(form.elements.gallery_categories.value.replace(/\|/g, '\n'));
@@ -618,14 +768,9 @@
     return rows.sort(byOrder);
   }
 
-  function isSample(key, r) {
-    return (key === 'trainers' && SAMPLE.trainers.includes(r.id)) || isStock(r.image_url)
-      || (key === 'plans' && SAMPLE.prices[r.id] !== undefined && plain(r.price) === SAMPLE.prices[r.id]);
-  }
-
   function columns(key) {
     const withThumb = ['facilities', 'trainers', 'announcements'].includes(key);
-    const name = r => `<div class="cell-main">${withThumb ? `<span class="thumb">${thumb(r.image_url, 120)}</span>` : ''}<div><strong>${esc(r.name || r.title || 'Untitled')}</strong>${isSample(key, r) ? ` ${pill('Sample', 'warn')}` : ''}</div></div>`;
+    const name = r => `<div class="cell-main">${withThumb ? `<span class="thumb">${thumb(r.image_url, 120)}</span>` : ''}<strong>${esc(r.name || r.title || 'Untitled')}</strong></div>`;
     const price = r => (text(r.price) ? esc(formatPrice(r.price)) : '<span class="muted">On enquiry</span>');
     switch (key) {
       case 'facilities': return [{ label: 'Name', cell: name }, { label: 'Shown as', cell: r => (text(r.category).toLowerCase() === 'additional' ? 'Also at SSV' : 'Main area') }];
@@ -642,20 +787,23 @@
     const rows = sortedRows(key);
     const shown = rows.filter(r => truthy(r.active)).length;
     const cols = columns(key);
+    const order = (r, i) => `<td class="col-order">${handle()}<button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button><button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move down"${i === rows.length - 1 ? ' disabled' : ''}>↓</button></td>`;
     root.innerHTML = `${c.intro ? `<p class="hint-box">${esc(c.intro)}</p>` : ''}
       <div class="toolbar">
-        <p class="toolbar__info">${rows.length} ${rows.length === 1 ? c.one : c.many} · ${shown} shown on the website</p>
+        <p class="toolbar__info">${rows.length} ${rows.length === 1 ? c.one : c.many} · ${shown} shown on the website${c.ordered && rows.length > 1 ? ' · drag to reorder' : ''}</p>
         <div class="toolbar__actions"><button class="btn btn--primary btn--sm" type="button" data-add="${key}">Add ${c.one}</button></div>
       </div>
       ${rows.length ? `<div class="table-wrap"><table class="table">
-        <thead><tr>${c.ordered ? '<th class="col-order">Order</th>' : ''}${cols.map(col => `<th>${col.label}</th>`).join('')}<th>Status</th><th class="col-actions"><span class="sr-only">Actions</span></th></tr></thead>
-        <tbody>${rows.map((r, i) => `<tr class="${truthy(r.active) ? '' : 'is-muted'}">
-          ${c.ordered ? `<td class="col-order"><button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button><button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move down"${i === rows.length - 1 ? ' disabled' : ''}>↓</button></td>` : ''}
+        <thead><tr>${selectAllCell()}${c.ordered ? '<th class="col-order">Order</th>' : ''}${cols.map(col => `<th>${col.label}</th>`).join('')}<th>Status</th><th class="col-actions"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody${c.ordered ? ' data-sortable="list"' : ''}>${rows.map((r, i) => `<tr class="${rowClass(!truthy(r.active), r.id)}"${c.ordered ? ` data-sort-id="${esc(r.id)}"` : ''}>
+          ${selectCell(r.id, `Select ${r.name || r.title || ''}`)}
+          ${c.ordered ? order(r, i) : ''}
           ${cols.map(col => `<td>${col.cell(r)}</td>`).join('')}
           <td>${truthy(r.active) ? pill('Shown', 'on') : pill('Hidden')}</td>
           <td class="col-actions"><button class="btn btn--ghost btn--xs" type="button" data-edit="${esc(r.id)}">Edit</button><button class="btn btn--danger btn--xs" type="button" data-delete="${esc(r.id)}">Delete</button></td>
         </tr>`).join('')}</tbody></table></div>`
         : `<div class="empty"><p>No ${c.many} yet.</p><button class="btn btn--primary" type="button" data-add="${key}">Add ${c.one}</button></div>`}`;
+    if (c.ordered) enableSort(root, key);
   }
 
   function nextOrder(key) { return list(key).reduce((m, r) => Math.max(m, Number(r.display_order) || 0), 0) + 1; }
@@ -694,26 +842,33 @@
     try {
       await API.deleteRecord(key, id);
       state.data[key] = list(key).filter(x => x.id !== id);
+      state.selected.delete(id);
       toast(`${cap(c.one)} deleted.`);
       updateBadges();
       render();
     } catch (err) { fail(err, 'Could not delete.'); }
   }
 
-  async function move(key, id, dir) {
-    const rows = sortedRows(key);
-    const i = rows.findIndex(r => r.id === id), j = i + dir;
-    if (i < 0 || j < 0 || j >= rows.length) return;
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-    rows.forEach((r, n) => { r.display_order = n + 1; });
-    render();
-    try { await API.reorder(key, rows.map(r => r.id)); }
-    catch (err) { fail(err, 'Could not change the order.'); if (await loadData()) render(); }
-  }
-
   /* ------------------------------------------------- gallery (photos & videos) */
   /* Category given to items added with "Add photos or videos" (remembered while the panel is open). */
   let photoCategory = 'gym';
+
+  function galleryCard(r, i, n) {
+    const kind = mediaKind(r.image_url), on = state.selected.has(r.id);
+    const badge = !truthy(r.active) ? '<span class="pill media-card__state">Hidden</span>' : (kind !== 'image' ? '<span class="pill media-card__state">Video</span>' : '');
+    return `<article class="media-card${truthy(r.active) ? '' : ' is-muted'}${on ? ' is-selected' : ''}" data-sort-id="${esc(r.id)}">
+      <div class="media-card__img">${thumb(r.image_url, 500) || 'No photo'}${pickBox(r.id, `Select ${r.title || 'item'}`)}<span class="pill media-card__cat">${esc(catLabel(r.category))}</span>${badge}</div>
+      <div class="media-card__body"><strong>${esc(r.title || (kind === 'image' ? 'Untitled photo' : 'Untitled video'))}</strong></div>
+      <div class="media-card__actions">
+        ${handle()}
+        <button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move earlier"${i === 0 ? ' disabled' : ''}>←</button>
+        <button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move later"${i === n - 1 ? ' disabled' : ''}>→</button>
+        <span class="spacer"></span>
+        <button class="btn btn--ghost btn--xs" type="button" data-edit="${esc(r.id)}">Edit</button>
+        <button class="btn btn--danger btn--xs" type="button" data-delete="${esc(r.id)}">Delete</button>
+      </div>
+    </article>`;
+  }
 
   function renderGallery(root) {
     const rows = sortedRows('gallery');
@@ -721,7 +876,7 @@
     if (!categoryOptions().some(([k]) => k === photoCategory)) photoCategory = (categoryOptions()[0] || ['gym'])[0];
     root.innerHTML = `
       <div class="toolbar">
-        <p class="toolbar__info">${rows.length} item${rows.length === 1 ? '' : 's'} · ${shown} shown on the website</p>
+        <p class="toolbar__info">${rows.length} item${rows.length === 1 ? '' : 's'} · ${shown} shown on the website${rows.length > 1 ? ' · drag to reorder' : ''}</p>
         <div class="toolbar__actions">
           ${cloudinaryReady() ? `<label class="folder-pick"><span class="folder-pick__label">Category for new items</span><select id="new-photo-category">${categoryOptions().map(([k, l]) => `<option value="${esc(k)}"${k === photoCategory ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>` : ''}
           <button class="btn btn--primary btn--sm" type="button" data-add-photos${cloudinaryReady() ? '' : ' disabled'}>Add photos or videos</button>
@@ -729,25 +884,13 @@
           <button class="btn btn--ghost btn--sm" type="button" data-action="edit-categories">Categories</button>
         </div>
       </div>
-      <p class="hint-box">Videos: upload MP4, MOV or WebM files up to 100 MB, or use <b>Add by link</b> with a YouTube link for longer videos.</p>
+      <p class="hint-box">The first six shown items appear on the home page; the gallery page shows them all. Videos: MP4, MOV or WebM up to 100 MB, or <b>Add by link</b> with a YouTube link for longer ones.</p>
       ${cloudinaryReady() ? '' : '<p class="hint-box hint-box--warn">Uploads are not set up yet, so items can only be added by link. See Settings.</p>'}
+      ${rows.length ? '<div class="toolbar"><label class="folder-pick"><input class="check" type="checkbox" data-select-all> Select all</label></div>' : ''}
       <ul class="upload-list" id="upload-list"></ul>
-      ${rows.length ? `<div class="media-grid">${rows.map((r, i) => {
-          const kind = mediaKind(r.image_url);
-          const state = !truthy(r.active) ? '<span class="pill media-card__state">Hidden</span>' : (isStock(r.image_url) ? '<span class="pill pill--warn media-card__state">Sample</span>' : (kind !== 'image' ? '<span class="pill media-card__state">Video</span>' : ''));
-          return `<article class="media-card${truthy(r.active) ? '' : ' is-muted'}">
-          <div class="media-card__img">${thumb(r.image_url, 500) || 'No photo'}<span class="pill media-card__cat">${esc(catLabel(r.category))}</span>${state}</div>
-          <div class="media-card__body"><strong>${esc(r.title || (kind === 'image' ? 'Untitled photo' : 'Untitled video'))}</strong>${text(r.caption) ? `<small>${esc(r.caption)}</small>` : ''}</div>
-          <div class="media-card__actions">
-            <button class="icon-btn" type="button" data-move="-1" data-id="${esc(r.id)}" aria-label="Move earlier"${i === 0 ? ' disabled' : ''}>←</button>
-            <button class="icon-btn" type="button" data-move="1" data-id="${esc(r.id)}" aria-label="Move later"${i === rows.length - 1 ? ' disabled' : ''}>→</button>
-            <span class="spacer"></span>
-            <button class="btn btn--ghost btn--xs" type="button" data-edit="${esc(r.id)}">Edit</button>
-            <button class="btn btn--danger btn--xs" type="button" data-delete="${esc(r.id)}">Delete</button>
-          </div>
-        </article>`;
-        }).join('')}</div>`
+      ${rows.length ? `<div class="media-grid" data-sortable="grid">${rows.map((r, i) => galleryCard(r, i, rows.length)).join('')}</div>`
         : '<div class="empty"><p>Nothing in the gallery yet. Add photos and videos of the gym floor, the CrossFit zone, training and events.</p></div>'}`;
+    enableSort(root, 'gallery');
   }
 
   const titleFromFile = name => String(name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, ch => ch.toUpperCase()).slice(0, 80) || 'Gallery item';
@@ -771,7 +914,7 @@
       try {
         const up = await API.uploadMedia(file, { folder, onProgress: p => { status.textContent = `${p}%`; } });
         status.textContent = 'Saving…';
-        rows.push(await API.saveRecord('gallery', { image_url: up.url, title: titleFromFile(file.name), category, caption: '', active: true, display_order: ++order }));
+        rows.push(await API.saveRecord('gallery', { image_url: up.url, title: titleFromFile(file.name), category, active: true, display_order: ++order }));
         li.classList.add('is-done');
         status.textContent = 'Added';
         added++;
@@ -783,7 +926,7 @@
     }
     if (state.view === 'gallery') {
       const log = ($('#upload-list') || {}).innerHTML || '';
-      renderGallery($('#view'));
+      render();
       $('#upload-list').innerHTML = log;
     }
     toast(`${added} item${added === 1 ? '' : 's'} added to the gallery.`, added ? 'ok' : 'warn');
@@ -811,19 +954,21 @@
     const formOn = g.review_form === undefined || g.review_form === '' || truthy(g.review_form);
     root.innerHTML = `
       <section class="panel review-settings">
-        <div class="panel__head"><h2>Review settings</h2></div>
+        <div class="panel__head"><h2>Reviews written on the website</h2></div>
         <div class="switches">
           <label class="switch"><input type="checkbox" data-setting="review_form"${formOn ? ' checked' : ''}> Visitors can write reviews on the website</label>
           <label class="switch"><input type="checkbox" data-setting="review_approval"${truthy(g.review_approval) ? ' checked' : ''}> New reviews wait for my approval before they appear</label>
         </div>
+        <p class="panel__note">Google reviews are shown next to these automatically. They are managed on Google, not here.</p>
       </section>
       <div class="toolbar">
         <div class="segmented" role="group" aria-label="Show reviews">${seg('all', 'All', rows.length)}${seg('Pending', 'Waiting', count('Pending'))}${seg('Published', 'Published', count('Published'))}${seg('Hidden', 'Hidden', count('Hidden'))}</div>
         <div class="toolbar__actions"><button class="btn btn--primary btn--sm" type="button" data-add="reviews">Add a review</button></div>
       </div>
       ${shown.length ? `<div class="table-wrap"><table class="table">
-        <thead><tr><th>Rating</th><th>Review</th><th>Likes</th><th>Date</th><th>Status</th><th class="col-actions"><span class="sr-only">Actions</span></th></tr></thead>
-        <tbody>${shown.map(r => `<tr class="${reviewStatus(r) === 'Hidden' ? 'is-muted' : ''}">
+        <thead><tr>${selectAllCell()}<th>Rating</th><th>Review</th><th>Likes</th><th>Date</th><th>Status</th><th class="col-actions"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${shown.map(r => `<tr class="${rowClass(reviewStatus(r) === 'Hidden', r.id)}">
+          ${selectCell(r.id, `Select the review by ${r.name}`)}
           <td class="nowrap">${stars(r.rating)}</td>
           <td><strong>${esc(r.name)}</strong>${text(r.source) === 'Admin' ? ' <span class="muted">(added by you)</span>' : ''}<div class="msg">${esc(r.review)}</div></td>
           <td>${Number(r.likes) || 0}</td>
@@ -875,11 +1020,12 @@
         <div class="toolbar__actions"><button class="btn btn--ghost btn--sm" type="button" data-action="refresh-inbox">Check for new</button></div>
       </div>
       ${shown.length ? `<div class="table-wrap"><table class="table">
-        <thead><tr><th>Name</th><th>Phone</th><th>Message</th><th>Received</th><th>Status</th></tr></thead>
+        <thead><tr>${selectAllCell()}<th>Name</th><th>Phone</th><th>Message</th><th>Received</th><th>Status</th></tr></thead>
         <tbody>${shown.map(e => {
           const intl = realPhone(e.phone), s = status(e);
           const wa = `https://wa.me/${intl}?text=${encodeURIComponent(`Hi ${text(e.name)}, thank you for contacting ${gym}.`)}`;
-          return `<tr>
+          return `<tr class="${rowClass(false, e.id)}">
+            ${selectCell(e.id, `Select the enquiry from ${e.name}`)}
             <td><strong>${esc(e.name)}</strong></td>
             <td class="nowrap">${esc(e.phone)}${intl ? `<div><a href="tel:+${intl}">Call</a> · <a href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}</td>
             <td><div class="msg">${text(e.message) ? esc(e.message) : '<span class="muted">No message</span>'}</div></td>
@@ -918,10 +1064,34 @@
   }
 
   /* --------------------------------------------------------------- settings */
+  function googlePanel(g) {
+    if (!g.placeId) return '<p>Put the gym\'s Google Place ID next to GOOGLE_PLACE_ID in the Config tab of the Google Sheet.</p>';
+    if (!g.keySet) return '<p>Not connected yet. In the Google Sheet, run <strong>SSV Admin › Set Google Places key</strong> and paste your Google Places API key. The website then shows the Google rating, the number of reviews and recent Google reviews.</p>';
+    if (g.error) return `<p class="field__warn">Google says: ${esc(g.error)}</p><p class="panel__note">Check that Places API (New) is enabled for the key's project and that billing is on, then Refresh from Google.</p>`;
+    return `<div class="google-score"><strong>${Number(g.rating || 0).toFixed(1)}</strong><span>${stars(g.rating)}</span></div>
+      <p>${esc(String(g.count || 0))} reviews on Google. The website shows the rating and ${g.reviews ? `${g.reviews} recent reviews` : 'a link to the reviews'}.</p>
+      <p class="panel__note">Google is asked again every 6 hours. Replies and removals happen on Google.</p>`;
+  }
+
   function renderSettings(root) {
     const m = meta();
     const base = (m.media && m.media.base) || 'SSV-Gym';
+    const g = m.google || {};
+    const secrets = m.secrets || {};
     root.innerHTML = `${versionWarning()}<div class="settings-grid">
+      <section class="panel">
+        <div class="panel__head"><h2>Google rating and reviews</h2></div>
+        ${googlePanel(g)}
+        <div class="panel__actions">
+          ${g.keySet ? '<button class="btn btn--ghost btn--sm" type="button" data-action="google-refresh">Refresh from Google</button>' : ''}
+          ${g.url ? `<a class="btn btn--ghost btn--sm" href="${esc(g.url)}" target="_blank" rel="noopener">Open the reviews on Google</a>` : ''}
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel__head"><h2>Keys and passwords</h2></div>
+        <p class="panel__note panel__note--top">Kept in Apps Script › Project Settings › Script properties, never in the sheet or the website. The Config tab of the Google Sheet lists the same.</p>
+        <dl class="kv">${SECRETS.map(([key, label, how]) => `<div><dt>${esc(label)}</dt><dd>${secrets[key] ? pill('Stored', 'on') : `${pill('Not set', 'warn')}<small>${esc(how)}</small>`}</dd></div>`).join('')}</dl>
+      </section>
       <section class="panel">
         <div class="panel__head"><h2>Connection</h2></div>
         <dl class="kv">
@@ -940,7 +1110,6 @@
         ${m.cloudinaryConfigured
           ? `<p>Uploads are ready. Files are stored in Cloudinary, in the <strong>${esc(base)}</strong> folder.</p>`
           : '<p>Uploads are not set up yet.</p><ul class="notes"><li>Put your Cloudinary cloud name next to CLOUDINARY_CLOUD_NAME in the Config tab.</li><li>In the Google Sheet, run SSV Admin › Set Cloudinary keys and paste the API key and secret.</li></ul>'}
-        <p class="panel__note">If an upload says "cloud_name is disabled", Cloudinary has switched the account off: sign in at cloudinary.com to see why. If the media library mentions permission, run SSV Admin › Set Cloudinary keys once and allow access when Google asks.</p>
       </section>
       <section class="panel">
         <div class="panel__head"><h2>Password and sign-in</h2></div>
@@ -954,12 +1123,22 @@
     <p class="version-note">Admin panel ${BACKEND_VERSION} · backend ${esc(m.version || 'unknown')}</p>`;
   }
 
-  /* ---------------------------------------------------------- media library */
-  function sectionOf(path) {
-    const s = (state.lib && state.lib.sections) || (meta().media && meta().media.sections) || {};
-    return Object.values(s).find(p => path === p || path.startsWith(p + '/')) || '';
+  async function refreshGoogle(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Asking Google…';
+    try {
+      const g = await API.refreshGoogle();
+      state.data.meta.google = g;
+      render();
+      if (g.error) toast(`Google says: ${g.error}`, 'error'); else toast('Google rating and reviews updated.');
+    } catch (err) {
+      fail(err, 'Could not reach Google.');
+      btn.disabled = false;
+      btn.textContent = 'Refresh from Google';
+    }
   }
 
+  /* ---------------------------------------------------------- media library */
   async function renderMedia(root, fresh = false) {
     if (!cloudinaryReady()) {
       root.innerHTML = '<div class="empty"><p>Uploads are not set up yet, so there is no media library.</p><a class="btn btn--primary" href="#settings">Open Settings</a></div>';
@@ -968,7 +1147,7 @@
     if (!state.lib || fresh) {
       if (!fresh || !state.lib) root.innerHTML = '<p class="loading">Loading photos and videos…</p>';
       try {
-        state.lib = await API.mediaLibrary(fresh);
+        state.lib = await API.mediaLibrary();
       } catch (err) {
         if (err.code === 'AUTH_REQUIRED') { fail(err); return; }
         if (state.view !== 'media') return;
@@ -980,53 +1159,46 @@
     drawMedia(root);
   }
 
+  /* The website's folders only: All, then Home, Facilities, Trainers, Gallery and Events. */
   function drawMedia(root) {
     const lib = state.lib;
-    const all = lib.folders || [];
-    const cur = all.includes(state.libFolder) ? state.libFolder : lib.base;
+    const folders = lib.folders && lib.folders.length ? lib.folders : [lib.base];
+    const cur = folders.includes(state.libFolder) ? state.libFolder : lib.base;
     state.libFolder = cur;
     const within = p => i => i.folder === p || i.folder.startsWith(p + '/');
     const count = p => lib.images.filter(within(p)).length;
     const images = lib.images.filter(within(cur)).sort((a, b) => String(b.created).localeCompare(String(a.created)));
-    const baseDepth = lib.base.split('/').length;
-    const tree = all.filter(p => p === lib.base || p.startsWith(lib.base + '/'));
-    const legacy = all.filter(p => (lib.legacy || []).some(l => p === l || p.startsWith(l + '/')));
-    const item = (p, depth, label) => `<li><button type="button" data-folder-open="${esc(p)}" style="--depth:${depth}"${p === cur ? ' aria-current="true"' : ''}><span class="folder-tree__icon" aria-hidden="true"></span><span class="folder-tree__name">${esc(label || p.split('/').pop())}</span><span class="folder-tree__count">${count(p)}</span></button></li>`;
-    const section = sectionOf(cur);
-    const depthIn = section ? cur.split('/').length - section.split('/').length : -1;
-    const isLegacy = legacy.includes(cur);
-    const canDelete = (depthIn >= 1 || isLegacy) && !count(cur);
-    const title = cur === lib.base ? 'All photos and videos' : (cur.startsWith(lib.base + '/') ? cur.slice(lib.base.length + 1) : cur);
+    const isSection = cur !== lib.base;
+    const unused = images.filter(i => !(i.usedIn || []).length).length;
+    const folderName = p => (p === lib.base ? 'All' : p.split('/').pop());
     root.innerHTML = `<div class="media-lib">
-      <nav class="folder-tree" aria-label="Folders">
-        <ul>${tree.map(p => item(p, p.split('/').length - baseDepth, p === lib.base ? 'All' : '')).join('')}</ul>
-        ${legacy.length ? `<p class="folder-tree__group">Older uploads</p><ul>${legacy.map(p => item(p, p.split('/').length - 1)).join('')}</ul>` : ''}
-      </nav>
+      <nav class="folder-tree" aria-label="Folders"><ul>${folders.map(p => `<li><button type="button" data-folder-open="${esc(p)}" style="--depth:${p === lib.base ? 0 : 1}"${p === cur ? ' aria-current="true"' : ''}><span class="folder-tree__icon" aria-hidden="true"></span><span class="folder-tree__name">${esc(folderName(p))}</span><span class="folder-tree__count">${count(p)}</span></button></li>`).join('')}</ul></nav>
       <div class="media-lib__main">
         <div class="media-lib__head">
-          <h2>${esc(title)}</h2>
+          <h2>${esc(isSection ? folderName(cur) : 'All photos and videos')}</h2>
           <div class="toolbar__actions">
-            ${section && depthIn === 0 ? '<button class="btn btn--primary btn--sm" type="button" data-action="media-upload">Upload here</button>' : ''}
-            ${canDelete ? '<button class="btn btn--danger btn--sm" type="button" data-action="media-delete-folder">Delete folder</button>' : ''}
+            ${unused ? '<label class="folder-pick"><input class="check" type="checkbox" data-select-all> Select all unused</label>' : ''}
+            ${isSection ? '<button class="btn btn--primary btn--sm" type="button" data-action="media-upload">Upload here</button>' : ''}
             <button class="btn btn--ghost btn--sm" type="button" data-action="media-refresh">Refresh</button>
           </div>
         </div>
         ${lib.truncated ? '<p class="hint-box hint-box--warn">There are more files than can be listed at once. Only the newest are shown.</p>' : ''}
-        ${section && depthIn === 0 ? '' : '<p class="panel__note panel__note--top">To upload here, choose Home, Facilities, Trainers, Gallery or Events on the left.</p>'}
+        ${isSection ? '' : '<p class="panel__note panel__note--top">To upload, choose Home, Facilities, Trainers, Gallery or Events.</p>'}
         <ul class="upload-list" id="upload-list"></ul>
         ${images.length ? `<div class="media-grid">${images.map(mediaCard).join('')}</div>` : '<div class="empty"><p>Nothing in this folder yet.</p></div>'}
       </div>
     </div>`;
+    syncSelection();
   }
 
   function mediaCard(file) {
     const used = file.usedIn || [];
-    const video = file.type === 'video';
+    const video = file.type === 'video', on = state.selected.has(file.url);
     const where = file.folder !== state.libFolder ? ` · ${esc(file.folder.split('/').pop())}` : '';
     const size = file.width && file.height ? `${file.width} × ${file.height} · ` : '';
     const length = video && file.duration ? `${Math.round(file.duration)} s · ` : '';
-    return `<article class="media-card${used.length ? '' : ' is-unused'}">
-      <div class="media-card__img">${thumb(file.url, 500)}${used.length ? (video ? '<span class="pill media-card__state">Video</span>' : '') : '<span class="pill pill--warn media-card__state">Not used</span>'}</div>
+    return `<article class="media-card${used.length ? '' : ' is-unused'}${on ? ' is-selected' : ''}">
+      <div class="media-card__img">${thumb(file.url, 500)}${used.length ? (video ? '<span class="pill media-card__state">Video</span>' : '') : `${pickBox(file.url, 'Select this file')}<span class="pill pill--warn media-card__state">Not used</span>`}</div>
       <div class="media-card__body">
         <strong title="${esc(file.id)}">${esc(file.id.split('/').pop())}</strong>
         <small class="media-card__use">${used.length ? `Used in: ${esc(used.join(', '))}` : 'Not used on the website'}</small>
@@ -1034,7 +1206,7 @@
       </div>
       <div class="media-card__actions">
         <button class="btn btn--ghost btn--xs" type="button" data-copy="${esc(file.url)}">Copy link</button>
-        <a class="btn btn--ghost btn--xs" href="${esc(file.url)}" target="_blank" rel="noopener">Open</a>
+        ${/^data:/i.test(file.url) ? '' : `<a class="btn btn--ghost btn--xs" href="${esc(file.url)}" target="_blank" rel="noopener">Open</a>`}
         <span class="spacer"></span>
         ${used.length ? '' : `<button class="btn btn--danger btn--xs" type="button" data-delete-image="${esc(file.url)}">Delete</button>`}
       </div>
@@ -1068,23 +1240,12 @@
     if (state.view === 'media') renderMedia($('#view'), true);
   }
 
-  /* Only for emptying out old folders (such as ssv-gym). New folders can't be made here. */
-  async function deleteFolder() {
-    const path = state.libFolder;
-    if (!confirm(`Delete the empty folder "${path.split('/').pop()}"?`)) return;
-    try {
-      await API.deleteFolder(path);
-      state.libFolder = path.split('/').slice(0, -1).join('/');
-      toast('Folder deleted.');
-      await renderMedia($('#view'), true);
-    } catch (err) { fail(err, 'Could not delete the folder.'); }
-  }
-
   async function deleteImage(url) {
     if (!confirm('Delete this file from Cloudinary? This can\'t be undone.')) return;
     try {
       const res = await API.deleteImages([url]);
       const gone = res.deleted && res.deleted.length;
+      state.selected.delete(url);
       toast(gone ? 'Deleted.' : 'This file is used on the website, so it was kept.', gone ? 'ok' : 'warn');
       renderMedia($('#view'), true);
     } catch (err) { fail(err, 'Could not delete the file.'); }
@@ -1108,23 +1269,31 @@
     else if (d.reviewStatus) setReviewStatus(d.id, d.reviewStatus);
     else if (d.reviewFilter) { state.reviewFilter = d.reviewFilter; render(); }
     else if (d.enquiryFilter) { state.enquiryFilter = d.enquiryFilter; render(); }
-    else if (d.folderOpen) { state.libFolder = d.folderOpen; drawMedia($('#view')); }
+    else if (d.folderOpen) { state.libFolder = d.folderOpen; state.selected.clear(); drawMedia($('#view')); }
     else if (d.copy) copyLink(d.copy);
     else if (d.deleteImage) deleteImage(d.deleteImage);
     else if (d.action === 'retry') { loadData().then(ok => { if (ok) route(); }); }
     else if (d.action === 'logout') confirmSignOut();
     else if (d.action === 'refresh-inbox') refreshInbox();
     else if (d.action === 'edit-categories') editCategories();
+    else if (d.action === 'google-refresh') refreshGoogle(t);
     else if (d.action === 'media-refresh') renderMedia($('#view'), true);
     else if (d.action === 'media-upload') mediaUpload();
-    else if (d.action === 'media-delete-folder') deleteFolder();
   });
 
   $('#view').addEventListener('change', e => {
     const t = e.target;
-    if (t.matches('[data-enquiry]')) setEnquiryStatus(t);
+    if (t.matches('[data-select]')) { select(t, t.checked); syncSelection(); }
+    else if (t.matches('[data-select-all]')) { $$('[data-select]', $('#view')).forEach(b => select(b, t.checked)); syncSelection(); }
+    else if (t.matches('[data-enquiry]')) setEnquiryStatus(t);
     else if (t.matches('[data-setting]')) saveSetting(t);
     else if (t.id === 'new-photo-category') photoCategory = t.value;
+  });
+
+  $('#bulk-delete').addEventListener('click', bulkDelete);
+  $('#bulk-clear').addEventListener('click', () => {
+    $$('[data-select]', $('#view')).forEach(b => select(b, false));
+    syncSelection();
   });
 
   window.addEventListener('hashchange', () => {

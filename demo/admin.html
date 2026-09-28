@@ -9,23 +9,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
-  <link rel="stylesheet" href="../css/admin.css?v=1.5.0">
+  <link rel="stylesheet" href="../css/admin.css?v=1.6.0">
+  <link rel="stylesheet" href="demo.css?v=1.6.0">
 </head>
 <body>
-  <!-- DEMO: sample data kept in this browser. Any password works. -->
   <main class="login" id="login-view">
     <div class="login__card">
       <div class="brand"><span class="brand__bar" aria-hidden="true"></span><div><strong>SSV Admin</strong><span>Website Manager · demo</span></div></div>
-      <p class="login__intro">This is the demo admin panel. It runs on sample data in your browser. <strong>Type any password</strong> to sign in.</p>
+      <p class="login__intro">A demo of the SSV Gym admin panel. Sign in with any password, then add, edit, reorder or delete anything and see it on the demo website.</p>
+      <p class="demo-callout"><b>Demo:</b> changes stay only on this device and are gone after a refresh. Nothing is saved anywhere.</p>
       <form id="login-form" novalidate hidden>
-        <label class="field"><span class="field__label">Admin password (any password works in the demo)</span><input type="password" name="password" autocomplete="off" required></label>
+        <label class="field"><span class="field__label">Password (any password works)</span><input type="password" name="password" value="demo" autocomplete="off" required></label>
         <button class="btn btn--primary btn--block" type="submit">Sign in</button>
         <p class="login__msg" id="login-msg" role="alert"></p>
       </form>
-      <div class="login__setup" id="login-setup" hidden>
-        <p><strong>Not connected yet.</strong></p>
-      </div>
-      <p class="login__foot">Nothing here changes the real website or the real Google Sheet.</p>
+      <div class="login__setup" id="login-setup" hidden><p><strong>The demo could not start.</strong></p></div>
+      <p class="login__foot">The real admin panel checks the password with Google and saves to the gym's Google Sheet. <a href="index.html">See the demo website</a></p>
     </div>
   </main>
 
@@ -50,7 +49,8 @@
         <a href="#settings" data-view="settings">Settings</a>
       </nav>
       <div class="sidebar__foot">
-        <a class="btn btn--ghost btn--sm" href="index.html" target="_blank" rel="noopener">View demo website</a>
+        <p class="demo-callout"><b>Demo:</b> changes stay on this device until you refresh.</p>
+        <a class="btn btn--ghost btn--sm" href="index.html">View demo website</a>
         <button class="btn btn--ghost btn--sm" type="button" id="logout-btn">Sign out</button>
       </div>
     </aside>
@@ -63,11 +63,18 @@
         </button>
         <h1 id="view-title" tabindex="-1">Dashboard</h1>
         <div class="topbar__right">
+          <span class="demo-tag">Demo</span>
           <span class="conn is-live" id="conn-status">Connected</span>
           <button class="btn btn--ghost btn--sm" type="button" id="refresh-btn">Refresh</button>
         </div>
       </header>
       <section class="view" id="view"></section>
+
+      <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selected items" hidden>
+        <strong id="bulk-count">0 selected</strong>
+        <button class="btn btn--danger btn--sm" type="button" id="bulk-delete">Delete</button>
+        <button class="btn btn--ghost btn--sm" type="button" id="bulk-clear">Clear</button>
+      </div>
     </div>
   </div>
 
@@ -89,24 +96,10 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <input type="file" id="file-picker" accept="image/jpeg,image/png,image/webp" hidden>
 
-  <script src="../js/config.js?v=1.5.0"></script>
-  <script src="../js/utils.js?v=1.5.0"></script>
-  <script src="demo-data.js?v=1.5.0"></script>
-  <script src="demo-api.js?v=1.5.0"></script>
-  <script src="../js/admin.js?v=1.5.0"></script>
-  <script>
-    (function () {
-      var bar = document.createElement('div');
-      bar.setAttribute('role', 'note');
-      bar.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:900;display:flex;align-items:center;gap:10px;white-space:nowrap;padding:6px 6px 6px 14px;border:1px solid rgba(233,196,106,.55);border-radius:999px;background:rgba(13,15,14,.95);color:#F3DC9C;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45)';
-      bar.innerHTML = 'Demo · sample data <a href="index.html" style="color:#8FE05A;text-decoration:underline">Demo website</a> <button type="button" style="padding:6px 12px;border:1px solid rgba(245,245,242,.25);border-radius:999px;background:none;color:#F5F5F2;font:inherit;cursor:pointer">Reset</button>';
-      bar.querySelector('button').addEventListener('click', function () {
-        if (!confirm('Restore the sample data? Changes made in the demo are lost.')) return;
-        API.reset();
-        location.reload();
-      });
-      document.body.appendChild(bar);
-    })();
-  </script>
+  <script src="../js/utils.js?v=1.6.0"></script>
+  <script src="data.js?v=1.6.0"></script>
+  <script src="api.js?v=1.6.0"></script>
+  <script src="../js/admin.js?v=1.6.0"></script>
+  <script src="demo.js?v=1.6.0"></script>
 </body>
 </html>

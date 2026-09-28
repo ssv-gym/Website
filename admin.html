@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
   <!-- ?v= makes browsers load the new file after an update. Change it whenever you edit a CSS or JS file. -->
-  <link rel="stylesheet" href="css/admin.css?v=1.5.0">
+  <link rel="stylesheet" href="css/admin.css?v=1.6.0">
 </head>
 <body>
   <!-- SIGN IN. No password is stored in this file: the backend verifies it. -->
@@ -72,6 +72,13 @@
         </div>
       </header>
       <section class="view" id="view"></section>
+
+      <!-- Appears while items are ticked -->
+      <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selected items" hidden>
+        <strong id="bulk-count">0 selected</strong>
+        <button class="btn btn--danger btn--sm" type="button" id="bulk-delete">Delete</button>
+        <button class="btn btn--ghost btn--sm" type="button" id="bulk-clear">Clear</button>
+      </div>
     </div>
   </div>
 
@@ -94,9 +101,9 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <input type="file" id="file-picker" accept="image/jpeg,image/png,image/webp" hidden>
 
-  <script src="js/config.js?v=1.5.0"></script>
-  <script src="js/utils.js?v=1.5.0"></script>
-  <script src="js/api.js?v=1.5.0"></script>
-  <script src="js/admin.js?v=1.5.0"></script>
+  <script src="js/config.js?v=1.6.0"></script>
+  <script src="js/utils.js?v=1.6.0"></script>
+  <script src="js/api.js?v=1.6.0"></script>
+  <script src="js/admin.js?v=1.6.0"></script>
 </body>
 </html>

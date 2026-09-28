@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gallery | SSV Gym, Virar West</title>
+  <meta name="description" content="Photos and videos from SSV Gym (Shree Siddhi Vinayak Gym), Virar West: the gym floor, the CrossFit zone, training sessions, equipment and events.">
+  <meta name="theme-color" content="#0D0F0E">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SSV Gym">
+  <meta property="og:title" content="Gallery | SSV Gym, Virar West">
+  <meta property="og:url" content="https://ssvgym.github.io/ssv-gym/gallery.html">
+  <meta property="og:image" content="https://ssvgym.github.io/ssv-gym/assets/favicon.jpg">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=1.6.0">
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body class="page-gallery has-mobile-bar">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header is-scrolled">
+    <div class="container site-header__inner">
+      <a class="logo" href="index.html" aria-label="SSV Gym home">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <a class="btn btn--ghost btn--sm" href="index.html"><span aria-hidden="true">←</span> Back to home</a>
+    </div>
+  </header>
+
+  <main id="main" class="gpage">
+    <section class="section" aria-labelledby="gallery-title">
+      <div class="container">
+        <header class="section-head section-head--split">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h1 class="gpage__title" id="gallery-title">Inside SSV</h1>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events. Tap a photo to see it larger.</p>
+        </header>
+        <div class="gallery__bar">
+          <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+        </div>
+        <div class="masonry" id="gallery-grid"></div>
+        <p class="gpage__empty" id="gallery-empty" hidden>No photos yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer site-footer--slim">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym · Shree Siddhi Vinayak Gym, Virar West</p>
+      <a href="index.html">Back to home</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <noscript><p class="noscript">JavaScript is turned off, so the gallery can't load. Call the gym on +91 77588 78588.</p></noscript>
+
+  <script src="js/config.js?v=1.6.0"></script>
+  <script src="js/utils.js?v=1.6.0"></script>
+  <script src="js/api.js?v=1.6.0"></script>
+  <script src="js/gallery.js?v=1.6.0"></script>
+  <script src="js/gallery-page.js?v=1.6.0"></script>
+</body>
+</html>

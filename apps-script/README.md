@@ -1,7 +1,8 @@
-# Apps Script backend (v1.5.0)
+# Apps Script backend (v1.6.0)
 
 `Code.gs` turns the Google Sheet into the website's backend: it serves content to
-visitors, saves enquiries and reviews, and lets the admin panel edit everything.
+visitors, saves enquiries and reviews, fetches the Google rating and reviews, and lets the
+admin panel edit everything.
 
 ## First-time setup
 
@@ -13,6 +14,7 @@ visitors, saves enquiries and reviews, and lets the admin panel edit everything.
    - **Set up / repair sheets** (Google asks for permission the first time: tick **Select all**)
    - **Set admin password**
    - **Set Cloudinary keys** (after putting the cloud name in the Config tab)
+   - **Set Google Places key**
 5. **Deploy › New deployment › Web app**. Execute as: **Me**. Who has access: **Anyone**.
 6. Copy the URL ending in `/exec` into `js/config.js` › `API_URL`.
 
@@ -26,52 +28,55 @@ Deploy**. The web app URL stays the same.
 
 | Item | What it does |
 |---|---|
-| Set up / repair sheets | Creates missing tabs and columns, gives rows an ID, runs one-time upgrades, and styles every tab |
+| Set up / repair sheets | Creates missing tabs and columns, removes old ones, gives rows an ID, runs one-time upgrades, updates the key list in the Config tab and styles every tab |
 | Set admin password | Sets the admin panel password and signs everyone out |
-| Set Cloudinary keys | Tests and saves the Cloudinary API key and secret. Also gives Google's permission to reach Cloudinary |
-| Clear website cache | Makes the website read the sheet again now |
+| Set Cloudinary keys | Tests and saves the Cloudinary API key and secret |
+| Set Google Places key | Tests and saves the Google Places API key |
+| Clear website cache | Makes the website read the sheet, and Google, again now |
 | Unlock admin sign-in | Clears the 15-minute lock after 5 wrong passwords |
 | Sign out all admin sessions | Signs out every browser signed in to the admin panel |
 
 ## Tabs
 
-General, Facilities, Membership Plans, **Services** (personal training, diet plans),
-Trainers, Gallery (photos, uploaded videos and YouTube links), Reviews, Announcements
-(an Image URL turns an announcement into an event card), Enquiries, Config.
+General, Facilities, Membership Plans, Services (personal training, diet plans),
+Trainers, Gallery, Reviews, Announcements (an Image URL turns an announcement into an
+event card), Enquiries, Config.
 
-## Where settings live
+## Config tab
 
-| Setting | Place |
+| Key | Value |
 |---|---|
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_FOLDER` | Config tab |
-| `NOTIFY_EMAIL` (who gets enquiry and review emails; commas between addresses) | Config tab |
-| `ADMIN_PASSWORD_HASH`, `ADMIN_PASSWORD_SALT`, `SESSION_EPOCH` | Script Properties (set by the menu) |
-| `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Script Properties (set by the menu) |
-| `SEED_VERSION` | Script Properties: remembers which one-time upgrades have run |
-| `SHEET_ID` (optional) | Script Properties, only if the script isn't bound to the sheet |
+| `APPS_SCRIPT_URL` | For reference: the web app link |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_FOLDER` | Cloudinary account and main folder |
+| `GOOGLE_PLACE_ID` | The gym's Google Place ID |
+| `NOTIFY_EMAIL` | Who gets enquiry and review emails (commas between addresses) |
+| `ADMIN_PASSWORD`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `GOOGLE_PLACES_API_KEY` | Status only: "Stored in Script Properties" or "Not set". The values live in Project Settings › Script properties |
 
-Never type passwords or API secrets into the sheet. Set up / repair sheets offers to
-delete rows that look like secrets.
+Set these four with the SSV Admin menu, not in the sheet. Any other text typed into their
+value cells is simply replaced by the status. If a real Cloudinary or Google key is pasted
+there by mistake, Set up / repair sheets moves it into Script Properties; change that key
+afterwards, because the sheet's version history keeps what was typed. The admin password is
+only ever set from the menu.
 
 ## Photos and videos (Cloudinary)
 
-Each upload goes into its section's folder: `SSV-Gym/Home` (top and About photos),
-`SSV-Gym/Facilities`, `SSV-Gym/Trainers`, `SSV-Gym/Gallery` or `SSV-Gym/Events`
-(announcement photos). The admin panel can't create other folders; it can only delete
-empty old ones (such as `ssv-gym`). Photos: JPG, PNG, WebP. Videos: MP4, MOV, WebM,
-up to 100 MB each on the free plan. Each upload is signed by the backend, so the API
-secret never reaches the browser. When a file is replaced or an item deleted, the old
-file is deleted from Cloudinary if nothing else uses it.
+Uploads go into their section's folder: `SSV-Gym/Home`, `SSV-Gym/Facilities`,
+`SSV-Gym/Trainers`, `SSV-Gym/Gallery` or `SSV-Gym/Events`. Files uploaded by earlier versions
+(in `ssv-gym/…`) are filed under the same sections. Photos: JPG, PNG, WebP. Videos: MP4,
+MOV, WebM, up to 100 MB. Each upload is signed by the backend, so the API secret never
+reaches the browser. A replaced or deleted file is removed from Cloudinary when nothing
+else uses it.
 
 ## API
 
-`GET ?action=content` returns everything the website shows. `GET ?action=health`
-returns the version. `POST` (JSON body as text/plain) with `action`:
+`GET ?action=content` returns everything the website shows, including `google` (rating,
+count, up to five reviews and links). `GET ?action=health` returns the version.
+`POST` (JSON body as text/plain) with `action`:
 
 - Public: `submitEnquiry`, `submitReview`, `likeReview`, `login`
 - Admin (with `token`): `verify`, `logout`, `adminGetAll`, `getInbox`, `saveGeneral`,
-  `saveRecord`, `deleteRecord`, `reorder`, `updateEnquiryStatus`, `getUploadSignature`
-  (with `kind: "video"` for videos), `mediaFolders`, `mediaLibrary`, `deleteFolder`, `deleteImages`
+  `saveRecord`, `deleteRecord`, `deleteRecords` (several ids; also enquiries), `reorder`,
+  `updateEnquiryStatus`, `getUploadSignature`, `mediaLibrary`, `deleteImages`, `refreshGoogle`
 
 Responses are `{ ok: true, data }` or `{ ok: false, error, code }`.
 
@@ -79,8 +84,8 @@ Responses are `{ ok: true, data }` or `{ ok: false, error, code }`.
 
 | Problem | Fix |
 |---|---|
-| "Apps Script is not allowed to connect to Cloudinary yet" | Run SSV Admin › Set Cloudinary keys and allow access when Google asks (tick Select all) |
-| An upload says "cloud_name is disabled" | Cloudinary has switched the account off. Sign in at cloudinary.com to see why (unverified email, plan limits) |
+| "Apps Script is not allowed to connect to Cloudinary yet" | Run SSV Admin › Set Cloudinary keys and allow access when Google asks |
+| Google rating missing | Admin › Settings shows Google's message. Check that Places API (New) is enabled and billing is on |
 | Admin panel says the backend is older | Deploy › Manage deployments › Edit › Version: New version › Deploy |
 | "Photo uploads are not set up" | Put CLOUDINARY_CLOUD_NAME in the Config tab, then Set Cloudinary keys |
 | No emails arrive | Check NOTIFY_EMAIL in the Config tab and the spam folder |

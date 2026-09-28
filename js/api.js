@@ -1,9 +1,9 @@
 /* ==========================================================================
-   SSV GYM — API SERVICE LAYER                                        v1.5.0
+   SSV GYM — API SERVICE LAYER                                        v1.6.0
    All communication with the Google Apps Script backend and Cloudinary goes
-   through this file. Visitors read content and send enquiries, reviews and
-   likes. Everything else needs the admin session token that the backend
-   issues after checking the password.
+   through this file. Visitors read content (including the Google rating and
+   reviews) and send enquiries, reviews and likes. Everything else needs the
+   admin session token that the backend issues after checking the password.
    ========================================================================== */
 const API = (() => {
   const CONTENT_KEY = 'ssv_content_v2';
@@ -34,7 +34,7 @@ const API = (() => {
     const ctrl = new AbortController();
     const base = CONFIG.REQUEST_TIMEOUT_MS || 10000;
     // Visitors fall back quickly. Other calls wait longer: Apps Script can take several
-    // seconds to start, and photo calls also wait for Cloudinary.
+    // seconds to start, and photo and Google calls also wait for those services.
     const timer = setTimeout(() => ctrl.abort(), method === 'GET' ? base : Math.max(base, 45000));
     try {
       const auth = PUBLIC_ACTIONS.includes(action) ? {} : { token: getToken() };
@@ -80,7 +80,7 @@ const API = (() => {
   /* Content from the sheet, used as it is. "offline" means the sheet couldn't be reached
      and nothing was saved: the page then shows its own built-in details. */
   function merge(live, source) {
-    const out = { source, general: { ...(live.general || {}) } };
+    const out = { source, general: { ...(live.general || {}) }, google: live.google && typeof live.google === 'object' ? live.google : null };
     COLLECTIONS.forEach(key => { out[key] = Array.isArray(live[key]) ? live[key] : []; });
     return out;
   }
@@ -221,13 +221,13 @@ const API = (() => {
     saveGeneralData: general => request('POST', 'saveGeneral', { general }),
     saveRecord: (collection, record) => request('POST', 'saveRecord', { collection, record }),
     deleteRecord: (collection, id) => request('POST', 'deleteRecord', { collection, id }),
+    deleteRecords: (collection, ids) => request('POST', 'deleteRecords', { collection, ids }),
     reorder: (collection, ids) => request('POST', 'reorder', { collection, ids }),
     uploadMedia,
     uploadImage: uploadMedia,
-    mediaFolders: fresh => request('POST', 'mediaFolders', { fresh: Boolean(fresh) }),
-    mediaLibrary: fresh => request('POST', 'mediaLibrary', { fresh: Boolean(fresh) }),
-    deleteFolder: path => request('POST', 'deleteFolder', { path }),
+    mediaLibrary: () => request('POST', 'mediaLibrary'),
     deleteImages: images => request('POST', 'deleteImages', { images }),
-    deleteImagesOnExit: images => beacon('deleteImages', { images })
+    deleteImagesOnExit: images => beacon('deleteImages', { images }),
+    refreshGoogle: () => request('POST', 'refreshGoogle')
   };
 })();

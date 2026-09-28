@@ -1,41 +1,44 @@
 /**
  * ===========================================================================
- *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.5.0
+ *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.6.0
  * ===========================================================================
  *  First time
  *    1. Open the "SSV Gym CMS" spreadsheet > Extensions > Apps Script.
  *    2. Paste this file (the default appsscript.json needs no changes), save,
  *       and reload the sheet.
  *    3. Sheet menu: SSV Admin > Set up / repair sheets, Set admin password,
- *       then Set Cloudinary keys.
+ *       Set Cloudinary keys, then Set Google Places key.
  *    4. Deploy > New deployment > Web app. Execute as: Me. Who has access: Anyone.
  *    5. Paste the /exec URL into js/config.js > API_URL.
  *  Updating
  *    Paste, save, reload the sheet, run SSV Admin > Set up / repair sheets,
  *    then Deploy > Manage deployments > Edit (pencil) > Version: New version > Deploy.
  *
- *  SECRETS live in Script Properties and are set from the sheet menu. Never
- *  type passwords or API secrets into the sheet or the website:
+ *  SECRETS live in Script Properties (Project Settings > Script properties) and
+ *  are set from the sheet menu. The Config tab lists each one with "Stored in
+ *  Script Properties" or "Not set", never the value itself:
  *    ADMIN_PASSWORD_HASH / ADMIN_PASSWORD_SALT   SSV Admin > Set admin password
  *    CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET   SSV Admin > Set Cloudinary keys
+ *    GOOGLE_PLACES_API_KEY                       SSV Admin > Set Google Places key
  *    SHEET_ID       (optional)  only if this script is NOT bound to the sheet
  *  Email alerts go to NOTIFY_EMAIL in the Config tab (several addresses
  *  separated by commas). They only receive alerts; editing needs the password.
  * ===========================================================================
  */
 
-const VERSION = '1.5.0';
-const SEED_LEVEL = '1.5.0';            // level of the starting content (see setupSheets)
+const VERSION = '1.6.0';
+const SEED_LEVEL = '1.6.0';            // level of the starting content (see setupSheets)
 const NOTIFY_DEFAULT = 'ssvgym2021@gmail.com, laxman19.sawant@gmail.com';
+const PLACE_ID_DEFAULT = 'ChIJD77n3Dup5zsROuYZWtEYmmQ';   // SSV Gym on Google Maps
 const SESSION_SECONDS = 6 * 60 * 60;   // admin session, extended on each use (CacheService maximum)
 const CONTENT_CACHE_SECONDS = 300;     // public content cache
 const CONTENT_CACHE_KEY = 'public_content_v2';
+const GOOGLE_CACHE_SECONDS = 6 * 60 * 60;   // Google rating and reviews: asked at most every 6 hours
+const GOOGLE_REVIEWS_MAX = 5;
 const MAX_LOGIN_FAILURES = 5;
 const LOCK_SECONDS = 15 * 60;
 const UPLOAD_FORMATS = 'jpg,png,webp'; // photos: Cloudinary refuses any other file type
 const VIDEO_FORMATS = 'mp4,mov,webm';  // videos (gallery)
-const MAX_FOLDER_DEPTH = 4;            // folders listed: a section folder plus up to 3 levels made in Cloudinary
-const FOLDER_CACHE_SECONDS = 600;      // folder list cache for the admin panel
 const MAX_PUBLIC_REVIEWS = 300;
 const REVIEW_MAX_CHARS = 800;
 /** Config/General keys that look like this are secrets, which don't belong in the sheet. */
@@ -45,8 +48,21 @@ const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz
 
 /** Uploads are filed as <CLOUDINARY_FOLDER>/<section>, e.g. SSV-Gym/Trainers. */
 const MEDIA_SECTIONS = { general: 'Home', facilities: 'Facilities', trainers: 'Trainers', gallery: 'Gallery', announcements: 'Events' };
-/** Main folders used by earlier versions. Their photos still show in the media library. */
-const LEGACY_FOLDERS = ['ssv-gym'];
+
+/** Keys kept in Script Properties. The Config tab has one row for each, showing only its status. */
+const SECRETS = {
+  ADMIN_PASSWORD: { props: ['ADMIN_PASSWORD_HASH', 'ADMIN_PASSWORD_SALT'], menu: 'Set admin password' },
+  CLOUDINARY_API_KEY: { props: ['CLOUDINARY_API_KEY'], menu: 'Set Cloudinary keys' },
+  CLOUDINARY_API_SECRET: { props: ['CLOUDINARY_API_SECRET'], menu: 'Set Cloudinary keys' },
+  GOOGLE_PLACES_API_KEY: { props: ['GOOGLE_PLACES_API_KEY'], menu: 'Set Google Places key' }
+};
+const SECRET_STORED = 'Stored in Script Properties';
+/** What a real key looks like. Any other text in its Config cell (such as a note) is never taken for a key. */
+const KEY_FORMATS = {
+  CLOUDINARY_API_KEY: /^\d{10,20}$/,
+  CLOUDINARY_API_SECRET: /^[A-Za-z0-9_-]{20,}$/,
+  GOOGLE_PLACES_API_KEY: /^AIza[\w-]{30,}$/
+};
 
 /** Sheet tab -> columns (internal names). Headers are matched by name, so columns may be reordered. */
 const SCHEMA = {
@@ -55,18 +71,20 @@ const SCHEMA = {
   'Membership Plans': ['id', 'name', 'duration', 'price', 'description', 'features', 'featured', 'active', 'display_order'],
   Services:           ['id', 'name', 'price', 'price_note', 'description', 'active', 'display_order'],
   Trainers:           ['id', 'name', 'role', 'specialization', 'bio', 'image_url', 'active', 'display_order'],
-  Gallery:            ['id', 'image_url', 'title', 'category', 'caption', 'active', 'display_order'],
+  Gallery:            ['id', 'image_url', 'title', 'category', 'active', 'display_order'],
   Reviews:            ['id', 'name', 'rating', 'review', 'likes', 'date', 'source', 'status'],
   Announcements:      ['id', 'title', 'description', 'image_url', 'date', 'expiry', 'active', 'priority'],
   Enquiries:          ['id', 'name', 'phone', 'message', 'date', 'status'],
   Config:             ['key', 'value', 'notes']
 };
+/** Columns earlier versions had. Set up / repair sheets deletes them. */
+const DROPPED_COLUMNS = { Gallery: ['caption'] };
 /** How each column is titled in the sheet. */
 const LABELS = {
   id: 'ID', key: 'Key', value: 'Value', notes: 'Notes', name: 'Name', tags: 'Tags', description: 'Description',
   image_url: 'Image URL', category: 'Category', active: 'Active', display_order: 'Display Order', duration: 'Duration',
   price: 'Price', price_note: 'Price Note', features: 'Features', featured: 'Featured', role: 'Role', specialization: 'Specialization',
-  bio: 'Bio', title: 'Title', caption: 'Caption', rating: 'Rating', review: 'Review', likes: 'Likes', date: 'Date', source: 'Source',
+  bio: 'Bio', title: 'Title', rating: 'Rating', review: 'Review', likes: 'Likes', date: 'Date', source: 'Source',
   status: 'Status', expiry: 'Expiry', priority: 'Priority', phone: 'Phone', message: 'Message'
 };
 /** Column width in pixels and alignment. All text is clipped to one line; click a cell to read it all. */
@@ -75,7 +93,7 @@ const COLUMN_STYLE = {
   name: [190, 'left'], title: [230, 'left'], tags: [220, 'left'], description: [340, 'left'],
   image_url: [240, 'left'], category: [110, 'center'], active: [80, 'center'], featured: [90, 'center'],
   display_order: [120, 'center'], duration: [110, 'center'], price: [100, 'center'], price_note: [150, 'left'],
-  features: [300, 'left'], role: [170, 'left'], specialization: [220, 'left'], bio: [340, 'left'], caption: [280, 'left'],
+  features: [300, 'left'], role: [170, 'left'], specialization: [220, 'left'], bio: [340, 'left'],
   rating: [80, 'center'], review: [400, 'left'], likes: [80, 'center'], date: [150, 'center'],
   expiry: [120, 'center'], priority: [90, 'center'], source: [100, 'center'], status: [120, 'center'],
   phone: [150, 'left'], message: [360, 'left']
@@ -158,18 +176,23 @@ function adminAction_(action, body) {
       removeUnusedImages_(out.replaced);
       return out.record;
     }
-    case 'deleteRecord': {
-      const out = write_(() => deleteRecord_(tabFor_(body.collection), body.id));
+    case 'deleteRecord':
+    case 'deleteRecords': {
+      const single = action === 'deleteRecord';
+      const out = write_(() => deleteRecords_(tabFor_(body.collection, true), single ? [body.id] : body.ids));
+      if (!out.ids.length) throw apiError_('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
       removeUnusedImages_(out.replaced);
-      return { deleted: out.id };
+      return { deleted: single ? out.ids[0] : out.ids };
     }
     case 'reorder':             return write_(() => reorder_(tabFor_(body.collection), body.ids));
     case 'updateEnquiryStatus': return withLock_(() => updateEnquiryStatus_(body.id, body.status));
     case 'getUploadSignature':  return getUploadSignature_(body.folder, body.kind);
-    case 'mediaFolders':        return mediaFolders_(Boolean(body.fresh));
-    case 'mediaLibrary':        return mediaLibrary_(Boolean(body.fresh));
-    case 'deleteFolder':        return deleteFolder_(body.path);
+    case 'mediaLibrary':        return mediaLibrary_();
     case 'deleteImages':        return deleteImages_(body.images);
+    case 'refreshGoogle':
+      clearGoogleCache_();
+      CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+      return googleStatus_();
     default: throw apiError_('Unknown action: ' + action, 'BAD_REQUEST');
   }
 }
@@ -210,8 +233,9 @@ function write_(fn) {
   });
 }
 
-function tabFor_(collection) {
-  const tab = COLLECTIONS[collection];
+/** Sheet tab of a collection. Enquiries only where deleting them is allowed. */
+function tabFor_(collection, withEnquiries) {
+  const tab = COLLECTIONS[collection] || (withEnquiries && collection === 'enquiries' ? 'Enquiries' : '');
   if (!tab) throw apiError_('Unknown collection: ' + collection, 'BAD_REQUEST');
   return tab;
 }
@@ -296,10 +320,9 @@ function slug_(name) {
 
 /**
  * A readable id for a new row: the tab's prefix plus the row's name or title,
- * e.g. "tr-rahul-sharma", "plan-student", "rev-priya". A name already in use
- * gets -2, -3…; rows without a usable name are numbered ("img-13"), and
- * enquiries are numbered per day ("enq-2026-09-25-1"). The id then never
- * changes, even if the item is renamed.
+ * e.g. "tr-rahul-sharma". A name already in use gets -2, -3…; rows without a
+ * usable name are numbered ("img-13"), and enquiries are numbered per day
+ * ("enq-2026-09-25-1"). The id then never changes, even if the item is renamed.
  */
 function readableId_(name, label, taken) {
   const prefix = ID_PREFIX[name] || 'row';
@@ -426,6 +449,9 @@ function getPublicContent_() {
     else list.sort(byOrder_);
     out[key] = list;
   });
+  const google = googleData_();
+  if (google) delete google.error;   // Google's error messages are for the admin panel only
+  out.google = google;
   try { cache.put(CONTENT_CACHE_KEY, JSON.stringify(out), CONTENT_CACHE_SECONDS); } catch (err) { /* over 100 KB: skip cache */ }
   return out;
 }
@@ -447,7 +473,8 @@ function getAdminData_() {
   out.meta = {
     version: VERSION, timeZone: tz_(), sheetUrl: ss_().getUrl(),
     cloudinaryConfigured: cloudinaryConfigured_(cfg), notifyEmail: notifyEmail_(cfg),
-    media: { base: base, sections: sectionFolders_(base) }
+    media: { base: base, sections: sectionFolders_(base) },
+    google: googleStatus_(cfg), secrets: secretStatus_()
   };
   return out;
 }
@@ -462,6 +489,138 @@ function notifyEmail_(cfg) {
   let to = String(cfg.NOTIFY_EMAIL || '').trim();
   if (!to) to = String(PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL') || '').trim();
   return to.split(/[\s,;]+/).filter(a => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a)).join(', ');
+}
+
+/* ============================ Google rating and reviews ============================ */
+
+function googlePlaceId_(cfg) {
+  const id = String((cfg || readKeyValues_('Config') || {}).GOOGLE_PLACE_ID || '').trim();
+  return /^[\w-]{10,}$/.test(id) ? id : '';
+}
+function googleCacheKey_(placeId) { return 'google_place_v1:' + placeId; }
+function clearGoogleCache_() {
+  const id = googlePlaceId_();
+  if (id) CacheService.getScriptCache().remove(googleCacheKey_(id));
+}
+
+/**
+ * What the website shows from Google: review links (from the Place ID alone) and,
+ * with a Places API key, the rating, the number of reviews and up to five reviews.
+ * Google is asked at most every 6 hours; a failed request is retried after 15 minutes.
+ */
+function googleData_(cfg) {
+  const placeId = googlePlaceId_(cfg);
+  if (!placeId) return null;
+  const q = encodeURIComponent(placeId);
+  const out = {
+    placeId: placeId,
+    reviewsUrl: 'https://search.google.com/local/reviews?placeid=' + q,
+    writeUrl: 'https://search.google.com/local/writereview?placeid=' + q
+  };
+  const key = PropertiesService.getScriptProperties().getProperty('GOOGLE_PLACES_API_KEY');
+  if (!key) return out;
+  const cache = CacheService.getScriptCache(), ck = googleCacheKey_(placeId);
+  let info = null;
+  const hit = cache.get(ck);
+  if (hit) {
+    try { info = JSON.parse(hit); } catch (err) { info = null; }
+  }
+  if (!info) {
+    try {
+      info = fetchGooglePlace_(placeId, key);
+      cache.put(ck, JSON.stringify(info), GOOGLE_CACHE_SECONDS);
+    } catch (err) {
+      console.warn('Google reviews: ' + err.message);
+      info = { error: String(err.message || err).slice(0, 300) };
+      try { cache.put(ck, JSON.stringify(info), 900); } catch (e) { /* ignore */ }
+    }
+  }
+  return Object.assign(out, info);
+}
+
+/** Place Details from the Places API (New): name, rating, number of ratings, reviews, Maps link. */
+function fetchGooglePlace_(placeId, key) {
+  let res;
+  try {
+    res = UrlFetchApp.fetch('https://places.googleapis.com/v1/places/' + encodeURIComponent(placeId), {
+      headers: { 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'displayName,rating,userRatingCount,reviews,googleMapsUri' },
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    const msg = String(err && err.message ? err.message : err);
+    if (/permission|authori[sz]|external_request/i.test(msg)) throw apiError_('Apps Script is not allowed to connect to Google Places yet. In the Google Sheet, run SSV Admin > Set Google Places key and allow access.', 'NEEDS_PERMISSION');
+    throw apiError_('Could not reach Google: ' + msg, 'GOOGLE_ERROR');
+  }
+  let d = {};
+  try { d = JSON.parse(res.getContentText() || '{}'); } catch (err) { d = {}; }
+  if (res.getResponseCode() !== 200) throw apiError_((d.error && d.error.message) || ('HTTP ' + res.getResponseCode()), 'GOOGLE_ERROR');
+  const text = t => String((t && t.text) || '').trim();
+  return {
+    name: text(d.displayName),
+    rating: Math.round((Number(d.rating) || 0) * 10) / 10,
+    count: Math.max(0, Number(d.userRatingCount) || 0),
+    mapsUrl: String(d.googleMapsUri || ''),
+    reviews: (d.reviews || []).map(r => {
+      const a = r.authorAttribution || {};
+      return {
+        name: String(a.displayName || 'Google user').slice(0, 80),
+        profile: String(a.uri || ''),
+        photo: String(a.photoUri || ''),
+        rating: Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0))),
+        text: (text(r.originalText) || text(r.text)).slice(0, 1500),
+        time: String(r.relativePublishTimeDescription || ''),
+        date: String(r.publishTime || '').slice(0, 10)
+      };
+    }).filter(r => r.text).slice(0, GOOGLE_REVIEWS_MAX)
+  };
+}
+
+/** For the admin panel: is Google connected, and what does it say. */
+function googleStatus_(cfg) {
+  const g = googleData_(cfg) || {};
+  return {
+    placeId: g.placeId || '', keySet: Boolean(PropertiesService.getScriptProperties().getProperty('GOOGLE_PLACES_API_KEY')),
+    name: g.name || '', rating: g.rating || 0, count: g.count || 0, reviews: (g.reviews || []).length,
+    error: g.error || '', url: g.reviewsUrl || ''
+  };
+}
+
+/* ============================= keys in Script Properties ============================= */
+
+function secretStatus_() {
+  const props = PropertiesService.getScriptProperties(), out = {};
+  Object.keys(SECRETS).forEach(k => { out[k] = SECRETS[k].props.every(p => Boolean(props.getProperty(p))); });
+  return out;
+}
+
+/**
+ * Keeps one Config row per key with "Stored in Script Properties" or "Not set".
+ * Only text that looks like a real Cloudinary or Google key (KEY_FORMATS) is
+ * moved into Script Properties; anything else typed there, such as "present in
+ * script properties", is simply replaced by the status. The admin password is
+ * only ever set from the menu.
+ */
+function refreshSecretRows_() {
+  const sh = ss_().getSheetByName('Config');
+  if (!sh) return;
+  const status = k => (secretStatus_()[k] ? SECRET_STORED : 'Not set: SSV Admin > ' + SECRETS[k].menu);
+  appendMissingKeys_(sh, Object.keys(SECRETS).map(k => [k, status(k), configNoteFor_(k)]));
+  updateKeyValues_(sh, (key, value) => {
+    if (!SECRETS[key]) return undefined;
+    const v = String(value === null || value === undefined ? '' : value).trim();
+    if (KEY_FORMATS[key] && KEY_FORMATS[key].test(v)) PropertiesService.getScriptProperties().setProperty(key, v);
+    return status(key);
+  });
+}
+
+function savePassword_(password) {
+  const salt = Utilities.getUuid();
+  PropertiesService.getScriptProperties().setProperties({
+    ADMIN_PASSWORD_SALT: salt,
+    ADMIN_PASSWORD_HASH: sha256Hex_(salt + password),
+    SESSION_EPOCH: String(Date.now())
+  });
+  CacheService.getScriptCache().remove('login_failures');
 }
 
 /* ==================================== writes ==================================== */
@@ -598,17 +757,26 @@ function saveRecord_(name, input) {
   return { record: saved, replaced: replaced };
 }
 
-function deleteRecord_(name, id) {
-  id = String(id || '').trim();
-  if (!id) throw apiError_('Missing id.', 'BAD_REQUEST');
+/** Deletes the rows with these ids (bottom row first). Returns the ids deleted and the photo links in those rows. */
+function deleteRecords_(name, ids) {
+  if (!Array.isArray(ids) || !ids.length) throw apiError_('Nothing to delete.', 'BAD_REQUEST');
+  const want = {};
+  ids.slice(0, 500).forEach(id => { const k = String(id === null || id === undefined ? '' : id).trim(); if (k) want[k] = true; });
   const sh = sheet_(name);
   const values = sh.getDataRange().getValues();
   const idCol = headers_(values).indexOf('id');
-  const i = idCol < 0 ? -1 : values.findIndex((r, n) => n > 0 && String(r[idCol]).trim() === id);
-  if (i < 1) throw apiError_('That item no longer exists. Refresh and try again.', 'NOT_FOUND');
-  const replaced = values[i].filter(v => isCloudinaryUrl_(v)).map(v => String(v).trim());
-  deleteRowSafe_(sh, i + 1);
-  return { id: id, replaced: replaced };
+  if (idCol < 0) throw apiError_('The "' + name + '" tab needs an "ID" column.', 'NOT_CONFIGURED');
+  const rows = [], done = [], replaced = [];
+  values.forEach((r, i) => {
+    const id = String(r[idCol]).trim();
+    if (i < 1 || !want[id]) return;
+    want[id] = false;
+    rows.push(i + 1);
+    done.push(id);
+    r.forEach(v => { if (isCloudinaryUrl_(v)) replaced.push(String(v).trim()); });
+  });
+  rows.reverse().forEach(n => deleteRowSafe_(sh, n));
+  return { ids: done, replaced: replaced };
 }
 
 /** Sets display_order 1..n in the given order. Rows not listed keep their relative order after them. */
@@ -855,6 +1023,20 @@ function sectionFolders_(base) {
   return out;
 }
 
+/** True when a public ID or folder is inside the website's main folder, in any letter case (older uploads used "ssv-gym"). */
+function inBase_(path, base) {
+  const p = String(path || '').toLowerCase(), b = base.toLowerCase();
+  return p === b || p.indexOf(b + '/') === 0;
+}
+
+/** The section folder a file belongs to (Home, Facilities…), matched in any letter case; the main folder otherwise. */
+function sectionOf_(folder, base) {
+  if (!inBase_(folder, base)) return base;
+  const first = String(folder).slice(base.length + 1).split('/')[0].toLowerCase();
+  const name = sectionNames_().filter(s => s.toLowerCase() === first)[0];
+  return name ? base + '/' + name : base;
+}
+
 /** Cloudinary settings, or null while the cloud name, API key or secret is missing. */
 function cloudinary_(cfg) {
   cfg = cfg || readKeyValues_('Config') || {};
@@ -862,7 +1044,7 @@ function cloudinary_(cfg) {
   const apiKey = p.getProperty('CLOUDINARY_API_KEY'), secret = p.getProperty('CLOUDINARY_API_SECRET'), cloud = cloudName_(cfg);
   if (!apiKey || !secret || !cloud) return null;
   const base = baseFolder_(cfg);
-  return { cloud: cloud, apiKey: apiKey, secret: secret, base: base, roots: [base].concat(LEGACY_FOLDERS.filter(f => f !== base)) };
+  return { cloud: cloud, apiKey: apiKey, secret: secret, base: base, roots: unique_([base, base.toLowerCase()]) };
 }
 
 function requireCloudinary_(cfg) {
@@ -908,9 +1090,6 @@ function cloudinaryApi_(cld, method, path, query) {
   throw apiError_('Cloudinary: ' + message, status === 404 ? 'CLOUDINARY_NOT_FOUND' : (status === 401 || status === 403 ? 'CLOUDINARY_AUTH' : 'CLOUDINARY_ERROR'));
 }
 
-function encodePath_(path) { return String(path).split('/').map(encodeURIComponent).join('/'); }
-function folderCacheKey_(base) { return 'cld_folders_v2:' + base; }
-
 /**
  * The folder an upload goes into: exactly one of the section folders
  * (<base>/Home, Facilities, Trainers, Gallery or Events). The admin panel
@@ -934,39 +1113,17 @@ function getUploadSignature_(requested, kind) {
   return { cloudName: cld.cloud, apiKey: cld.apiKey, params: params, signature: signature, resourceType: video ? 'video' : 'image' };
 }
 
-/** The main folder, the section folders (which exist once used) and any subfolders made in Cloudinary. Cached 10 minutes. */
-function mediaFolders_(fresh) {
+/**
+ * Photos and videos in the website's folders, each filed under its section
+ * (Home, Facilities, Trainers, Gallery, Events) and listed with the places in
+ * the sheet that use it. Files from earlier versions ("ssv-gym/…") are filed
+ * under the same sections.
+ */
+function mediaLibrary_() {
   const cld = requireCloudinary_();
-  const cache = CacheService.getScriptCache(), key = folderCacheKey_(cld.base);
-  if (!fresh) { const hit = cache.get(key); if (hit) return JSON.parse(hit); }
-  const found = {};
-  found[cld.base] = true;
-  let calls = 0;
-  const walk = (path, depth) => {
-    if (calls++ >= 40) return;
-    let res;
-    try { res = cloudinaryApi_(cld, 'get', 'folders/' + encodePath_(path), { max_results: 500 }); }
-    catch (err) { if (err.code === 'CLOUDINARY_NOT_FOUND') return; throw err; }
-    (res.folders || []).forEach(f => {
-      if (!f || !f.path) return;
-      found[f.path] = true;
-      if (depth + 1 < MAX_FOLDER_DEPTH) walk(f.path, depth + 1);
-    });
-  };
-  walk(cld.base, 0);
   const sections = sectionFolders_(cld.base);
-  Object.keys(sections).forEach(s => { found[sections[s]] = true; });
-  const out = { base: cld.base, sections: sections, folders: Object.keys(found).sort() };
-  try { cache.put(key, JSON.stringify(out), FOLDER_CACHE_SECONDS); } catch (err) { /* too big to cache */ }
-  return out;
-}
-
-/** Folders, photos and videos, each file with the places in the sheet that use it. Includes older uploads. */
-function mediaLibrary_(fresh) {
-  const cld = requireCloudinary_();
-  const tree = mediaFolders_(fresh);
   const usedIn = imageUsage_(cld.roots);
-  const images = [], seen = {}, legacy = [];
+  const images = [], seen = {};
   let truncated = false;
   cld.roots.forEach(root => {
     ['image', 'video'].forEach(type => {
@@ -975,42 +1132,18 @@ function mediaLibrary_(fresh) {
         const res = cloudinaryApi_(cld, 'get', 'resources/' + type + '/upload', { prefix: root + '/', max_results: 500, next_cursor: cursor });
         (res.resources || []).forEach(r => {
           const id = String(r.public_id || '');
-          if (seen[type + ':' + id] || id.indexOf(root + '/') !== 0) return;
+          if (seen[type + ':' + id] || !inBase_(id, cld.base)) return;
           seen[type + ':' + id] = true;
-          const folder = typeof r.asset_folder === 'string' && r.asset_folder.indexOf(root) === 0 ? r.asset_folder : id.slice(0, id.lastIndexOf('/'));
+          const byAsset = sectionOf_(typeof r.asset_folder === 'string' ? r.asset_folder : '', cld.base);
+          const folder = byAsset !== cld.base ? byAsset : sectionOf_(id.slice(0, id.lastIndexOf('/')), cld.base);
           images.push({ id: id, type: type, url: r.secure_url || r.url || '', folder: folder, bytes: r.bytes || 0, width: r.width || 0, height: r.height || 0, duration: r.duration || 0, created: r.created_at || '', usedIn: usedIn(id) });
         });
         cursor = res.next_cursor || null;
       } while (cursor && ++pages < 4);
       if (cursor) truncated = true;
     });
-    if (root !== cld.base && images.some(i => i.id.indexOf(root + '/') === 0)) legacy.push(root);
   });
-  const folders = tree.folders.slice();
-  images.forEach(i => {
-    const parts = i.folder.split('/');
-    for (let n = 1; n <= parts.length; n++) { const p = parts.slice(0, n).join('/'); if (p && folders.indexOf(p) < 0) folders.push(p); }
-  });
-  folders.sort();
-  return { base: tree.base, sections: tree.sections, legacy: legacy, folders: folders, images: images, truncated: truncated };
-}
-
-/**
- * Deletes an empty folder: a folder of older uploads (such as ssv-gym) or a
- * subfolder made on the Cloudinary website. The section folders always stay.
- */
-function deleteFolder_(path) {
-  const cld = requireCloudinary_();
-  const clean = cleanFolderPath_(path);
-  const legacy = cld.roots.some(r => r !== cld.base && (clean === r || clean.indexOf(r + '/') === 0));
-  const inSection = sectionNames_().some(s => clean.indexOf(cld.base + '/' + s + '/') === 0);
-  if (!legacy && !inSection) throw apiError_('The main website folders can\'t be deleted.', 'VALIDATION');
-  const inside = ['image', 'video'].some(type => (cloudinaryApi_(cld, 'get', 'resources/' + type + '/upload', { prefix: clean + '/', max_results: 1 }).resources || []).length > 0);
-  if (inside) throw apiError_('This folder still has files. Delete them first.', 'VALIDATION');
-  try { cloudinaryApi_(cld, 'delete', 'folders/' + encodePath_(clean)); }
-  catch (err) { if (err.code !== 'CLOUDINARY_NOT_FOUND') throw err; }
-  CacheService.getScriptCache().remove(folderCacheKey_(cld.base));
-  return { deleted: clean };
+  return { base: cld.base, sections: sections, folders: [cld.base].concat(Object.keys(MEDIA_SECTIONS).map(k => sections[k])), images: images, truncated: truncated };
 }
 
 /** Deletes files (links or public IDs) that nothing in the sheet uses. Files in use are kept and reported. */
@@ -1055,7 +1188,7 @@ function deleteAssets_(cld, assets) {
   });
 }
 
-/** { id, type } of a photo or video in this Cloudinary account inside the website's folders, or null. */
+/** { id, type } of a photo or video in this Cloudinary account inside the website's folder, or null. */
 function assetOf_(value, cld) {
   let id = String(value || '').trim(), type = 'image';
   const m = id.match(/^https?:\/\/res\.cloudinary\.com\/([^/]+)\/(image|video)\/upload\/([^?#]+)/i);
@@ -1069,7 +1202,7 @@ function assetOf_(value, cld) {
   } else if (/^[a-z][\w+.-]*:/i.test(id)) {
     return null;
   }
-  return id.indexOf('..') < 0 && cld.roots.some(r => id.indexOf(r + '/') === 0) ? { id: id, type: type } : null;
+  return id.indexOf('..') < 0 && inBase_(id, cld.base) && id.indexOf('/') > 0 ? { id: id, type: type } : null;
 }
 
 /**
@@ -1115,6 +1248,7 @@ function onOpen() {
     .addItem('Set up / repair sheets', 'setupSheets')
     .addItem('Set admin password', 'setAdminPassword')
     .addItem('Set Cloudinary keys', 'setCloudinaryKeys')
+    .addItem('Set Google Places key', 'setGooglePlacesKey')
     .addSeparator()
     .addItem('Clear website cache', 'clearWebsiteCache')
     .addItem('Unlock admin sign-in', 'unlockSignIn')
@@ -1138,10 +1272,10 @@ function onEdit(e) {
 }
 
 /**
- * Creates, repairs and styles every tab. Safe to run any time.
- * One-time steps for older sheets: 1.1 sample content is upgraded (1.3), empty
- * sections get sample content (1.4), and the new address, opening hours,
- * phone numbers and settings are added (1.5). Values you changed are kept.
+ * Creates, repairs and styles every tab. Safe to run any time: creates missing
+ * tabs and columns, deletes columns no longer used (Gallery › Caption), keeps
+ * the notes and the key list in the Config tab up to date, and runs one-time
+ * upgrades. Values you changed are kept.
  */
 function setupSheets() {
   const ss = ss_();
@@ -1149,10 +1283,7 @@ function setupSheets() {
   if (scriptTz && ss.getSpreadsheetTimeZone() !== scriptTz) ss.setSpreadsheetTimeZone(scriptTz);
   TZ_ = null;
   const props = PropertiesService.getScriptProperties();
-  const level = ss.getSheetByName('General') ? (props.getProperty('SEED_VERSION') || '1.1.0') : SEED_LEVEL;
-  renameTab_(ss, 'Plans', 'Membership Plans');
-  renameTab_(ss, 'Leads', 'Enquiries');
-  migrateTestimonials_(ss);
+  const level = ss.getSheetByName('General') ? (props.getProperty('SEED_VERSION') || '1.5.0') : SEED_LEVEL;
   const seeds = seedRows_();
   let repaired = 0;
   Object.keys(SCHEMA).forEach(name => {
@@ -1163,14 +1294,14 @@ function setupSheets() {
       sh.setFrozenRows(1);
       writeRows_(sh, cols, seeds[name] || []);
     } else {
+      if (DROPPED_COLUMNS[name]) dropColumns_(sh, DROPPED_COLUMNS[name]);
       relabelHeaders_(sh, cols);
       if (ID_PREFIX[name]) repaired += withLock_(() => repairTab_(sh, name));
     }
   });
-  if (olderThan_(level, '1.3.0')) upgradeSampleContent_(ss, seeds);
-  if (olderThan_(level, '1.4.0')) fillSamples_(ss, seeds);
-  if (olderThan_(level, '1.5.0')) upgradeTo150_(ss, seeds);
+  if (olderThan_(level, '1.6.0')) upgradeTo160_(ss, seeds);
   props.setProperty('SEED_VERSION', SEED_LEVEL);
+  refreshSecretRows_();
   fillNotes_(ss.getSheetByName('General'), noteFor_);
   fillNotes_(ss.getSheetByName('Config'), configNoteFor_);
   BOOLEAN_KEYS.forEach(k => makeCheckbox_(ss.getSheetByName('General'), k));
@@ -1180,11 +1311,10 @@ function setupSheets() {
   if (blank && blank.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(blank);
   Object.keys(SCHEMA).forEach(name => { const sh = ss.getSheetByName(name); if (sh) styleTab_(sh); });
   orderTabs_(ss);
-  const cache = CacheService.getScriptCache();
-  cache.remove(CONTENT_CACHE_KEY);
-  cache.remove(folderCacheKey_(baseFolder_(readKeyValues_('Config') || {})));
+  CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+  clearGoogleCache_();
   try { removeSecretRows_(SpreadsheetApp.getUi()); } catch (err) { /* run from the editor: no dialogs */ }
-  toast_('Sheets are ready' + (repaired ? ' (' + repaired + ' rows got an ID)' : '') + '. Next: Set admin password (if not done) and Set Cloudinary keys.');
+  toast_('Sheets are ready' + (repaired ? ' (' + repaired + ' rows got an ID)' : '') + '. Keys still to set show "Not set" in the Config tab.');
 }
 
 function olderThan_(a, b) {
@@ -1193,9 +1323,38 @@ function olderThan_(a, b) {
   return false;
 }
 
-function renameTab_(ss, from, to) {
-  const sh = ss.getSheetByName(from);
-  if (sh && !ss.getSheetByName(to)) sh.setName(to);
+/**
+ * One-time step (1.6): the changing room and the gaming area join Facilities
+ * ("Also at SSV"), texts listing the areas mention pool and carrom (only where
+ * they still read as before), and the Config tab gets GOOGLE_PLACE_ID.
+ */
+function upgradeTo160_(ss, seeds) {
+  const fac = ss.getSheetByName('Facilities');
+  if (fac) {
+    const rows = readTable_('Facilities') || [];
+    const names = rows.map(r => String(r.name).trim().toLowerCase());
+    let order = rows.reduce((m, r) => Math.max(m, Number(r.display_order) || 0), 0);
+    seeds.Facilities
+      .filter(r => ['fac-changing-room', 'fac-gaming-area'].indexOf(r.id) >= 0 && names.indexOf(r.name.toLowerCase()) < 0)
+      .forEach(r => appendRecord_(fac, Object.assign({}, r, { display_order: ++order })));
+  }
+  const fresh = {};
+  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
+  const before = {
+    description: 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.',
+    facility_strip: 'Main Gym | CrossFit | Cardio | Steam Room',
+    facilities_intro: 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.'
+  };
+  updateKeyValues_(ss.getSheetByName('General'), (key, value) => (key in before && sameText_(value, before[key]) ? fresh[key] : undefined));
+  appendMissingKeys_(ss.getSheetByName('Config'), seeds.Config.filter(r => r[0] === 'GOOGLE_PLACE_ID'));
+}
+
+/** Deletes columns this version no longer uses. */
+function dropColumns_(sh, cols) {
+  const head = headerRow_(sh);
+  for (let i = head.length - 1; i >= 0; i--) {
+    if (cols.indexOf(head[i]) >= 0 && sh.getLastColumn() > 1) sh.deleteColumn(i + 1);
+  }
 }
 
 /** Header cells: bold, size 10, centred, green text on the dark brand colour. */
@@ -1208,7 +1367,6 @@ function styleHeader_(range) {
 /**
  * A tidy, plain look for a whole tab: styled header row, plain rows in size 10,
  * every cell clipped to one line, sensible column widths, short values centred.
- * Runs with Set up / repair sheets, so running it again restores the look.
  */
 function styleTab_(sh) {
   const lastCol = sh.getLastColumn();
@@ -1254,113 +1412,6 @@ function relabelHeaders_(sh, cols) {
   if (!sh.getFrozenRows()) sh.setFrozenRows(1);
 }
 
-/** Moves genuine testimonials into the new Reviews tab (the three samples are left behind). */
-function migrateTestimonials_(ss) {
-  const old = ss.getSheetByName('Testimonials');
-  if (!old || ss.getSheetByName('Reviews')) return;
-  const values = old.getDataRange().getValues();
-  const head = headers_(values);
-  const at = (r, h) => { const i = head.indexOf(h); return i >= 0 ? r[i] : ''; };
-  const samples = { 'rev-1': 'Rohit P.', 'rev-2': 'Sneha D.', 'rev-3': 'Karan M.' };
-  const rows = values.slice(1)
-    .filter(r => String(at(r, 'name')).trim() && samples[String(at(r, 'id')).trim()] !== String(at(r, 'name')).trim())
-    .map(r => ({ id: String(at(r, 'id')).trim(), name: at(r, 'name'), rating: at(r, 'rating'), review: at(r, 'review'), likes: 0, date: today_(), source: 'Admin', status: isTrue_(at(r, 'active')) ? 'Published' : 'Hidden' }));
-  const sh = ss.insertSheet('Reviews');
-  const cols = SCHEMA.Reviews;
-  sh.getRange(1, 1, 1, cols.length).setValues([cols.map(c => LABELS[c])]);
-  sh.setFrozenRows(1);
-  writeRows_(sh, cols, rows);
-  ss.deleteSheet(old);
-}
-
-/**
- * One-time upgrade from the sample content of version 1.1: sample values you
- * never changed are replaced with the real details, made-up rows are removed.
- */
-function upgradeSampleContent_(ss, seeds) {
-  const OLD = oldSamples_();
-  const fresh = {};
-  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
-  const general = ss.getSheetByName('General'), config = ss.getSheetByName('Config');
-  const cfg = readKeyValues_('Config') || {}, gen = readKeyValues_('General') || {};
-  const moved = { WHATSAPP_NUMBER: 'whatsapp', GOOGLE_MAPS_URL: 'maps_url', INSTAGRAM_URL: 'instagram_url' };
-  Object.keys(moved).forEach(k => {
-    const value = String(cfg[k] === undefined ? '' : cfg[k]).trim(), target = moved[k];
-    if (value && (isBlank_(gen[target]) || sameText_(gen[target], OLD.general[target]))) setKeyValue_(general, target, value);
-  });
-  updateKeyValues_(general, (key, value) => {
-    if (key === 'sample_content') return null;
-    if (key in OLD.general && sameText_(value, OLD.general[key])) return key in fresh ? fresh[key] : null;
-    return undefined;
-  });
-  appendMissingKeys_(general, seeds.General.filter(r => ['maps_embed_url', 'facebook_url', 'review_form', 'review_approval'].indexOf(r[0]) >= 0));
-  if (config) {
-    updateKeyValues_(config, (key, value) => {
-      if (key in moved || key === 'GOOGLE_SHEET_ID' || key === 'CLOUDINARY_UPLOAD_PRESET') return null;
-      if (key === 'CLOUDINARY_FOLDER' && sameText_(value, 'ssv-gym')) return 'SSV-Gym';
-      return undefined;
-    });
-    appendMissingKeys_(config, seeds.Config.filter(r => r[0] === 'NOTIFY_EMAIL'));
-  }
-  upgradeRows_(ss.getSheetByName('Facilities'), OLD.facilities, seeds.Facilities, ['name', 'tags', 'description', 'category']);
-  upgradeRows_(ss.getSheetByName('Membership Plans'), OLD.plans, seeds['Membership Plans'], ['description', 'features']);
-  upgradeRows_(ss.getSheetByName('Trainers'), OLD.trainers, [], []);
-  upgradeRows_(ss.getSheetByName('Gallery'), OLD.gallery, [], []);
-}
-
-/**
- * One-time step (1.4): nothing on the website is left empty. Missing or empty
- * General values, empty tabs, plans without a price and an empty NOTIFY_EMAIL
- * get the sample content, to be replaced with the gym's own later. Reviews are
- * left to real visitors.
- */
-function fillSamples_(ss, seeds) {
-  const general = ss.getSheetByName('General');
-  const sample = {};
-  seeds.General.forEach(r => { sample[r[0]] = r[1]; });
-  updateKeyValues_(general, (key, value) => (key in sample && isBlank_(value) && !isBlank_(sample[key]) ? sample[key] : undefined));
-  appendMissingKeys_(general, seeds.General);
-  ['Facilities', 'Membership Plans', 'Trainers', 'Gallery', 'Announcements'].forEach(name => {
-    const sh = ss.getSheetByName(name);
-    if (sh && sh.getLastRow() < 2) seeds[name].forEach(r => appendRecord_(sh, r));
-  });
-  const plans = ss.getSheetByName('Membership Plans');
-  if (plans && plans.getLastRow() > 1) {
-    const values = plans.getDataRange().getValues(), head = headers_(values);
-    const idCol = head.indexOf('id'), priceCol = head.indexOf('price');
-    const prices = {};
-    seeds['Membership Plans'].forEach(p => { prices[p.id] = p.price; });
-    if (idCol >= 0 && priceCol >= 0) values.forEach((r, i) => {
-      const id = String(r[idCol]).trim();
-      if (i > 0 && isBlank_(r[priceCol]) && prices[id] !== undefined) plans.getRange(i + 1, priceCol + 1).setValue(prices[id]);
-    });
-  }
-  const config = ss.getSheetByName('Config');
-  updateKeyValues_(config, (key, value) => (key === 'NOTIFY_EMAIL' && isBlank_(value) ? NOTIFY_DEFAULT : undefined));
-  appendMissingKeys_(config, seeds.Config.filter(r => r[0] === 'NOTIFY_EMAIL'));
-}
-
-/**
- * One-time step (1.5): the gym's new address, opening hours (Sunday differs)
- * and phone numbers (gym and owner), plus the new settings. Only values still
- * equal to the old starting content are replaced; anything you edited stays.
- * The Services tab (personal training, diet plans) is created with its rows
- * like any new tab.
- */
-function upgradeTo150_(ss, seeds) {
-  const general = ss.getSheetByName('General');
-  if (!general) return;
-  const fresh = {};
-  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
-  const old = {
-    phone: '+91 75586 08585',
-    address: 'Kamanwala Nagar, Sheetal Nagar | Virar West, Maharashtra 401303',
-    opening_hours: 'Open all 7 days | 6:00 AM – 11:00 PM'
-  };
-  updateKeyValues_(general, (key, value) => (key in old && sameText_(value, old[key]) ? fresh[key] : undefined));
-  appendMissingKeys_(general, seeds.General.filter(r => ['phone_2', 'services_heading', 'gallery_categories'].indexOf(r[0]) >= 0));
-}
-
 /** fn(key, value) for each key/value row: a returned value replaces the cell, null deletes the row, undefined leaves it. */
 function updateKeyValues_(sh, fn) {
   if (!sh) return;
@@ -1376,15 +1427,6 @@ function updateKeyValues_(sh, fn) {
     else if (next !== undefined && !sameText_(row[v], next)) sh.getRange(i + 1, v + 1).setValue(cellIn_(next));
   });
   deletions.sort((a, b) => b - a).forEach(r => deleteRowSafe_(sh, r));
-}
-
-function setKeyValue_(sh, key, value) {
-  const values = sh.getDataRange().getValues();
-  const head = headers_(values);
-  const k = Math.max(head.indexOf('key'), 0), v = head.indexOf('value') >= 0 ? head.indexOf('value') : 1;
-  const i = values.findIndex((r, n) => n > 0 && String(r[k]).trim() === key);
-  if (i > 0) sh.getRange(i + 1, v + 1).setValue(cellIn_(value));
-  else appendMissingKeys_(sh, [[key, value, '']]);
 }
 
 /** Adds [key, value, note] rows whose key is missing. */
@@ -1406,52 +1448,15 @@ function appendMissingKeys_(sh, rows) {
   });
 }
 
-/**
- * Replaces rows that still hold old sample content: a row whose ID and values
- * match an old sample is updated to the new version (listed fields only), or
- * deleted if the new version doesn't have it. New rows are added only when old
- * samples were found. Rows you changed are left alone.
- */
-function upgradeRows_(sh, oldRows, newRows, fields) {
-  if (!sh || sh.getLastRow() < 2) return;
-  const values = sh.getDataRange().getValues();
-  const head = headers_(values);
-  const idCol = head.indexOf('id');
-  if (idCol < 0) return;
-  const newById = {};
-  newRows.forEach(r => { newById[r.id] = r; });
-  let found = false;
-  const deletions = [];
-  values.forEach((row, i) => {
-    if (i === 0) return;
-    const id = String(row[idCol]).trim();
-    const old = oldRows.find(o => o.id === id);
-    if (!old) return;
-    const untouched = Object.keys(old).every(key => key === 'id' || (head.indexOf(key) >= 0 && sameText_(row[head.indexOf(key)], old[key])));
-    if (!untouched) return;
-    found = true;
-    const next = newById[id];
-    if (!next) { deletions.push(i + 1); return; }
-    fields.forEach(f => { const c = head.indexOf(f); if (c >= 0) sh.getRange(i + 1, c + 1).setValue(cellIn_(next[f] === undefined ? '' : next[f])); });
-  });
-  deletions.sort((a, b) => b - a).forEach(r => deleteRowSafe_(sh, r));
-  if (!found) return;
-  const have = takenIds_(sh);
-  newRows.filter(r => !have[r.id]).forEach(r => appendRecord_(sh, r));
-}
-
-/** Fills empty Notes cells for known keys; notes are shown in grey. */
+/** Keeps the Notes of known keys up to date (shown in grey). Notes of your own keys stay. */
 function fillNotes_(sh, noteFn) {
   if (!sh || sh.getLastRow() < 2) return;
   const values = sh.getDataRange().getValues();
   const head = headers_(values);
   const k = Math.max(head.indexOf('key'), 0), n = head.indexOf('notes');
   if (n < 0) return;
-  values.forEach((r, i) => {
-    const key = String(r[k]).trim(), note = i > 0 && key && isBlank_(r[n]) ? noteFn(key) : '';
-    if (note) sh.getRange(i + 1, n + 1).setValue(note);
-  });
-  sh.getRange(2, n + 1, sh.getLastRow() - 1, 1).setFontColor('#6B7280').setFontStyle('normal');
+  const notes = values.slice(1).map(r => [noteFn(String(r[k]).trim()) || r[n]]);
+  sh.getRange(2, n + 1, notes.length, 1).setValues(notes).setFontColor('#6B7280').setFontStyle('normal');
 }
 
 /** Turns the value cell of a key/value row into a tick box, keeping its current value. */
@@ -1489,7 +1494,7 @@ function orderTabs_(ss) {
   if (first) ss.setActiveSheet(first);
 }
 
-/** Offers to delete rows in the Config and General tabs that look like passwords or API secrets. */
+/** Offers to delete other rows in the Config and General tabs that look like passwords or API secrets. */
 function removeSecretRows_(ui) {
   const found = [];
   ['Config', 'General'].forEach(name => {
@@ -1499,14 +1504,14 @@ function removeSecretRows_(ui) {
     const k = Math.max(headers_(values).indexOf('key'), 0);
     values.forEach((r, i) => {
       const key = String(r[k]).trim();
-      if (i > 0 && key && SECRET_KEY_PATTERN.test(key)) found.push({ sh: sh, row: i + 1, label: name + ' tab: ' + key });
+      if (i > 0 && key && !(name === 'Config' && SECRETS[key]) && SECRET_KEY_PATTERN.test(key)) found.push({ sh: sh, row: i + 1, label: name + ' tab: ' + key });
     });
   });
   if (!found.length) return 0;
   const answer = ui.alert('Secrets found in the sheet',
     'These rows look like passwords or API secrets:\n\n' + found.map(f => '• ' + f.label).join('\n') +
     '\n\nThe website never reads them from the sheet, and anyone who can open the sheet can see them. ' +
-    'Set the admin password and Cloudinary keys from this SSV Admin menu instead.\n\nDelete these rows now?', ui.ButtonSet.YES_NO);
+    'Set the admin password and keys from this SSV Admin menu instead.\n\nDelete these rows now?', ui.ButtonSet.YES_NO);
   if (answer !== ui.Button.YES) return 0;
   found.sort((a, b) => b.row - a.row).forEach(f => deleteRowSafe_(f.sh, f.row));
   return found.length;
@@ -1518,13 +1523,8 @@ function setAdminPassword() {
   if (res.getSelectedButton() !== ui.Button.OK) return;
   const password = res.getResponseText();
   if (password.length < 10) { ui.alert('Use at least 10 characters. The password was not changed.'); return; }
-  const salt = Utilities.getUuid();
-  PropertiesService.getScriptProperties().setProperties({
-    ADMIN_PASSWORD_SALT: salt,
-    ADMIN_PASSWORD_HASH: sha256Hex_(salt + password),
-    SESSION_EPOCH: String(Date.now())
-  });
-  CacheService.getScriptCache().remove('login_failures');
+  savePassword_(password);
+  refreshSecretRows_();
   ui.alert('Admin password saved. Anyone signed in to the admin panel has been signed out.');
 }
 
@@ -1546,14 +1546,39 @@ function setCloudinaryKeys() {
     if (again !== ui.Button.YES) return;
   }
   PropertiesService.getScriptProperties().setProperties({ CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: secret });
-  CacheService.getScriptCache().remove(folderCacheKey_(baseFolder_(cfg)));
+  refreshSecretRows_();
   ui.alert('Cloudinary keys saved. Uploads and the media library in the admin panel are ready.');
   removeSecretRows_(ui);
 }
 
+/** Saves the Google Places API key in Script Properties after testing it on the gym's Place ID. */
+function setGooglePlacesKey() {
+  const ui = SpreadsheetApp.getUi();
+  const placeId = googlePlaceId_();
+  if (!placeId) { ui.alert('Put the gym\'s Google Place ID next to GOOGLE_PLACE_ID in the Config tab first, then run this again.'); return; }
+  const res = ui.prompt('Google Places API key', 'Paste the API key from Google Cloud (APIs & Services > Credentials). Places API (New) must be enabled for its project. It is saved in Script Properties, never in the sheet.', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  const key = res.getResponseText().trim();
+  if (!/^[\w-]{30,}$/.test(key)) { ui.alert('That doesn\'t look like a Google API key. Nothing was changed.'); return; }
+  let info = null;
+  try { info = fetchGooglePlace_(placeId, key); }
+  catch (err) {
+    const again = ui.alert('Google did not accept this key', err.message + '\n\nSave it anyway?', ui.ButtonSet.YES_NO);
+    if (again !== ui.Button.YES) return;
+  }
+  PropertiesService.getScriptProperties().setProperty('GOOGLE_PLACES_API_KEY', key);
+  clearGoogleCache_();
+  CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+  refreshSecretRows_();
+  ui.alert(info
+    ? 'Google Places key saved. ' + (info.name || 'The gym') + ': ' + info.rating + ' from ' + info.count + ' Google reviews, ' + info.reviews.length + ' reviews with text.'
+    : 'Google Places key saved.');
+}
+
 function clearWebsiteCache() {
   CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
-  toast_('Website cache cleared.');
+  clearGoogleCache_();
+  toast_('Website cache cleared. Google is asked again on the next visit.');
 }
 
 function unlockSignIn() {
@@ -1569,24 +1594,23 @@ function signOutAllSessions() {
 function toast_(message) { try { ss_().toast(message, 'SSV Admin', 8); } catch (err) { console.log(message); } }
 
 /* ================================ starting content ================================
-   Written by setupSheets() into empty tabs. Contact details, hours, services,
-   Facebook and Instagram are the gym's own. Trainers, statistics and most
-   photos are SAMPLE content (photos from Unsplash) for the owner to replace.
-   Reviews are left to real visitors. */
+   Written by setupSheets() into empty tabs of a new sheet. Contact details,
+   hours, facilities, plans, services and links are the gym's own; the hero,
+   About and facility photos are stand-ins until photos of SSV are uploaded. */
 
 function seedRows_() {
-  const stock = id => 'https://images.unsplash.com/' + id;   // stand-in photos until photos of SSV are uploaded
+  const stock = id => 'https://images.unsplash.com/' + id;
   const features = 'Full gym access | Cardio equipment | Complimentary locker';
   return {
     General: [
       ['gym_name', 'SSV Gym'],
       ['full_name', 'Shree Siddhi Vinayak Gym'],
       ['tagline', 'Train strong. Live strong.'],
-      ['description', 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.'],
+      ['description', 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, a steam room, and pool and carrom.'],
       ['hero_heading', 'Train strong. | Live strong.'],
       ['hero_subtitle', 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.'],
       ['hero_image', stock('photo-1623874514711-0f321325f318')],
-      ['facility_strip', 'Main Gym | CrossFit | Cardio | Steam Room'],
+      ['facility_strip', 'Main Gym | CrossFit | Cardio | Steam Room | Pool & Carrom'],
       ['stat_1_value', '5+'], ['stat_1_label', 'Years in Virar'],
       ['stat_2_value', '40+'], ['stat_2_label', 'Machines and stations'],
       ['stat_3_value', '3'], ['stat_3_label', 'Expert trainers'],
@@ -1595,7 +1619,7 @@ function seedRows_() {
       ['about_text', 'SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal. | Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.'],
       ['about_image', stock('photo-1534438327276-14e5300c3a48')],
       ['about_highlights', 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers'],
-      ['facilities_intro', 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.'],
+      ['facilities_intro', 'A full gym floor, a CrossFit and functional training zone, cardio equipment, a steam room for recovery, and pool and carrom to unwind.'],
       ['services_heading', 'Personal training and diet plans'],
       ['phone', '+91 77588 78588'],
       ['phone_2', '+91 75586 08585'],
@@ -1619,7 +1643,9 @@ function seedRows_() {
       { id: 'fac-personal-training', name: 'Personal Training', tags: '', description: 'One-to-one coaching built around your goal.', image_url: '', category: 'additional', active: true, display_order: 5 },
       { id: 'fac-weight-loss', name: 'Weight Loss Programme', tags: '', description: 'Training and guidance to lose fat.', image_url: '', category: 'additional', active: true, display_order: 6 },
       { id: 'fac-weight-gain', name: 'Weight Gain Programme', tags: '', description: 'Training and guidance to build muscle and gain healthy weight.', image_url: '', category: 'additional', active: true, display_order: 7 },
-      { id: 'fac-lockers', name: 'Complimentary Lockers', tags: '', description: 'Keep your things safe while you train.', image_url: '', category: 'additional', active: true, display_order: 8 }
+      { id: 'fac-changing-room', name: 'Changing Room', tags: '', description: 'A clean changing room to get ready before and after your workout.', image_url: '', category: 'additional', active: true, display_order: 8 },
+      { id: 'fac-lockers', name: 'Complimentary Lockers', tags: '', description: 'Keep your things safe while you train.', image_url: '', category: 'additional', active: true, display_order: 9 },
+      { id: 'fac-gaming-area', name: 'Gaming Area', tags: 'Pool | Carrom', description: 'A pool table and carrom boards to unwind with friends after training.', image_url: '', category: 'additional', active: true, display_order: 10 }
     ],
     'Membership Plans': [
       { id: 'plan-monthly', name: 'Monthly', duration: '1 Month', price: 1200, description: 'Month-to-month membership.', features: features, featured: false, active: true, display_order: 1 },
@@ -1631,34 +1657,16 @@ function seedRows_() {
       { id: 'svc-personal-training', name: 'Personal Training', price: 5000, price_note: 'Starting price', description: 'One-on-one personal training sessions built around your goal.', active: true, display_order: 1 },
       { id: 'svc-diet-plan', name: 'Diet Plan', price: 1250, price_note: 'Per session', description: 'A personalised diet plan to support your training.', active: true, display_order: 2 }
     ],
-    Trainers: [
-      { id: 'tr-aman-verma', name: 'Aman Verma', role: 'Head Trainer', specialization: 'Strength training and bodybuilding', bio: 'Helps members build strength with sound technique and a clear plan.', image_url: stock('photo-1567013127542-490d757e51fc'), active: true, display_order: 1 },
-      { id: 'tr-neha-kulkarni', name: 'Neha Kulkarni', role: 'Fitness Coach', specialization: 'Weight loss and functional training', bio: 'Builds sustainable routines for fat loss and everyday fitness.', image_url: stock('photo-1594381898411-846e7d193883'), active: true, display_order: 2 },
-      { id: 'tr-vikram-singh', name: 'Vikram Singh', role: 'CrossFit Coach', specialization: 'CrossFit and conditioning', bio: 'Runs high-energy conditioning sessions for all fitness levels.', image_url: stock('photo-1583454110551-21f2fa2afe61'), active: true, display_order: 3 }
-    ],
-    Gallery: [
-      ['main-gym-floor', '1728486145245-d4cb0c9c3470', 'Main gym floor', 'gym', 'Machines and free weights on the main floor.'],
-      ['battle-ropes', '1548690312-e3b507d8c110', 'Battle ropes', 'crossfit', 'Conditioning work in the CrossFit zone.'],
-      ['strength-machines', '1571902943202-507ec2618e8f', 'Strength machines', 'equipment', 'Machines for every major muscle group.'],
-      ['barbell-session', '1517836357463-d25dfeac3438', 'Barbell session', 'training', 'Heavy compound lifts with good form.'],
-      ['dumbbell-rack', '1576678927484-cc907957088c', 'Dumbbell rack', 'equipment', 'A full range of dumbbells.'],
-      ['kettlebell-work', '1601422407692-ec4eeec1d9b3', 'Kettlebell work', 'crossfit', 'Functional movements and circuits.'],
-      ['weights-area', '1689877020200-403d8542d95d', 'Weights area', 'gym', 'Space to train with free weights.'],
-      ['focused-training', '1526506118085-60ce8714f8c5', 'Focused training', 'training', 'Training towards a clear goal.'],
-      ['steam-room', '1759216852954-88e547b8e01f', 'Steam room', 'gym', 'Recover after your workout.'],
-      ['group-session', '1593079831268-3381b0db4a77', 'Group session', 'events', 'Training together.'],
-      ['equipment-detail', '1590487988256-9ed24133863e', 'Equipment', 'equipment', 'Well-kept equipment.'],
-      ['lifting-practice', '1605296867304-46d5465a13f1', 'Lifting practice', 'training', 'Building strength step by step.']
-    ].map((g, i) => ({ id: 'img-' + g[0], image_url: stock('photo-' + g[1]), title: g[2], category: g[3], caption: g[4], active: true, display_order: i + 1 })),
+    Trainers: [],
+    Gallery: [],
     Reviews: [],
-    Announcements: [
-      { id: 'ann-welcome', title: 'Welcome to the new SSV Gym website', description: 'Membership plans, photos and reviews are all here. Questions? Call or WhatsApp us.', image_url: '', date: today_(), expiry: '', active: true, priority: 1 }
-    ],
+    Announcements: [],
     Enquiries: [],
     Config: [
       ['APPS_SCRIPT_URL', ''],
       ['CLOUDINARY_CLOUD_NAME', ''],
       ['CLOUDINARY_FOLDER', 'SSV-Gym'],
+      ['GOOGLE_PLACE_ID', PLACE_ID_DEFAULT],
       ['NOTIFY_EMAIL', NOTIFY_DEFAULT]
     ].map(r => [r[0], r[1], configNoteFor_(r[0])])
   };
@@ -1672,11 +1680,11 @@ function noteFor_(key) {
     description: 'Summary shown in Google search results.',
     hero_heading: 'Big heading at the top of the page. A | starts a new line.',
     hero_subtitle: 'Text under the big heading. Empty = hidden.',
-    hero_image: 'Top photo (sample until replaced). Upload it in the admin panel (General information).',
+    hero_image: 'Top photo. Upload it in the admin panel (General information).',
     facility_strip: 'Words in the strip under the top photo, separated by |. Empty = hidden.',
     about_heading: 'Heading of the About section.',
     about_text: 'About section text. A | starts a new paragraph.',
-    about_image: 'About section photo (sample until replaced).',
+    about_image: 'About section photo. Upload it in the admin panel (General information).',
     about_highlights: 'Short points in the About section, separated by |.',
     facilities_intro: 'Text next to the Facilities heading. Empty = hidden.',
     services_heading: 'Heading above personal training and diet plans (Services tab).',
@@ -1696,55 +1704,20 @@ function noteFor_(key) {
   };
   if (notes[key]) return notes[key];
   const m = String(key).match(/^stat_(\d)_(value|label)$/);
-  if (m) return m[2] === 'value' ? 'Sample figure for statistic ' + m[1] + ', e.g. 10+. Empty = hidden.' : 'Label for statistic ' + m[1] + ', e.g. Years in Virar.';
+  if (m) return m[2] === 'value' ? 'Figure for statistic ' + m[1] + ', e.g. 10+. Empty = hidden.' : 'Label for statistic ' + m[1] + ', e.g. Years in Virar.';
   return '';
 }
 
 function configNoteFor_(key) {
   return {
     APPS_SCRIPT_URL: 'For reference: the website\'s backend link (the same one is in js/config.js).',
-    CLOUDINARY_CLOUD_NAME: 'Cloudinary cloud name. The API key and secret are set from SSV Admin > Set Cloudinary keys.',
+    CLOUDINARY_CLOUD_NAME: 'Cloudinary cloud name. The API key and secret are kept in Script Properties (rows below).',
     CLOUDINARY_FOLDER: 'Main Cloudinary folder for website photos and videos.',
-    NOTIFY_EMAIL: 'Who gets an email for each new enquiry and review. Separate several addresses with commas. This does not give access to the admin panel.'
+    GOOGLE_PLACE_ID: 'The gym\'s Google Place ID, for the Google rating, Google reviews and review links on the website.',
+    NOTIFY_EMAIL: 'Who gets an email for each new enquiry and review. Separate several addresses with commas. This does not give access to the admin panel.',
+    ADMIN_PASSWORD: 'Password for admin.html, kept only as a salted hash (ADMIN_PASSWORD_HASH, ADMIN_PASSWORD_SALT). Change it: SSV Admin > Set admin password.',
+    CLOUDINARY_API_KEY: 'Cloudinary API key, for photo and video uploads. Change it: SSV Admin > Set Cloudinary keys.',
+    CLOUDINARY_API_SECRET: 'Cloudinary API secret. Change it: SSV Admin > Set Cloudinary keys.',
+    GOOGLE_PLACES_API_KEY: 'Google Places API key, for the Google rating and reviews. Change it: SSV Admin > Set Google Places key.'
   }[key] || '';
-}
-
-/** Sample content written by version 1.1, used by the one-time upgrade. */
-function oldSamples_() {
-  const stock = id => 'https://images.unsplash.com/' + id;
-  return {
-    general: {
-      description: 'A fitness space for strength, conditioning and wellness.',
-      hero_subtitle: 'A complete fitness space for strength, conditioning and wellness.',
-      facility_strip: 'Main Gym | CrossFit | Steam Room',
-      about_text: 'SSV Gym is a fitness space focused on strength training, conditioning and overall fitness. | Train on the main gym floor, build conditioning in the CrossFit and functional training area, and recover in the steam room.',
-      about_highlights: 'Quality Equipment | Dedicated Training Areas | Trainer Support | Fitness-focused Environment',
-      facilities_intro: 'The main gym floor, a CrossFit and functional training zone, and a steam room for recovery.',
-      stat_1_value: '10+', stat_1_label: 'Years of Fitness', stat_2_value: '20+', stat_2_label: 'Training Machines',
-      stat_3_value: '500+', stat_3_label: 'Members', stat_4_value: '2', stat_4_label: 'Training Zones',
-      phone: '+91 00000 00000', whatsapp: '+91 00000 00000',
-      address: 'Shop No. 1, Sample Complex, Main Road | City, State 000000',
-      opening_hours: 'Mon – Sat: 6:00 AM – 10:00 PM | Sunday: 7:00 AM – 12:00 PM',
-      maps_url: 'https://www.google.com/maps/search/?api=1&query=Shree+Siddhi+Vinayak+Gym',
-      maps_embed_url: '',
-      instagram_url: 'https://www.instagram.com/'
-    },
-    facilities: [
-      { id: 'fac-main', name: 'Main Gym', description: 'The main training floor for strength work, cardio and machine training.' },
-      { id: 'fac-crossfit', name: 'CrossFit', description: 'A dedicated area for functional movements, circuits and conditioning.' },
-      { id: 'fac-steam', name: 'Steam Room', description: 'Unwind after training and support recovery in the steam room.' },
-      { id: 'fac-cardio', name: 'Cardio Area', description: 'Treadmills, bikes and cross-trainers for warm-ups and endurance work.' },
-      { id: 'fac-weights', name: 'Free Weights', description: 'Dumbbells, barbells and benches for free-weight training.' },
-      { id: 'fac-machines', name: 'Strength Machines', description: 'Machines for training every major muscle group.' }
-    ],
-    plans: [
-      { id: 'plan-monthly', price: 1200 }, { id: 'plan-quarterly', price: 3000 },
-      { id: 'plan-half-yearly', price: 5500 }, { id: 'plan-yearly', price: 9000 }
-    ],
-    trainers: [{ id: 'tr-1', name: 'Aman Verma' }, { id: 'tr-2', name: 'Neha Kulkarni' }, { id: 'tr-3', name: 'Vikram Singh' }],
-    gallery: ['1728486145245-d4cb0c9c3470', '1548690312-e3b507d8c110', '1571902943202-507ec2618e8f', '1517836357463-d25dfeac3438',
-      '1576678927484-cc907957088c', '1601422407692-ec4eeec1d9b3', '1689877020200-403d8542d95d', '1526506118085-60ce8714f8c5',
-      '1759216852954-88e547b8e01f', '1593079831268-3381b0db4a77', '1590487988256-9ed24133863e', '1605296867304-46d5465a13f1']
-      .map((p, i) => ({ id: 'img-' + (i + 1), image_url: stock('photo-' + p) }))
-  };
 }
