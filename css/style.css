@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SSV GYM — WEBSITE STYLES                                           v1.6.0
+   SSV GYM — WEBSITE STYLES                                           v1.6.1
    Palette taken from the gym itself: rubber floor black, charcoal panels,
    machine-frame green (accent only), chalk white. The 5px green bar used in
    the logo is the one recurring ornament. Grids echo the floor tiles.
@@ -87,6 +87,7 @@ section[id] { scroll-margin-top: var(--header-h); }
 .text-link { padding-bottom: 3px; border-bottom: 1px solid var(--green); font-weight: 600; transition: color .2s; }
 .text-link:hover { color: var(--green-2); }
 
+
 /* ---------- image boxes & designed placeholders ---------- */
 .media { position: relative; overflow: hidden; background: radial-gradient(80% 60% at var(--ph-x, 50%) 0%, rgba(245, 245, 242, .08), transparent 70%), linear-gradient(170deg, #1B201D 0%, #101311 100%); }
 .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -147,6 +148,12 @@ section[id] { scroll-margin-top: var(--header-h); }
 .facility-strip { display: flex; flex-wrap: wrap; align-items: center; min-height: 64px; row-gap: 6px; font-family: var(--font-narrow); font-stretch: 75%; font-weight: 700; font-size: 1.0625rem; letter-spacing: .08em; text-transform: uppercase; }
 .facility-strip li + li::before { content: "\2022"; margin: 0 16px; color: var(--green); }
 .facility-strip--small { min-height: 0; margin-top: 16px; color: var(--muted); font-size: .9375rem; }
+/* Phones: the words under the top photo stay on one line; swipe to see them all. */
+@media (max-width: 759px) {
+  .hero__strip .facility-strip { flex-wrap: nowrap; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overscroll-behavior-x: contain; white-space: nowrap; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent); mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent); }
+  .hero__strip .facility-strip::-webkit-scrollbar { display: none; }
+  .hero__strip .facility-strip li { flex: none; }
+}
 
 /* The one orchestrated moment: hero load sequence */
 @keyframes rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
@@ -250,7 +257,7 @@ section[id] { scroll-margin-top: var(--header-h); }
 }
 /* Phones: swipe through the areas instead of scrolling past tall cards. */
 @media (max-width: 759px) {
-  .facility-grid { grid-auto-flow: column; grid-auto-columns: 86%; gap: 10px; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
+  .facility-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 86%; gap: 10px; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
   .facility-grid::-webkit-scrollbar { display: none; }
   .facility-card { min-height: 420px; border-radius: var(--radius); scroll-snap-align: start; }
 }
@@ -294,6 +301,14 @@ section[id] { scroll-margin-top: var(--header-h); }
 .services__call { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 20px; color: var(--muted); }
 .services__call a { color: var(--text); font-family: var(--font-narrow); font-stretch: 75%; font-size: 1.375rem; font-weight: 800; letter-spacing: .02em; }
 .services__call a:hover { color: var(--green-2); }
+
+/* Phones: plans, and personal training and diet plans, side by side in one row; swipe to see the next one. */
+@media (max-width: 639px) {
+  .plan-board, .service-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 82%; gap: 12px; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); scrollbar-width: none; border: 0; border-radius: 0; background: none; }
+  .plan-board::-webkit-scrollbar, .service-grid::-webkit-scrollbar { display: none; }
+  .plan, .service { border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); box-shadow: none; scroll-snap-align: start; }
+  .plan--featured { border-color: rgba(109, 190, 69, .5); background: linear-gradient(180deg, var(--green-soft), transparent 45%), var(--bg); }
+}
 
 /* ---------- trainers ---------- */
 .trainer-grid { display: grid; gap: 32px 20px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
@@ -350,10 +365,13 @@ section[id] { scroll-margin-top: var(--header-h); }
 }
 @media (max-width: 599px) { .gallery__more { flex-direction: column-reverse; align-items: stretch; text-align: center; } }
 
-/* ---------- the full gallery page (gallery.html): masonry, each picture at its own shape ---------- */
+/* ---------- the full gallery page (gallery.html) ----------
+   The heading and filters stay in the page width; the wall of photos uses the whole
+   width of the screen, with more columns on wider screens. Each picture keeps its own shape. */
 .gpage { padding-top: var(--header-h); }
 .gpage .section { padding-top: clamp(40px, 7vw, 88px); }
 .gpage__title { margin-top: 16px; font-size: clamp(3rem, 9vw, 6.5rem); }
+.gpage__wall { padding-inline: var(--gutter); }
 .masonry { columns: 2; column-gap: 8px; }
 .m-item { position: relative; margin: 0 0 8px; break-inside: avoid; }
 .m-item__btn { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius); background: var(--bg-3); text-align: left; cursor: zoom-in; }
@@ -363,8 +381,12 @@ section[id] { scroll-margin-top: var(--header-h); }
 .gpage__empty { padding: 56px 0; color: var(--muted); text-align: center; }
 .site-footer--slim { padding-top: 0; }
 .site-footer--slim .footer__bottom { margin-top: 0; border-top: 0; }
-@media (min-width: 700px) { .masonry { columns: 3; column-gap: 12px; } .m-item { margin-bottom: 12px; } }
-@media (min-width: 1100px) { .masonry { columns: 4; } }
+@media (min-width: 600px) { .masonry { columns: 3; column-gap: 12px; } .m-item { margin-bottom: 12px; } }
+@media (min-width: 1000px) { .masonry { columns: 4; } }
+@media (min-width: 1300px) { .masonry { columns: 5; } }
+@media (min-width: 1650px) { .masonry { columns: 6; } }
+@media (min-width: 2000px) { .masonry { columns: 7; } }
+@media (min-width: 2400px) { .masonry { columns: 8; } }
 @media (hover: none) { .m-item .g-item__overlay { opacity: 1; } }
 
 /* ---------- lightbox (photos and videos) ---------- */
@@ -471,12 +493,11 @@ a.review__who:hover > span:last-child { color: var(--green-2); }
 .review-form__alt { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9375rem; text-align: center; }
 .review-form__alt a { color: var(--green-2); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
-/* ---------- contact ---------- */
+/* ---------- contact: heading across the top, details and the enquiry form side by side ---------- */
 .contact { border-top: 1px solid var(--line); background: var(--bg-2); }
+.contact__head .section-head__lead { margin-top: 0; color: var(--text-2); font-size: 1.125rem; font-weight: 500; }
 .contact__grid { display: grid; gap: 48px; }
-.contact__info h2 { margin-top: 16px; font-size: clamp(2.75rem, 6vw, 4.5rem); }
-.contact__full { margin-top: 12px; color: var(--muted); font-size: 1.0625rem; }
-.contact__list { margin-top: 36px; border-top: 1px solid var(--line); }
+.contact__list { border-top: 1px solid var(--line); }
 .contact__list > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .contact__list dt { color: var(--muted); font-size: .9375rem; }
 .contact__list dd { font-weight: 500; overflow-wrap: anywhere; }
@@ -487,9 +508,11 @@ a.review__who:hover > span:last-child { color: var(--green-2); }
 .hours { display: grid; gap: 6px; max-width: 420px; }
 .hours li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; }
 .hours li span:first-child { color: var(--text-2); }
+.hours li span:last-child { margin-left: auto; }
 .hours li.is-today span { color: var(--green-2); font-weight: 600; }
 .hours em { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green-2); font-size: .75rem; font-style: normal; font-weight: 700; vertical-align: 1px; }
 .hours__note { color: var(--muted); }
+.hours__note span { margin-left: 0 !important; }
 .hours__status { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 5px 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--muted); font-size: .875rem; font-weight: 600; }
 .hours__status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); }
 .hours__status.is-open { border-color: rgba(109, 190, 69, .45); color: var(--green-2); }
@@ -514,8 +537,30 @@ html:not(.js) .enquiry { display: none; } /* the form needs JavaScript to send *
 .enquiry__status.is-success { color: var(--green-2); }
 .enquiry__status.is-error { color: var(--error); }
 .enquiry__status a { text-decoration: underline; text-underline-offset: 3px; }
-@media (min-width: 980px) { .contact__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(56px, 7vw, 96px); } }
-@media (max-width: 520px) { .contact__list > div { grid-template-columns: 1fr; gap: 6px; padding: 16px 0; } }
+@media (min-width: 980px) {
+  /* The name on the right sits exactly above the form. */
+  .contact__head.section-head--split { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); column-gap: clamp(56px, 7vw, 96px); }
+  .contact__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(56px, 7vw, 96px); }
+  /* The form is as tall as the details next to it; the message box takes any extra height. */
+  .contact__side { display: flex; flex-direction: column; }
+  .enquiry { display: flex; flex: 1; flex-direction: column; }
+  .enquiry .field--grow { display: flex; flex: 1; flex-direction: column; }
+  .enquiry .field--grow textarea { flex: 1; }
+}
+/* Phones: the details in one panel, short ones on a single line; Call across the top, two buttons under it. */
+@media (max-width: 600px) {
+  .contact__grid { gap: 32px; }
+  .contact__list { padding: 0 18px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg); }
+  .contact__list > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 15px 0; border-bottom: 0; }
+  .contact__list > div:not([hidden]) ~ div:not([hidden]) { border-top: 1px solid var(--line); }
+  .contact__list dt { flex: none; font-size: .875rem; }
+  .contact__list dd { text-align: right; }
+  .contact__list > [data-row="address"], .contact__list > [data-row="hours"] { display: grid; gap: 8px; }
+  .contact__list > [data-row="address"] dd, .contact__list > [data-row="hours"] dd { text-align: left; }
+  .contact__actions { display: grid; grid-template-columns: 1fr 1fr; margin-top: 20px; }
+  .contact__actions .btn { padding: 0 12px; }
+  .contact__actions .btn:first-child { grid-column: 1 / -1; }
+}
 
 /* map: dark to match the site, normal colours on hover, with an address card */
 .contact__map { margin-top: clamp(40px, 7vw, 80px); }
@@ -591,7 +636,6 @@ html:not(.js) .enquiry { display: none; } /* the form needs JavaScript to send *
   .event__body { padding: 20px 18px 22px; }
   .review-grid { gap: 32px; }
   .reviews__actions .btn { flex: 1 1 auto; }
-  .contact__actions .btn { flex: 1 1 auto; }
   .site-header .btn--sm { padding: 0 14px; }
 }
 

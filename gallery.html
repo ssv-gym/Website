@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://res.cloudinary.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=1.6.0">
+  <link rel="stylesheet" href="css/style.css?v=1.6.1">
   <script>document.documentElement.classList.add('js');</script>
 </head>
 <body class="page-gallery has-mobile-bar">
@@ -35,6 +35,7 @@
 
   <main id="main" class="gpage">
     <section class="section" aria-labelledby="gallery-title">
+      <!-- The heading and filters stay in the page width. -->
       <div class="container">
         <header class="section-head section-head--split">
           <div>
@@ -47,7 +48,12 @@
           <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
           <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
         </div>
+      </div>
+      <!-- The photos use the whole width of the screen: more columns on wider screens. -->
+      <div class="gpage__wall">
         <div class="masonry" id="gallery-grid"></div>
+      </div>
+      <div class="container">
         <p class="gpage__empty" id="gallery-empty" hidden>No photos yet.</p>
       </div>
     </section>
@@ -79,10 +85,10 @@
 
   <noscript><p class="noscript">JavaScript is turned off, so the gallery can't load. Call the gym on +91 77588 78588.</p></noscript>
 
-  <script src="js/config.js?v=1.6.0"></script>
-  <script src="js/utils.js?v=1.6.0"></script>
-  <script src="js/api.js?v=1.6.0"></script>
-  <script src="js/gallery.js?v=1.6.0"></script>
-  <script src="js/gallery-page.js?v=1.6.0"></script>
+  <script src="js/config.js?v=1.6.1"></script>
+  <script src="js/utils.js?v=1.6.1"></script>
+  <script src="js/api.js?v=1.6.1"></script>
+  <script src="js/gallery.js?v=1.6.1"></script>
+  <script src="js/gallery-page.js?v=1.6.1"></script>
 </body>
 </html>

@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://images.unsplash.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
-  <link rel="stylesheet" href="../css/style.css?v=1.6.0">
-  <link rel="stylesheet" href="demo.css?v=1.6.0">
+  <link rel="stylesheet" href="../css/style.css?v=1.6.1">
+  <link rel="stylesheet" href="demo.css?v=1.6.1">
   <script>document.documentElement.classList.add('js');</script>
   <script type="application/json" id="fallback-general">
   { "gym_name": "SSV Gym", "full_name": "Shree Siddhi Vinayak Gym", "review_form": false }
@@ -203,37 +203,43 @@
     </section>
 
     <section class="section contact" id="contact" aria-labelledby="contact-title">
-      <div class="container contact__grid">
-        <div class="contact__info reveal">
-          <p class="section-label">Contact</p>
-          <h2 id="contact-title">Visit <span data-g="gym_name">SSV Gym</span></h2>
-          <p class="contact__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
-          <dl class="contact__list">
-            <div data-row="address"><dt>Address</dt><dd data-g-lines="address"></dd></div>
-            <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
-            <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
-            <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
-            <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
-            <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
-            <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
-          </dl>
-          <div class="contact__actions">
-            <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
-            <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
-            <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
+      <div class="container">
+        <header class="section-head section-head--split contact__head reveal">
+          <div>
+            <p class="section-label">Contact</p>
+            <h2 id="contact-title">Visit <span data-g="gym_name">SSV Gym</span></h2>
           </div>
-        </div>
-        <div class="contact__side reveal">
-          <form class="enquiry" id="enquiry-form" novalidate>
-            <h3>Send an enquiry</h3>
-            <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
-            <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
-            <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
-            <div class="field"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
-            <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
-            <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
-            <p class="enquiry__status" id="enquiry-status" role="status" aria-live="polite"></p>
-          </form>
+          <p class="section-head__lead" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        </header>
+        <div class="contact__grid">
+          <div class="contact__info reveal">
+            <dl class="contact__list">
+              <div data-row="address"><dt>Address</dt><dd data-g-lines="address"></dd></div>
+              <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
+              <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
+              <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
+              <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
+              <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
+              <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
+            </dl>
+            <div class="contact__actions">
+              <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
+              <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+              <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
+            </div>
+          </div>
+          <div class="contact__side reveal">
+            <form class="enquiry" id="enquiry-form" novalidate>
+              <h3>Send an enquiry</h3>
+              <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
+              <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
+              <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+              <div class="field field--grow"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
+              <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+              <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
+              <p class="enquiry__status" id="enquiry-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
         </div>
       </div>
       <div class="container contact__map reveal" hidden>
@@ -353,11 +359,11 @@
     <a class="demo-note__link" href="admin.html">Try the admin panel</a>
   </aside>
 
-  <script src="../js/utils.js?v=1.6.0"></script>
-  <script src="data.js?v=1.6.0"></script>
-  <script src="api.js?v=1.6.0"></script>
-  <script src="../js/gallery.js?v=1.6.0"></script>
-  <script src="../js/main.js?v=1.6.0"></script>
-  <script src="demo.js?v=1.6.0"></script>
+  <script src="../js/utils.js?v=1.6.1"></script>
+  <script src="data.js?v=1.6.1"></script>
+  <script src="api.js?v=1.6.1"></script>
+  <script src="../js/gallery.js?v=1.6.1"></script>
+  <script src="../js/main.js?v=1.6.1"></script>
+  <script src="demo.js?v=1.6.1"></script>
 </body>
 </html>

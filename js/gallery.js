@@ -1,9 +1,10 @@
 /* SSV GYM — gallery: a six-item preview on the home page, the full masonry gallery on
-   gallery.html, category filters and the photo and video viewer. v1.6.0 */
+   gallery.html, category filters and the photo and video viewer. v1.6.1 */
 const Gallery = (() => {
   const { esc, img, media, pad2, mediaKind, videoPoster, videoSrc, youtubeId } = Utils;
   const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
-  const SIZES = '(min-width: 1100px) 25vw, (min-width: 700px) 33vw, 50vw';
+  const SIZES = '(min-width: 1100px) 25vw, (min-width: 700px) 33vw, 50vw';   // home page tiles
+  const WALL = '(min-width: 1650px) 17vw, (min-width: 1300px) 20vw, (min-width: 1000px) 25vw, (min-width: 600px) 33vw, 50vw';   // gallery page columns
   const el = id => document.getElementById(id);
   const keyOf = v => String(v || '').trim().toLowerCase();
   const titleCase = s => s.replace(/\b[a-z]/g, c => c.toUpperCase());
@@ -66,10 +67,10 @@ const Gallery = (() => {
     </figure>`;
   }
 
-  /* Gallery page: each picture at its own shape, in columns. */
+  /* Gallery page: each picture at its own shape, in columns across the whole screen. */
   function brick(it, i) {
     const kind = mediaKind(it.image_url);
-    const pic = img(stillOf(it, 1000), titleOf(it), { sizes: SIZES, widths: [400, 700, 1000] });
+    const pic = img(stillOf(it, 1000), titleOf(it), { sizes: WALL, widths: [400, 700, 1000] });
     return `<figure class="m-item" style="--i:${i}">
       <button type="button" class="m-item__btn${kind === 'image' ? '' : ' is-video'}" data-index="${i}" aria-label="${label(it, kind)}">
         ${pic || '<span class="m-item__ph"></span>'}${play(kind)}${overlay(it, kind)}

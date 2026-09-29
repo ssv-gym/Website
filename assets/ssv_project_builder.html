@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SSV Gym website 1.6.0 · complete project</title>
+<title>SSV Gym website 1.6.1 · complete project</title>
 <style>
   :root { color-scheme: dark; --bg:#0D0F0E; --bg2:#151917; --bg3:#1D221F; --line:rgba(245,245,242,.1); --line2:rgba(245,245,242,.18); --green:#6DBE45; --green2:#8FE05A; --text:#F5F5F2; --muted:#A7ADA8; --muted2:#7E8580; --danger:#F0957F; --warn:#E9C46A; }
   * { box-sizing: border-box; }
@@ -60,8 +60,8 @@
 </head>
 <body>
 <main>
-  <div class="brand"><span class="bar" aria-hidden="true"></span><h1>SSV Gym website 1.6.0 · complete project</h1></div>
-  <p class="lead">Every project file is inside this page, including the demo for your portfolio. Save them to a folder, download a ZIP, or download the complete .md. Nothing else is needed.</p>
+  <div class="brand"><span class="bar" aria-hidden="true"></span><h1>SSV Gym website 1.6.1 · complete project</h1></div>
+  <p class="lead">Every project file is inside this page, including the demo for your portfolio. Save them to a folder, download a ZIP, or download the complete .md. Nothing else is needed. 1.6.1 changes website files only (contact section, phone layouts, full-width gallery page): Code.gs is the same as 1.6.0, so if that is already deployed, only upload the files to GitHub.</p>
 
   <section class="card">
     <span class="num">1</span>
@@ -7709,11 +7709,1860 @@ const API = (() => {
 </html>
 </script>
 
+<!-- ===================== 1.6.1: files changed since 1.6.0 ===================== -->
+<script type="text/plain" data-path="css/style.css" data-note="updated">
+/* ==========================================================================
+   SSV GYM — WEBSITE STYLES                                           v1.6.1
+   Palette taken from the gym itself: rubber floor black, charcoal panels,
+   machine-frame green (accent only), chalk white. The 5px green bar used in
+   the logo is the one recurring ornament. Grids echo the floor tiles.
+   Change colours in :root and everything else follows.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;     /* dark scrollbars and form controls */
+  --bg: #0D0F0E;          /* rubber floor */
+  --bg-2: #151917;        /* charcoal panels */
+  --bg-3: #1D221F;        /* raised surfaces */
+  --line: rgba(245, 245, 242, 0.09);
+  --line-2: rgba(245, 245, 242, 0.16);
+  --green: #6DBE45;       /* machine-frame green, accents only */
+  --green-2: #8FE05A;     /* hover / highlight */
+  --green-soft: rgba(109, 190, 69, 0.12);
+  --text: #F5F5F2;
+  --text-2: #D2D6D2;
+  --muted: #A7ADA8;
+  --muted-2: #7E8580;
+  --error: #F0957F;
+  --scroll: #343B37;
+  --scroll-hover: #4A544E;
+
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-narrow: "Archivo", "Arial Narrow", "Roboto Condensed", sans-serif;
+
+  --container: 1240px;
+  --gutter: clamp(20px, 4vw, 40px);
+  --header-h: 72px;
+  --radius: 3px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scrollbar-color: var(--scroll) var(--bg); scrollbar-width: thin; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.65 var(--font); -webkit-font-smoothing: antialiased; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, h4, p, ul, dl, dd, figure, blockquote { margin: 0; }
+ul { padding: 0; list-style: none; }
+button, input, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--green-2); outline-offset: 3px; }
+::selection { background: var(--green); color: var(--bg); }
+/* Scrollbars that match the dark design (Chrome, Edge, Safari; Firefox uses scrollbar-color above) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { border: 2px solid var(--bg); border-radius: 999px; background: var(--scroll); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 16px; top: -64px; z-index: 100; padding: 12px 18px; background: var(--green); color: var(--bg); font-weight: 600; transition: top .2s; }
+.skip-link:focus { top: 12px; }
+.container { width: min(100% - 2 * var(--gutter), var(--container)); margin-inline: auto; }
+
+h1, h2 { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; line-height: .92; letter-spacing: .005em; text-transform: uppercase; }
+h3, h4 { font-weight: 700; line-height: 1.25; }
+
+/* ---------- shared components ---------- */
+.section { padding-block: clamp(64px, 11vw, 136px); }
+section[id] { scroll-margin-top: var(--header-h); }
+
+.section-label { display: inline-flex; align-items: center; gap: 10px; color: var(--green-2); font-size: .9375rem; font-weight: 600; }
+.section-label::before { content: ""; width: 5px; height: 18px; background: var(--green); }
+
+.section-head { max-width: 780px; margin-bottom: clamp(32px, 5vw, 56px); }
+.section-head h2 { margin-top: 16px; font-size: clamp(2.75rem, 6.4vw, 5rem); }
+.section-head__lead { margin-top: 18px; max-width: 58ch; color: var(--muted); font-size: 1.0625rem; }
+/* Title on the left, short text on the right (stacked on phones) */
+.section-head--split { max-width: none; display: grid; gap: 20px; align-items: end; }
+@media (min-width: 900px) {
+  .section-head--split { grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 48px; }
+  .section-head--split .section-head__lead { margin-top: 0; }
+}
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 26px; border: 1px solid transparent; border-radius: var(--radius); font-family: var(--font-narrow); font-stretch: 75%; font-weight: 700; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; cursor: pointer; transition: background-color .2s, border-color .2s, color .2s; }
+.btn--primary { background: var(--green); color: #0A0C0B; }
+.btn--primary:hover { background: var(--green-2); }
+.btn--ghost { border-color: var(--line-2); background: rgba(13, 15, 14, .4); color: var(--text); }
+.btn--ghost:hover { border-color: var(--green); color: var(--green-2); }
+.btn--sm { min-height: 42px; padding: 0 18px; font-size: .9375rem; }
+.btn--block { width: 100%; }
+.btn[disabled] { opacity: .6; pointer-events: none; }
+.text-link { padding-bottom: 3px; border-bottom: 1px solid var(--green); font-weight: 600; transition: color .2s; }
+.text-link:hover { color: var(--green-2); }
+
+
+/* ---------- image boxes & designed placeholders ---------- */
+.media { position: relative; overflow: hidden; background: radial-gradient(80% 60% at var(--ph-x, 50%) 0%, rgba(245, 245, 242, .08), transparent 70%), linear-gradient(170deg, #1B201D 0%, #101311 100%); }
+.media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.media:not(.has-img)::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 56px 56px; background-position: center; -webkit-mask-image: linear-gradient(180deg, transparent, #000 65%); mask-image: linear-gradient(180deg, transparent, #000 65%); }
+.tone-1 { --ph-x: 18%; }
+.tone-2 { --ph-x: 82%; }
+.tone-3 { --ph-x: 35%; }
+
+/* ---------- header & navigation ---------- */
+.site-header { position: fixed; inset: 0 0 auto; z-index: 50; height: var(--header-h); border-bottom: 1px solid transparent; transition: background-color .3s, border-color .3s; }
+.site-header.is-scrolled { background: rgba(13, 15, 14, .9); border-bottom-color: var(--line); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.site-header__inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.logo { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-narrow); font-stretch: 62.5%; font-size: 1.875rem; line-height: 1; text-transform: uppercase; }
+.logo__bar { width: 5px; height: 28px; background: var(--green); }
+.logo__word { font-weight: 800; letter-spacing: .03em; }
+.logo__gym { font-weight: 500; letter-spacing: .08em; color: var(--muted); }
+.nav { display: flex; align-items: center; gap: 36px; }
+.nav__list { display: flex; gap: 26px; }
+.nav__link { position: relative; display: block; padding: 8px 0; color: var(--muted); font-size: .9375rem; font-weight: 500; transition: color .2s; }
+.nav__link::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 2px; background: var(--green); transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease); }
+.nav__link:hover, .nav__link.is-active { color: var(--text); }
+.nav__link:hover::after, .nav__link.is-active::after { transform: scaleX(1); }
+.nav-toggle { display: none; }
+
+@media (max-width: 1080px) {
+  .nav-toggle { position: relative; z-index: 2; display: inline-flex; flex-direction: column; justify-content: center; gap: 6px; width: 48px; height: 48px; padding: 0 13px; border: 1px solid var(--line-2); border-radius: var(--radius); background: rgba(13, 15, 14, .5); cursor: pointer; }
+  .nav-toggle span { height: 2px; background: var(--text); transition: transform .3s var(--ease); }
+  .nav-open .nav-toggle span:first-child { transform: translateY(4px) rotate(45deg); }
+  .nav-open .nav-toggle span:last-child { transform: translateY(-4px) rotate(-45deg); }
+  .nav { position: fixed; inset: 0; z-index: 1; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 32px; padding: calc(var(--header-h) + 24px) var(--gutter) calc(32px + env(safe-area-inset-bottom)); overflow-y: auto; scrollbar-width: thin; background: var(--bg); opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; }
+  .nav-open .nav { opacity: 1; visibility: visible; }
+  body.nav-open { overflow: hidden; }
+  /* backdrop-filter would trap the fixed menu inside the header */
+  .nav-open .site-header { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .nav__list { flex-direction: column; gap: 0; }
+  .nav__link { padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--text); font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2.25rem; line-height: 1; text-transform: uppercase; }
+  .nav__link::after { display: none; }
+  .nav__link.is-active { color: var(--green-2); }
+  .nav__cta { min-height: 54px; }
+}
+
+/* ---------- hero ---------- */
+.hero { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: flex-end; min-height: 640px; min-height: max(640px, 100svh); overflow: hidden; }
+.hero__media { position: absolute; inset: 0; z-index: -2; }
+.hero__shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(13, 15, 14, .94) 0%, rgba(13, 15, 14, .72) 38%, rgba(13, 15, 14, .25) 75%, rgba(13, 15, 14, .15) 100%), linear-gradient(0deg, var(--bg) 0%, rgba(13, 15, 14, 0) 38%); }
+/* No hero photo: overhead lights and a perspective floor-tile grid */
+.hero__media:not(.has-img) { background: radial-gradient(36% 30% at 62% 0%, rgba(245, 245, 242, .16), transparent 70%), radial-gradient(28% 24% at 88% 6%, rgba(245, 245, 242, .10), transparent 70%), radial-gradient(50% 45% at 78% 100%, rgba(109, 190, 69, .12), transparent 70%), linear-gradient(180deg, #1A1F1C 0%, #0D0F0E 75%); }
+.hero__media:not(.has-img)::before { inset: auto -40% 0 -40%; height: 62%; background-image: linear-gradient(var(--line-2) 1px, transparent 1px), linear-gradient(90deg, var(--line-2) 1px, transparent 1px); background-size: 96px 96px; transform: perspective(520px) rotateX(64deg); transform-origin: bottom; -webkit-mask-image: linear-gradient(0deg, #000 10%, transparent 90%); mask-image: linear-gradient(0deg, #000 10%, transparent 90%); }
+.hero__inner { padding-top: calc(var(--header-h) + 72px); padding-bottom: clamp(40px, 7vw, 88px); }
+.hero__title { display: flex; flex-direction: column; gap: 24px; }
+.hero__brand { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; color: var(--text-2); font-family: var(--font); font-stretch: 100%; font-size: 1rem; font-weight: 500; line-height: 1.2; letter-spacing: 0; text-transform: none; }
+.hero__brand b { padding: 7px 12px 6px; border: 1px solid var(--green); color: var(--text); font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 1.375rem; letter-spacing: .06em; text-transform: uppercase; }
+.hero__heading { display: block; font-size: clamp(2.75rem, 13.5vw, 9.75rem); line-height: .86; }
+.hero__line { display: block; }
+.hero__sub { max-width: 44ch; margin-top: 26px; color: var(--text-2); font-size: clamp(1.0625rem, 1.5vw, 1.25rem); }
+.hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+.hero__strip { border-top: 1px solid var(--line); background: rgba(13, 15, 14, .7); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.facility-strip { display: flex; flex-wrap: wrap; align-items: center; min-height: 64px; row-gap: 6px; font-family: var(--font-narrow); font-stretch: 75%; font-weight: 700; font-size: 1.0625rem; letter-spacing: .08em; text-transform: uppercase; }
+.facility-strip li + li::before { content: "\2022"; margin: 0 16px; color: var(--green); }
+.facility-strip--small { min-height: 0; margin-top: 16px; color: var(--muted); font-size: .9375rem; }
+/* Phones: the words under the top photo stay on one line; swipe to see them all. */
+@media (max-width: 759px) {
+  .hero__strip .facility-strip { flex-wrap: nowrap; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overscroll-behavior-x: contain; white-space: nowrap; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent); mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent); }
+  .hero__strip .facility-strip::-webkit-scrollbar { display: none; }
+  .hero__strip .facility-strip li { flex: none; }
+}
+
+/* The one orchestrated moment: hero load sequence */
+@keyframes rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes settle { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.js .hero__media { animation: settle 1.6s var(--ease) both; }
+.js .hero__brand, .js .hero__line, .js .hero__sub, .js .hero__actions { animation: rise .9s var(--ease) both; }
+.js .hero__line:nth-child(1) { animation-delay: .1s; }
+.js .hero__line:nth-child(2) { animation-delay: .2s; }
+.js .hero__line:nth-child(3) { animation-delay: .28s; }
+.js .hero__sub { animation-delay: .34s; }
+.js .hero__actions { animation-delay: .44s; }
+
+/* ---------- stats ---------- */
+.stats { border-bottom: 1px solid var(--line); }
+.stats__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); overflow: hidden; }
+.stat { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 8px; padding: 30px 24px; box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line); }
+.stat__value { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2.75rem, 5vw, 4rem); line-height: 1; }
+.stat__affix { color: var(--green); }
+.stat__label { color: var(--muted); font-size: .9375rem; font-weight: 500; }
+
+/* ---------- announcements without a photo (strip) ---------- */
+.notice { border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.notice__inner { display: grid; gap: 14px 40px; padding-block: 24px; }
+.notice__label { display: inline-flex; align-items: center; gap: 10px; height: fit-content; color: var(--green-2); font-family: var(--font); font-stretch: 100%; font-size: .9375rem; font-weight: 600; line-height: 1.4; text-transform: none; }
+.notice__label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+.notice__list { display: grid; gap: 14px; }
+.notice__item { display: grid; gap: 2px 24px; }
+.notice__item time { padding-top: 2px; color: var(--muted-2); font-size: .875rem; }
+.notice__item h3 { font-size: 1.0625rem; }
+.notice__item p { color: var(--muted); }
+@media (min-width: 760px) {
+  .notice__inner { grid-template-columns: 200px minmax(0, 1fr); }
+  .notice__item { grid-template-columns: 120px minmax(0, 1fr); }
+}
+
+/* ---------- about ---------- */
+.about__grid { display: grid; gap: 40px; align-items: center; }
+.about__media { position: relative; }
+.media--portrait { aspect-ratio: 4 / 5; border-radius: var(--radius); }
+.about__tag { position: absolute; left: 0; bottom: 0; display: flex; align-items: baseline; gap: 10px; padding: 18px 22px; border-top: 2px solid var(--green); background: var(--bg); color: var(--text-2); font-weight: 500; }
+.about__tag strong { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2.5rem; line-height: 1; color: var(--text); }
+.about__body h2 { margin-top: 16px; font-size: clamp(2.5rem, 5.4vw, 4.25rem); }
+.about__text { display: grid; gap: 14px; max-width: 60ch; margin-top: 24px; color: var(--muted); font-size: 1.0625rem; }
+.highlights { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
+.highlights li { display: flex; align-items: baseline; gap: 12px; font-weight: 600; }
+.highlights li::before { content: ""; flex: none; width: 10px; height: 10px; background: var(--green); transform: translateY(1px); }
+.about__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; margin-top: 36px; }
+@media (min-width: 920px) { .about__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(56px, 7vw, 104px); } }
+@media (max-width: 480px) { .highlights { grid-template-columns: 1fr; } }
+
+/* ---------- events (announcements with a photo) ---------- */
+.events { border-top: 1px solid var(--line); }
+.event-grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
+.event { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg-2); transition: border-color .3s; }
+.event:hover { border-color: rgba(109, 190, 69, .45); }
+.event__media { position: relative; }
+.event__img { aspect-ratio: 4 / 3; }
+.event__img img { transition: transform 1s var(--ease); }
+.event:hover .event__img img { transform: scale(1.03); }
+.event__date { position: absolute; left: 14px; top: 14px; display: grid; justify-items: center; min-width: 60px; padding: 8px 10px 7px; border-radius: 6px; background: var(--green); color: #0A0C0B; font-size: .75rem; font-weight: 700; line-height: 1.1; text-transform: uppercase; box-shadow: 0 8px 20px rgba(0, 0, 0, .35); }
+.event__date b { font-family: var(--font-narrow); font-stretch: 62.5%; font-size: 1.875rem; font-weight: 800; line-height: 1; }
+.event__body { display: flex; flex: 1; flex-direction: column; gap: 10px; padding: 22px 22px 24px; }
+.event__tag { color: var(--green-2); font-size: .875rem; font-weight: 600; }
+.event__title { font-size: 1.3125rem; }
+.event__desc { flex: 1; color: var(--muted); white-space: pre-line; }
+.event .btn { align-self: flex-start; margin-top: 6px; }
+.event.is-past { opacity: .72; }
+.event.is-past .event__date { background: var(--bg-3); color: var(--muted); box-shadow: none; }
+
+/* ---------- facilities: main areas as tall photo cards ---------- */
+.facilities { border-top: 1px solid var(--line); }
+.facility-grid { display: grid; gap: 2px; }
+.facility-card { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: flex-end; min-height: clamp(440px, 48vw, 600px); overflow: hidden; background: var(--bg-2); }
+.facility-card__media { position: absolute; inset: 0; z-index: -2; transition: transform 1.2s var(--ease); }
+.facility-card::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(13, 15, 14, .05) 25%, rgba(13, 15, 14, .88) 80%); }
+.facility-card::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--green); transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease); }
+.facility-card:hover::after { transform: scaleX(1); }
+.facility-card:hover .facility-card__media { transform: scale(1.04); }
+.facility-card__body { padding: clamp(24px, 3vw, 36px); }
+.facility-card__title { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2.25rem, 3.6vw, 3.25rem); line-height: .95; text-transform: uppercase; }
+.facility-card__tags { margin-top: 12px; color: var(--green-2); font-size: .9375rem; font-weight: 600; }
+.facility-card__tags i { font-style: normal; color: var(--green); }
+.facility-card__desc { max-width: 40ch; margin-top: 12px; color: var(--text-2); }
+.facility-extra { display: grid; gap: 20px; margin-top: 48px; }
+.facility-extra__title { padding-top: 18px; font-size: 1.125rem; }
+.facility-extra__list { display: grid; }
+.facility-extra__list li { display: flex; gap: 14px; padding: 18px 0; border-top: 1px solid var(--line); }
+.facility-extra__list li::before { content: ""; flex: none; width: 10px; height: 10px; margin-top: 7px; background: var(--green); }
+.facility-extra__list h4 { font-size: 1.0625rem; }
+.facility-extra__list p { margin-top: 4px; color: var(--muted); font-size: .9375rem; }
+@media (min-width: 640px) { .facility-extra__list { grid-template-columns: repeat(2, 1fr); column-gap: 40px; } }
+@media (min-width: 760px) {
+  .facility-grid { grid-template-columns: repeat(2, 1fr); }
+  .facility-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (min-width: 900px) { .facility-extra { grid-template-columns: 220px minmax(0, 1fr); gap: 40px; } }
+@media (min-width: 1024px) {
+  .facility-grid { grid-template-columns: repeat(var(--cols, 3), 1fr); }
+  .facility-card:last-child:nth-child(odd) { grid-column: auto; }
+}
+/* Phones: swipe through the areas instead of scrolling past tall cards. */
+@media (max-width: 759px) {
+  .facility-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 86%; gap: 10px; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
+  .facility-grid::-webkit-scrollbar { display: none; }
+  .facility-card { min-height: 420px; border-radius: var(--radius); scroll-snap-align: start; }
+}
+
+/* ---------- membership: one rate board, not separate cards ---------- */
+.plans { position: relative; border-block: 1px solid var(--line); background: var(--bg-2); }
+.plans::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 96px 96px; -webkit-mask-image: radial-gradient(80% 70% at 50% 0%, #000, transparent); mask-image: radial-gradient(80% 70% at 50% 0%, #000, transparent); }
+.plans > .container { position: relative; }
+.plan-board { display: grid; overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+.plan { position: relative; display: flex; flex-direction: column; padding: 32px 28px; box-shadow: 1px 0 0 var(--line-2), 0 1px 0 var(--line-2); }
+.plan--featured { background: linear-gradient(180deg, var(--green-soft), transparent 45%); }
+.plan--featured::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--green); }
+.plan__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 26px; }
+.plan__name { color: var(--green-2); font-size: 1.0625rem; font-weight: 600; }
+.plan__badge { padding: 5px 9px; border-radius: 2px; background: var(--green); color: #0A0C0B; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.plan__price { margin-top: 28px; font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(3rem, 4.4vw, 3.75rem); line-height: 1; overflow-wrap: anywhere; }
+.plan__price--ask { display: flex; align-items: flex-end; min-height: 1em; font-size: clamp(2rem, 3vw, 2.5rem); color: var(--text-2); }
+.plan__duration { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 10px; color: var(--text-2); font-weight: 500; }
+.plan__per { color: var(--muted-2); font-size: .875rem; }
+.plan__body { flex: 1; margin: 24px 0 28px; padding-top: 22px; border-top: 1px solid var(--line); }
+.plan__desc { color: var(--muted); font-size: .9375rem; }
+.plan__features { display: grid; gap: 10px; margin-top: 16px; }
+.plan__features li { display: flex; gap: 12px; font-size: .9375rem; }
+.plan__features li::before { content: ""; flex: none; width: 12px; height: 7px; margin-top: 7px; border-left: 2px solid var(--green); border-bottom: 2px solid var(--green); transform: rotate(-45deg); }
+.plans__note { margin-top: 24px; color: var(--muted-2); font-size: .9375rem; }
+@media (min-width: 640px) { .plan-board { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .plan-board { grid-template-columns: repeat(var(--cols, 4), 1fr); } }
+
+/* personal training and diet plans (Services tab), under the plans */
+.services { margin-top: clamp(48px, 6vw, 72px); }
+.services__title { margin-bottom: 20px; font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2rem, 3.6vw, 2.75rem); line-height: 1; text-transform: uppercase; }
+.service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+.service { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 28px; box-shadow: 1px 0 0 var(--line-2), 0 1px 0 var(--line-2); }
+.service::before { content: ""; position: absolute; left: 0; top: 28px; width: 3px; height: 26px; background: var(--green); }
+.service__name { color: var(--green-2); font-size: 1.0625rem; font-weight: 600; }
+.service__price { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: clamp(2.5rem, 3.6vw, 3.25rem); line-height: 1; }
+.service__price span { display: block; margin-top: 8px; color: var(--muted-2); font-family: var(--font); font-stretch: 100%; font-size: .875rem; font-weight: 500; line-height: 1.3; text-transform: none; }
+.service__price--ask { color: var(--text-2); font-size: clamp(1.75rem, 2.6vw, 2.25rem); }
+.service__desc { flex: 1; color: var(--muted); font-size: .9375rem; }
+.service .text-link { align-self: flex-start; margin-top: 4px; }
+.services__call { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 20px; color: var(--muted); }
+.services__call a { color: var(--text); font-family: var(--font-narrow); font-stretch: 75%; font-size: 1.375rem; font-weight: 800; letter-spacing: .02em; }
+.services__call a:hover { color: var(--green-2); }
+
+/* Phones: plans, and personal training and diet plans, side by side in one row; swipe to see the next one. */
+@media (max-width: 639px) {
+  .plan-board, .service-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 82%; gap: 12px; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); scrollbar-width: none; border: 0; border-radius: 0; background: none; }
+  .plan-board::-webkit-scrollbar, .service-grid::-webkit-scrollbar { display: none; }
+  .plan, .service { border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); box-shadow: none; scroll-snap-align: start; }
+  .plan--featured { border-color: rgba(109, 190, 69, .5); background: linear-gradient(180deg, var(--green-soft), transparent 45%), var(--bg); }
+}
+
+/* ---------- trainers ---------- */
+.trainer-grid { display: grid; gap: 32px 20px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+.trainer__media { aspect-ratio: 4 / 5; border-radius: var(--radius); }
+.trainer__media img { filter: grayscale(.25); transition: filter .5s, transform 1s var(--ease); }
+.trainer:hover .trainer__media img { filter: none; transform: scale(1.03); }
+.trainer__body { padding-top: 18px; }
+.trainer__name { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2rem; line-height: 1; text-transform: uppercase; }
+.trainer__role { margin-top: 6px; color: var(--green-2); font-size: .9375rem; font-weight: 600; }
+.trainer__spec { margin-top: 10px; color: var(--text-2); font-size: .9375rem; font-weight: 500; }
+.trainer__bio { margin-top: 8px; color: var(--muted); font-size: .9375rem; }
+/* Phones: trainers side by side, swipe to see the next one. */
+@media (max-width: 599px) {
+  .trainer-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%; gap: 14px; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
+  .trainer-grid::-webkit-scrollbar { display: none; }
+  .trainer { scroll-snap-align: start; }
+}
+
+/* ---------- gallery: a preview on the home page, everything on gallery.html ---------- */
+.gallery { border-block: 1px solid var(--line); background: var(--bg-2); }
+.gallery__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-height: 42px; padding: 0 18px; border: 1px solid var(--line-2); border-radius: 999px; background: transparent; color: var(--muted); font-size: .9375rem; font-weight: 500; cursor: pointer; transition: color .2s, border-color .2s, background-color .2s; }
+.chip:hover { border-color: var(--muted-2); color: var(--text); }
+.chip[aria-pressed="true"], .chip[aria-selected="true"] { border-color: var(--green); background: var(--green); color: #0A0C0B; font-weight: 600; }
+.gallery__count { color: var(--muted-2); font-size: .9375rem; }
+.gallery__more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin-top: 28px; }
+.gallery-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; grid-auto-flow: dense; }
+/* Six items: one tall, one wide, four small. Fills 4x2, 3x2 (first four) and 2x4 without gaps. */
+.gallery-grid.is-mosaic .g-item:nth-child(1) { grid-row: span 2; }
+.gallery-grid.is-mosaic .g-item:nth-child(2) { grid-column: span 2; }
+.g-item { position: relative; min-width: 0; }
+.g-item__btn { position: absolute; inset: 0; display: block; width: 100%; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius); background: none; text-align: left; cursor: zoom-in; }
+.g-item__btn.is-video, .m-item__btn.is-video { cursor: pointer; }
+.g-item__btn:focus-visible, .m-item__btn:focus-visible { outline-offset: -3px; }
+.g-item__media { position: absolute; inset: 0; transition: transform .9s var(--ease); }
+.g-item__btn:hover .g-item__media { transform: scale(1.04); }
+.g-item__play { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 58px; height: 58px; margin: -29px 0 0 -29px; border: 1px solid rgba(245, 245, 242, .3); border-radius: 50%; background: rgba(13, 15, 14, .7); color: var(--text); pointer-events: none; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); transition: background-color .25s, color .25s, transform .3s var(--ease); }
+.g-item__play svg { width: 22px; height: 22px; margin-left: 3px; fill: currentColor; }
+.g-item__btn:hover .g-item__play, .g-item__btn:focus-visible .g-item__play, .m-item__btn:hover .g-item__play { border-color: var(--green); background: var(--green); color: #0A0C0B; transform: scale(1.06); }
+.g-item__overlay { position: absolute; inset: auto 0 0; display: flex; flex-direction: column; gap: 2px; padding: 48px 16px 14px; background: linear-gradient(0deg, rgba(13, 15, 14, .92), transparent); opacity: 0; transition: opacity .3s; }
+.g-item__btn:hover .g-item__overlay, .g-item__btn:focus-visible .g-item__overlay, .m-item__btn:hover .g-item__overlay, .m-item__btn:focus-visible .g-item__overlay { opacity: 1; }
+.g-item__cat { color: var(--green-2); font-size: .8125rem; font-weight: 600; }
+.g-item__title { font-weight: 600; }
+.is-animating .g-item, .is-animating .m-item { animation: fade .45s var(--ease) both; animation-delay: calc(min(var(--i), 12) * 30ms); }
+@media (hover: none) { .g-item__overlay { opacity: 1; } }
+@media (min-width: 760px) {
+  .gallery-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 200px; }
+  .gallery-grid.is-mosaic .g-item:nth-child(n+5) { display: none; }
+}
+@media (min-width: 1100px) {
+  .gallery-grid { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 230px; }
+  .gallery-grid.is-mosaic .g-item:nth-child(n+5) { display: block; }
+}
+@media (max-width: 599px) { .gallery__more { flex-direction: column-reverse; align-items: stretch; text-align: center; } }
+
+/* ---------- the full gallery page (gallery.html) ----------
+   The heading and filters stay in the page width; the wall of photos uses the whole
+   width of the screen, with more columns on wider screens. Each picture keeps its own shape. */
+.gpage { padding-top: var(--header-h); }
+.gpage .section { padding-top: clamp(40px, 7vw, 88px); }
+.gpage__title { margin-top: 16px; font-size: clamp(3rem, 9vw, 6.5rem); }
+.gpage__wall { padding-inline: var(--gutter); }
+.masonry { columns: 2; column-gap: 8px; }
+.m-item { position: relative; margin: 0 0 8px; break-inside: avoid; }
+.m-item__btn { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius); background: var(--bg-3); text-align: left; cursor: zoom-in; }
+.m-item__btn img { width: 100%; height: auto; min-height: 120px; object-fit: cover; transition: transform .9s var(--ease); }
+.m-item__btn:hover img { transform: scale(1.03); }
+.m-item__ph { display: block; aspect-ratio: 16 / 9; }
+.gpage__empty { padding: 56px 0; color: var(--muted); text-align: center; }
+.site-footer--slim { padding-top: 0; }
+.site-footer--slim .footer__bottom { margin-top: 0; border-top: 0; }
+@media (min-width: 600px) { .masonry { columns: 3; column-gap: 12px; } .m-item { margin-bottom: 12px; } }
+@media (min-width: 1000px) { .masonry { columns: 4; } }
+@media (min-width: 1300px) { .masonry { columns: 5; } }
+@media (min-width: 1650px) { .masonry { columns: 6; } }
+@media (min-width: 2000px) { .masonry { columns: 7; } }
+@media (min-width: 2400px) { .masonry { columns: 8; } }
+@media (hover: none) { .m-item .g-item__overlay { opacity: 1; } }
+
+/* ---------- lightbox (photos and videos) ---------- */
+.lightbox { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(8, 10, 9, .97); color: var(--text); }
+.lightbox::backdrop { background: rgba(0, 0, 0, .7); }
+.lightbox[open] { display: block; animation: fade .25s ease both; }
+.lightbox__inner { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; height: 100%; padding: 72px 20px 28px; }
+.lightbox__figure { display: flex; flex-direction: column; align-items: center; gap: 18px; min-width: 0; }
+#lb-media { width: 100%; display: flex; justify-content: center; }
+.lightbox__img { width: 100%; max-width: 1200px; height: min(72vh, 820px); border-radius: var(--radius); }
+.lightbox .media img { object-fit: contain; }
+.lightbox .media.has-img { background: none; }
+.lightbox__video { width: min(100%, 1200px); height: min(72vh, 820px); overflow: hidden; border-radius: var(--radius); background: #000; }
+.lightbox__video video, .lightbox__video iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; object-fit: contain; }
+.lightbox figcaption { display: grid; gap: 4px; max-width: 64ch; text-align: center; }
+.lightbox__count { color: var(--muted-2); font-size: .875rem; }
+.lb-btn { display: grid; place-items: center; width: 52px; height: 52px; border: 1px solid var(--line-2); border-radius: 50%; background: rgba(13, 15, 14, .6); color: var(--text); cursor: pointer; transition: border-color .2s, color .2s; }
+.lb-btn:hover { border-color: var(--green); color: var(--green-2); }
+.lb-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+.lightbox__close { position: absolute; top: 16px; right: 16px; z-index: 1; }
+.lightbox.is-single .lightbox__prev, .lightbox.is-single .lightbox__next { visibility: hidden; }
+body.lb-open, body.dialog-open { overflow: hidden; }
+@media (max-width: 700px) {
+  .lightbox__inner { grid-template-columns: minmax(0, 1fr); padding: 72px 12px 104px; }
+  .lightbox__prev, .lightbox__next { position: absolute; bottom: 28px; }
+  .lightbox__prev { left: calc(50% - 64px); }
+  .lightbox__next { right: calc(50% - 64px); }
+  .lightbox__video { height: min(62vh, 720px); }
+}
+
+/* ---------- reviews: quotes on a rule, not cards ---------- */
+.reviews__aside { display: grid; gap: 18px; justify-items: start; }
+.reviews__summary { display: flex; align-items: center; gap: 16px; }
+.reviews__avg { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 4.25rem; line-height: .85; }
+.reviews__summary .review__stars svg { width: 18px; height: 18px; }
+.reviews__count { display: block; margin-top: 6px; color: var(--muted); font-size: .9375rem; }
+.reviews__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.reviews__tabs { margin-bottom: 32px; }
+.reviews__note { margin-bottom: 28px; padding: 14px 18px; border-left: 3px solid var(--green); border-radius: 0 var(--radius) var(--radius) 0; background: var(--bg-2); color: var(--text-2); }
+.reviews__empty { grid-column: 1 / -1; color: var(--muted); font-size: 1.0625rem; }
+.reviews__more { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 44px; }
+.review-grid { display: grid; gap: 40px; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+.review { display: flex; flex-direction: column; gap: 18px; padding-top: 24px; border-top: 2px solid var(--line-2); }
+.review__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review__top time, .review__time { color: var(--muted-2); font-size: .875rem; white-space: nowrap; }
+.review__stars { display: flex; gap: 4px; }
+.review__stars span { color: var(--line-2); }
+.review__stars .is-on { color: var(--green); }
+.review__stars svg { width: 16px; height: 16px; fill: currentColor; }
+.review blockquote { flex: 1; color: var(--text-2); font-size: 1.0625rem; line-height: 1.6; }
+.review__text p { white-space: pre-line; overflow-wrap: anywhere; }
+.review__text.is-clamped p { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+.review__more { align-self: flex-start; margin-top: -6px; padding: 0; border: 0; background: none; color: var(--green-2); font-size: .9375rem; font-weight: 600; cursor: pointer; }
+.review__more:hover { text-decoration: underline; text-underline-offset: 3px; }
+.review__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review__who { display: flex; align-items: center; gap: 12px; min-width: 0; font-weight: 600; }
+.review__who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.review__who:hover > span:last-child { color: var(--green-2); }
+.review__source { flex: none; color: var(--muted-2); font-size: .8125rem; font-weight: 600; }
+.avatar { position: relative; display: grid; place-items: center; flex: none; width: 42px; height: 42px; overflow: hidden; border-radius: 50%; background: var(--bg-3); color: var(--green-2); font-size: .9375rem; font-weight: 700; }
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.like { display: inline-flex; flex: none; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 999px; background: none; color: var(--muted); font-size: .875rem; font-weight: 600; cursor: pointer; transition: border-color .2s, color .2s, background-color .2s; }
+.like svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .2s var(--ease); }
+.like:hover { border-color: var(--green); color: var(--text); }
+.like[aria-pressed="true"] { border-color: var(--green); background: var(--green-soft); color: var(--green-2); }
+.like[aria-pressed="true"] svg { fill: currentColor; transform: scale(1.1); }
+
+/* ---------- dialogs: all reviews, write a review ---------- */
+.sheet { width: min(760px, calc(100% - 32px)); max-width: none; max-height: min(88vh, 900px); margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg-2); color: var(--text); }
+.sheet--narrow { width: min(520px, calc(100% - 32px)); }
+.sheet::backdrop { background: rgba(0, 0, 0, .72); }
+.sheet[open] { display: flex; flex-direction: column; animation: fade .2s ease both; }
+.sheet__panel { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.sheet__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 14px 14px 24px; border-bottom: 1px solid var(--line); }
+.sheet__head h2 { font-size: 2rem; }
+.sheet__close { width: 44px; height: 44px; }
+.sheet__bar { padding: 14px 24px; border-bottom: 1px solid var(--line); }
+.sheet__body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; padding: 8px 24px 28px; }
+.review-list { display: grid; }
+.review-list .review { padding-block: 24px; border-top: 1px solid var(--line); }
+.review-list .review:first-child { border-top: 0; }
+.review-list + .btn { margin-top: 8px; }
+@media (max-width: 640px) {
+  .sheet, .sheet--narrow { width: 100%; height: 100%; max-height: none; margin: 0; border: 0; border-radius: 0; }
+}
+
+/* write a review */
+.review-form .field { margin-top: 18px; }
+.stars-input { margin: 14px 0 0; padding: 0; border: 0; }
+.stars-input legend { padding: 0; font-size: .9375rem; font-weight: 600; }
+.stars-input__row { display: inline-flex; flex-direction: row-reverse; gap: 2px; margin-top: 6px; }
+.stars-input__row input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.stars-input__row label { display: grid; place-items: center; width: 46px; height: 46px; color: var(--line-2); cursor: pointer; transition: color .15s, transform .15s; }
+.stars-input__row label svg { width: 34px; height: 34px; fill: currentColor; }
+.stars-input__row input:checked ~ label { color: var(--green); }
+.stars-input__row:hover input ~ label { color: var(--line-2); }
+.stars-input__row:hover label:hover, .stars-input__row:hover label:hover ~ label { color: var(--green-2); }
+.stars-input__row label:active { transform: scale(.92); }
+.stars-input__row input:focus-visible + label { outline: 2px solid var(--green-2); outline-offset: -4px; border-radius: 6px; }
+.stars-input__text { display: block; margin-top: 2px; color: var(--muted); font-size: .875rem; }
+.field__count { justify-self: end; color: var(--muted-2); font-size: .8125rem; }
+.review-form .btn { margin-top: 22px; }
+.review-form__note { margin-top: 8px; color: var(--muted-2); font-size: .8125rem; }
+.review-form__alt { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9375rem; text-align: center; }
+.review-form__alt a { color: var(--green-2); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- contact: heading across the top, details and the enquiry form side by side ---------- */
+.contact { border-top: 1px solid var(--line); background: var(--bg-2); }
+.contact__head .section-head__lead { margin-top: 0; color: var(--text-2); font-size: 1.125rem; font-weight: 500; }
+.contact__grid { display: grid; gap: 48px; }
+.contact__list { border-top: 1px solid var(--line); }
+.contact__list > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.contact__list dt { color: var(--muted); font-size: .9375rem; }
+.contact__list dd { font-weight: 500; overflow-wrap: anywhere; }
+.contact__list a:hover { color: var(--green-2); }
+.contact__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+
+/* opening hours: one row per group of days, today highlighted, open-now status */
+.hours { display: grid; gap: 6px; max-width: 420px; }
+.hours li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; }
+.hours li span:first-child { color: var(--text-2); }
+.hours li span:last-child { margin-left: auto; }
+.hours li.is-today span { color: var(--green-2); font-weight: 600; }
+.hours em { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green-2); font-size: .75rem; font-style: normal; font-weight: 700; vertical-align: 1px; }
+.hours__note { color: var(--muted); }
+.hours__note span { margin-left: 0 !important; }
+.hours__status { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 5px 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--muted); font-size: .875rem; font-weight: 600; }
+.hours__status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); }
+.hours__status.is-open { border-color: rgba(109, 190, 69, .45); color: var(--green-2); }
+.hours__status.is-open::before { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+
+.enquiry { position: relative; padding: clamp(22px, 4vw, 40px); border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg); }
+html:not(.js) .enquiry { display: none; } /* the form needs JavaScript to send */
+.enquiry::before { content: ""; position: absolute; left: -1px; top: -1px; width: 64px; height: 3px; background: var(--green); }
+.enquiry h3 { font-family: var(--font-narrow); font-stretch: 62.5%; font-weight: 800; font-size: 2.25rem; line-height: 1; text-transform: uppercase; }
+.enquiry__intro { margin-top: 10px; color: var(--muted); }
+.field { display: grid; gap: 8px; margin-top: 20px; }
+.field label { font-size: .9375rem; font-weight: 600; }
+.field label span { color: var(--muted-2); font-weight: 400; }
+.field input, .field textarea { width: 100%; min-height: 52px; padding: 13px 16px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--bg-2); transition: border-color .2s, box-shadow .2s; }
+.sheet .field input, .sheet .field textarea { background: var(--bg); }
+.field textarea { min-height: 116px; resize: vertical; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.field [aria-invalid="true"] { border-color: var(--error); }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.enquiry .btn { margin-top: 24px; }
+.enquiry__status { min-height: 1.5em; margin-top: 14px; font-size: .9375rem; }
+.enquiry__status.is-success { color: var(--green-2); }
+.enquiry__status.is-error { color: var(--error); }
+.enquiry__status a { text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 980px) {
+  /* The name on the right sits exactly above the form. */
+  .contact__head.section-head--split { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); column-gap: clamp(56px, 7vw, 96px); }
+  .contact__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(56px, 7vw, 96px); }
+  /* The form is as tall as the details next to it; the message box takes any extra height. */
+  .contact__side { display: flex; flex-direction: column; }
+  .enquiry { display: flex; flex: 1; flex-direction: column; }
+  .enquiry .field--grow { display: flex; flex: 1; flex-direction: column; }
+  .enquiry .field--grow textarea { flex: 1; }
+}
+/* Phones: the details in one panel, short ones on a single line; Call across the top, two buttons under it. */
+@media (max-width: 600px) {
+  .contact__grid { gap: 32px; }
+  .contact__list { padding: 0 18px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg); }
+  .contact__list > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 15px 0; border-bottom: 0; }
+  .contact__list > div:not([hidden]) ~ div:not([hidden]) { border-top: 1px solid var(--line); }
+  .contact__list dt { flex: none; font-size: .875rem; }
+  .contact__list dd { text-align: right; }
+  .contact__list > [data-row="address"], .contact__list > [data-row="hours"] { display: grid; gap: 8px; }
+  .contact__list > [data-row="address"] dd, .contact__list > [data-row="hours"] dd { text-align: left; }
+  .contact__actions { display: grid; grid-template-columns: 1fr 1fr; margin-top: 20px; }
+  .contact__actions .btn { padding: 0 12px; }
+  .contact__actions .btn:first-child { grid-column: 1 / -1; }
+}
+
+/* map: dark to match the site, normal colours on hover, with an address card */
+.contact__map { margin-top: clamp(40px, 7vw, 80px); }
+.map { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.map__frame { height: clamp(300px, 40vw, 460px); background: var(--bg-3); }
+.map__frame iframe { display: block; width: 100%; height: 100%; border: 0; filter: grayscale(.2) invert(.9) hue-rotate(180deg) contrast(.95) brightness(.95); transition: filter .5s var(--ease); }
+.map:hover .map__frame iframe, .map:focus-within .map__frame iframe { filter: none; }
+.map__card { position: absolute; left: 20px; bottom: 20px; display: flex; align-items: center; gap: 14px; max-width: min(520px, calc(100% - 40px)); padding: 14px 16px; border: 1px solid var(--line-2); border-left: 3px solid var(--green); border-radius: 6px; background: rgba(13, 15, 14, .94); box-shadow: 0 16px 40px rgba(0, 0, 0, .45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.map__pin { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--green-soft); color: var(--green-2); }
+.map__pin svg { width: 20px; height: 20px; }
+.map__text { display: grid; gap: 2px; min-width: 0; }
+.map__text strong { font-weight: 700; }
+.map__text span { color: var(--muted); font-size: .9375rem; }
+.map__card .btn { flex: none; margin-left: auto; }
+@media (max-width: 640px) {
+  .map__card { position: static; flex-wrap: wrap; max-width: none; border-width: 1px 0 0; border-left: 0; border-radius: 0; box-shadow: none; }
+  .map__card .btn { width: 100%; margin-left: 0; }
+}
+
+/* ---------- footer ---------- */
+.site-footer { padding-top: clamp(48px, 7vw, 72px); border-top: 1px solid var(--line); background: var(--bg); }
+.footer__grid { display: grid; gap: 40px; }
+.footer__full { margin-top: 16px; color: var(--text-2); font-weight: 500; }
+.footer__tagline { margin-top: 4px; color: var(--muted); }
+.footer__title { margin-bottom: 14px; color: var(--muted-2); font-family: var(--font); font-stretch: 100%; font-size: .8125rem; font-weight: 700; line-height: 1.4; letter-spacing: .1em; text-transform: uppercase; }
+.footer__nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+.footer__nav a { display: block; padding: 7px 0; color: var(--text-2); transition: color .2s; }
+.footer__nav a:hover { color: var(--green-2); }
+.footer__links { display: flex; flex-wrap: wrap; gap: 10px; }
+.footer__links a { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px 0 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: .9375rem; font-weight: 600; transition: border-color .2s, color .2s, background-color .2s; }
+.footer__links a:hover { border-color: var(--green); background: var(--green-soft); color: var(--green-2); }
+.footer__links svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.footer__bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-top: 56px; padding-block: 24px; border-top: 1px solid var(--line); color: var(--muted-2); font-size: .875rem; }
+.footer__bottom a:hover { color: var(--text); }
+@media (min-width: 700px) { .footer__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 40px; } .footer__brand { grid-column: 1 / -1; } }
+@media (min-width: 1100px) { .footer__grid { grid-template-columns: 1.4fr 1fr 1.1fr; gap: 48px; } .footer__brand { grid-column: auto; } }
+@media (max-width: 699px) {
+  /* phones: everything centred, each block in its own band */
+  .site-footer { text-align: center; }
+  .footer__grid { gap: 0; }
+  .footer__grid > * { padding-block: 26px; border-top: 1px solid var(--line); }
+  .footer__grid > :first-child { padding-top: 0; border-top: 0; }
+  .facility-strip--small { justify-content: center; }
+  .footer__nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 22px; }
+  .footer__nav a { padding: 8px 0; font-size: 1.0625rem; }
+  .footer__links { justify-content: center; }
+  .footer__links a { flex: 0 1 calc(50% - 5px); justify-content: center; min-height: 48px; }
+  .footer__bottom { flex-direction: column; align-items: center; margin-top: 0; }
+}
+
+/* ---------- mobile contact bar ---------- */
+.mobile-bar { display: none; }
+.noscript { padding: 16px; background: var(--bg-2); text-align: center; }
+@media (max-width: 760px) {
+  /* Buttons share the bar equally; a hidden one takes no space. */
+  .mobile-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(13, 15, 14, .94); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .mobile-bar .btn { min-height: 48px; }
+  body.has-mobile-bar { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .nav-open .mobile-bar, .lb-open .mobile-bar, .dialog-open .mobile-bar { display: none; }
+}
+
+/* ---------- phones: tighter spacing, full-width buttons ---------- */
+@media (max-width: 600px) {
+  .hero__inner { padding-top: calc(var(--header-h) + 40px); }
+  .hero__actions .btn { flex: 1 1 100%; }
+  .hero__sub { margin-top: 20px; }
+  .facility-strip { min-height: 56px; font-size: .9375rem; }
+  .facility-strip li + li::before { margin: 0 10px; }
+  .stat { padding: 22px 18px; }
+  .plan { padding: 26px 22px; }
+  .service { padding: 24px 22px; }
+  .facility-extra { margin-top: 36px; }
+  .event__body { padding: 20px 18px 22px; }
+  .review-grid { gap: 32px; }
+  .reviews__actions .btn { flex: 1 1 auto; }
+  .site-header .btn--sm { padding: 0 14px; }
+}
+
+/* ---------- scroll reveal (quiet) & loading ---------- */
+/* .reveal-on is added by main.js, so nothing stays hidden if the script fails to load. */
+.reveal-on .reveal { opacity: 0; transform: translateY(16px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.reveal-on .reveal.is-visible { opacity: 1; transform: none; }
+.is-loading .facility-grid, .is-loading .plan-board, .is-loading .trainer-grid, .is-loading .gallery-grid, .is-loading .masonry, .is-loading .review-grid { min-height: 280px; background: linear-gradient(100deg, transparent 30%, rgba(245, 245, 242, .04) 50%, transparent 70%) 0 0 / 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .reveal-on .reveal { opacity: 1; transform: none; }
+}
+</script>
+
+<script type="text/plain" data-path="js/gallery.js" data-note="updated">
+/* SSV GYM — gallery: a six-item preview on the home page, the full masonry gallery on
+   gallery.html, category filters and the photo and video viewer. v1.6.1 */
+const Gallery = (() => {
+  const { esc, img, media, pad2, mediaKind, videoPoster, videoSrc, youtubeId } = Utils;
+  const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
+  const SIZES = '(min-width: 1100px) 25vw, (min-width: 700px) 33vw, 50vw';   // home page tiles
+  const WALL = '(min-width: 1650px) 17vw, (min-width: 1300px) 20vw, (min-width: 1000px) 25vw, (min-width: 600px) 33vw, 50vw';   // gallery page columns
+  const el = id => document.getElementById(id);
+  const keyOf = v => String(v || '').trim().toLowerCase();
+  const titleCase = s => s.replace(/\b[a-z]/g, c => c.toUpperCase());
+  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  let items = [], view = [], filter = 'all', current = 0, trigger = null, bound = false, labels = {}, order = [], opts = {};
+
+  const labelOf = key => labels[key] || (key ? titleCase(key) : 'Photo');
+  const titleOf = it => it.title || (mediaKind(it.image_url) === 'image' ? 'Gallery photo' : 'Gallery video');
+  const stillOf = (it, w) => (mediaKind(it.image_url) === 'image' ? it.image_url : videoPoster(it.image_url, w));
+
+  /* list: gallery rows. categories: names in filter order (General tab: gallery_categories).
+     options.limit: how many to show (home page). options.masonry: the full gallery page.
+     Safe to call again when fresher content arrives. */
+  function init(list, categories, options = {}) {
+    opts = options || {};
+    items = Array.isArray(list) ? list : [];
+    labels = {};
+    order = [];
+    (categories || []).forEach(name => { const k = keyOf(name); if (k && !(k in labels)) { labels[k] = String(name).trim(); order.push(k); } });
+    items.forEach(i => { const k = keyOf(i.category); if (k && !(k in labels)) { labels[k] = titleCase(k); order.push(k); } });
+    if (!items.some(i => keyOf(i.category) === filter)) filter = 'all';
+    renderFilters();
+    render();
+    if (!bound) bind();
+    if (el('lightbox').open) {
+      if (view.length) { current = Math.min(current, view.length - 1); show(); } else close();
+    }
+  }
+
+  function renderFilters() {
+    const bar = el('gallery-filters');
+    if (!bar) return;
+    const present = new Set(items.map(i => keyOf(i.category)));
+    const keys = order.filter(k => present.has(k));
+    bar.innerHTML = [['all', 'All'], ...keys.map(k => [k, labelOf(k)])]
+      .map(([k, label]) => `<button type="button" class="chip" data-filter="${esc(k)}" aria-pressed="${k === filter}">${esc(label)}</button>`)
+      .join('');
+    bar.hidden = keys.length < 2; // filters only help with two or more categories
+  }
+
+  function setFilter(key) {
+    filter = key !== 'all' && items.some(i => keyOf(i.category) === key) ? key : 'all';
+    const bar = el('gallery-filters');
+    if (bar) bar.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    render();
+  }
+
+  const overlay = (it, kind) => `<span class="g-item__overlay"><span class="g-item__cat">${esc(labelOf(keyOf(it.category)))}${kind === 'image' ? '' : ' · Video'}</span><span class="g-item__title">${esc(titleOf(it))}</span></span>`;
+  const label = (it, kind) => `${kind === 'image' ? 'View larger' : 'Play video'}: ${esc(titleOf(it))}`;
+  const play = kind => (kind === 'image' ? '' : `<span class="g-item__play" aria-hidden="true">${PLAY}</span>`);
+
+  /* Home page: tiles of a fixed size. */
+  function tile(it, i) {
+    const kind = mediaKind(it.image_url), title = titleOf(it);
+    return `<figure class="g-item" style="--i:${i}">
+      <button type="button" class="g-item__btn${kind === 'image' ? '' : ' is-video'}" data-index="${i}" aria-label="${label(it, kind)}">
+        ${media(stillOf(it, 800), title, title, { cls: `g-item__media tone-${(i % 3) + 1}`, sizes: SIZES, widths: [400, 700, 1000] })}
+        ${play(kind)}${overlay(it, kind)}
+      </button>
+    </figure>`;
+  }
+
+  /* Gallery page: each picture at its own shape, in columns across the whole screen. */
+  function brick(it, i) {
+    const kind = mediaKind(it.image_url);
+    const pic = img(stillOf(it, 1000), titleOf(it), { sizes: WALL, widths: [400, 700, 1000] });
+    return `<figure class="m-item" style="--i:${i}">
+      <button type="button" class="m-item__btn${kind === 'image' ? '' : ' is-video'}" data-index="${i}" aria-label="${label(it, kind)}">
+        ${pic || '<span class="m-item__ph"></span>'}${play(kind)}${overlay(it, kind)}
+      </button>
+    </figure>`;
+  }
+
+  function render() {
+    view = filter === 'all' ? items : items.filter(i => keyOf(i.category) === filter);
+    const shown = opts.limit ? view.slice(0, opts.limit) : view;
+    const grid = el('gallery-grid');
+    grid.classList.toggle('is-mosaic', !opts.masonry && shown.length >= 6);
+    grid.innerHTML = shown.map((it, i) => (opts.masonry ? brick(it, i) : tile(it, i))).join('');
+    grid.classList.remove('is-animating');
+    void grid.offsetWidth; // restart the fade
+    grid.classList.add('is-animating');
+    const videos = view.filter(i => mediaKind(i.image_url) !== 'image').length, photos = view.length - videos;
+    const total = el('gallery-count');
+    if (total) total.textContent = [photos ? count(photos, 'photo', 'photos') : '', videos ? count(videos, 'video', 'videos') : ''].filter(Boolean).join(' · ');
+    const more = el('gallery-all');   // home page: a link to the full gallery once the preview is full
+    if (more) more.hidden = !opts.limit || view.length < opts.limit;
+  }
+
+  function bind() {
+    bound = true;
+    const dlg = el('lightbox');
+    const bar = el('gallery-filters');
+    if (bar) bar.addEventListener('click', e => { const b = e.target.closest('[data-filter]'); if (b) setFilter(b.dataset.filter); });
+    el('gallery-grid').addEventListener('click', e => { const b = e.target.closest('[data-index]'); if (b) open(Number(b.dataset.index), b); });
+    // A picture that can't load on the gallery page is left out instead of leaving a hole.
+    window.addEventListener('error', e => { const f = e.target && e.target.closest ? e.target.closest('.m-item') : null; if (f) f.hidden = true; }, true);
+    dlg.addEventListener('click', e => {
+      const act = e.target.closest('[data-lb]');
+      if (act) { if (act.dataset.lb === 'close') close(); else step(act.dataset.lb === 'next' ? 1 : -1); return; }
+      if (e.target === dlg || e.target.classList.contains('lightbox__inner')) close();
+    });
+    dlg.addEventListener('keydown', e => {
+      if (e.target.closest && e.target.closest('video')) return; // arrow keys seek inside a video
+      if (e.key === 'ArrowRight') step(1);
+      else if (e.key === 'ArrowLeft') step(-1);
+    });
+    dlg.addEventListener('close', () => {
+      el('lb-media').innerHTML = ''; // stops any playing video
+      document.body.classList.remove('lb-open');
+      if (trigger && document.contains(trigger)) trigger.focus();
+    });
+    let x0 = null; // swipe on touch screens
+    dlg.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    dlg.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 50 && !(e.target.closest && e.target.closest('video, iframe'))) step(dx < 0 ? 1 : -1);
+    });
+  }
+
+  function open(index, from) {
+    const dlg = el('lightbox');
+    trigger = from;
+    current = index;
+    show();
+    document.body.classList.add('lb-open');
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  }
+
+  function close() {
+    const dlg = el('lightbox');
+    if (typeof dlg.close === 'function') dlg.close();
+    else { dlg.removeAttribute('open'); dlg.dispatchEvent(new Event('close')); }
+  }
+
+  /* The viewer steps through every item in the current category, also those past the preview. */
+  function step(dir) {
+    if (view.length < 2) return;
+    current = (current + dir + view.length) % view.length;
+    show();
+  }
+
+  function show() {
+    const it = view[current];
+    if (!it) return;
+    const kind = mediaKind(it.image_url);
+    const title = titleOf(it);
+    const box = el('lb-media');
+    if (kind === 'youtube') {
+      box.innerHTML = `<div class="lightbox__video"><iframe src="https://www.youtube-nocookie.com/embed/${esc(youtubeId(it.image_url))}?autoplay=1&amp;rel=0&amp;playsinline=1" title="${esc(title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`;
+    } else if (kind === 'video') {
+      const poster = videoPoster(it.image_url, 1400);
+      box.innerHTML = `<div class="lightbox__video"><video src="${esc(videoSrc(it.image_url))}"${poster ? ` poster="${esc(poster)}"` : ''} controls autoplay playsinline preload="metadata">This browser can't play the video.</video></div>`;
+    } else {
+      box.innerHTML = media(it.image_url, title, title, { cls: 'lightbox__img', sizes: '90vw', widths: [800, 1400, 2000], eager: true });
+    }
+    el('lb-title').textContent = title;
+    el('lb-count').textContent = `${pad2(current + 1)} / ${pad2(view.length)}`;
+    el('lightbox').classList.toggle('is-single', view.length < 2);
+  }
+
+  return { init, setFilter };
+})();
+</script>
+
+<script type="text/plain" data-path="index.html" data-note="updated">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SSV Gym | Shree Siddhi Vinayak Gym, Virar West</title>
+  <meta name="description" content="SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, a steam room, and pool and carrom.">
+  <meta name="theme-color" content="#0D0F0E">
+
+  <!-- Link previews (WhatsApp, Facebook). og:url and og:image must be the site's full address. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SSV Gym">
+  <meta property="og:title" content="SSV Gym | Shree Siddhi Vinayak Gym, Virar West">
+  <meta property="og:description" content="Gym, CrossFit, cardio, personal training, diet plans and steam room in Virar West. Call +91 77588 78588.">
+  <meta property="og:locale" content="en_IN">
+  <meta property="og:url" content="https://ssvgym.github.io/ssv-gym/">
+  <meta property="og:image" content="https://ssvgym.github.io/ssv-gym/assets/favicon.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="SSV Gym logo">
+  <meta name="twitter:card" content="summary">
+
+  <!-- Browser tab icon: the SSV logo at assets/favicon.jpg (square, at least 192 x 192 px). -->
+  <link rel="icon" href="assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com">
+  <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <!-- ?v= makes browsers load the new file after an update. Change it whenever you edit a CSS or JS file. -->
+  <link rel="stylesheet" href="css/style.css?v=1.6.1">
+  <script>document.documentElement.classList.add('js');<\/script>
+
+  <!-- Business details for Google. Updated from the sheet when the page loads. -->
+  <script type="application/ld+json" id="ld-business">
+  {
+    "@context": "https://schema.org",
+    "@type": "ExerciseGym",
+    "name": "SSV Gym",
+    "alternateName": "Shree Siddhi Vinayak Gym",
+    "description": "Gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room in Virar West.",
+    "url": "https://ssvgym.github.io/ssv-gym/",
+    "logo": "https://ssvgym.github.io/ssv-gym/assets/favicon.jpg",
+    "telephone": "+917758878588",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Shree Siddhi Manora Commercial Complex, Datt Mandir Road, above IDBI Bank, Doghar Pada, Sheetal Nagar, Virar West",
+      "addressLocality": "Vasai-Virar",
+      "addressRegion": "Maharashtra",
+      "postalCode": "401303",
+      "addressCountry": "IN"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": 19.4515801, "longitude": 72.8066756 },
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], "opens": "06:00", "closes": "23:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Sunday"], "opens": "16:00", "closes": "21:00" }
+    ],
+    "hasMap": "https://maps.app.goo.gl/EX4aAEYxKCztUjqv6",
+    "sameAs": ["https://www.instagram.com/ssvgym2021/", "https://www.facebook.com/p/SSV-GYM-100069942823280/"]
+  }
+  <\/script>
+
+  <!-- Used only if the Google Sheet can't be reached on a visitor's first visit. Keep in step with the General tab. -->
+  <script type="application/json" id="fallback-general">
+  {
+    "gym_name": "SSV Gym",
+    "full_name": "Shree Siddhi Vinayak Gym",
+    "phone": "+91 77588 78588",
+    "phone_2": "+91 75586 08585",
+    "whatsapp": "+91 75586 08585",
+    "address": "Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303",
+    "opening_hours": "Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM",
+    "maps_url": "https://maps.app.goo.gl/EX4aAEYxKCztUjqv6",
+    "maps_embed_url": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin",
+    "instagram_url": "https://www.instagram.com/ssvgym2021/",
+    "facebook_url": "https://www.facebook.com/p/SSV-GYM-100069942823280/",
+    "services_heading": "Personal training and diet plans",
+    "review_form": false
+  }
+  <\/script>
+</head>
+<body class="has-mobile-bar">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="logo" href="#home" aria-label="SSV Gym, back to top">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <nav class="nav" id="site-nav" aria-label="Main">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="#home">Home</a></li>
+          <li><a class="nav__link" href="#about">About</a></li>
+          <li><a class="nav__link" href="#facilities">Facilities</a></li>
+          <li><a class="nav__link" href="#membership">Membership</a></li>
+          <li><a class="nav__link" href="#trainers">Trainers</a></li>
+          <li><a class="nav__link" href="#gallery">Gallery</a></li>
+          <li><a class="nav__link" href="#contact">Contact</a></li>
+        </ul>
+        <a class="btn btn--primary btn--sm nav__cta" href="#membership" data-requires="membership">View membership plans</a>
+      </nav>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero__media media" id="hero-media" data-label="Hero photo"></div>
+      <div class="hero__shade" aria-hidden="true"></div>
+      <div class="container hero__inner">
+        <h1 class="hero__title" id="hero-title">
+          <span class="hero__brand"><b data-g="gym_name">SSV Gym</b><span data-g="full_name">Shree Siddhi Vinayak Gym</span></span>
+          <span class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></span>
+        </h1>
+        <p class="hero__sub" data-g="hero_subtitle" data-optional>Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#facilities" data-requires="facilities">View facilities</a>
+          <a class="btn btn--ghost" href="#membership" data-requires="membership">Membership plans</a>
+        </div>
+      </div>
+      <div class="hero__strip">
+        <div class="container">
+          <ul class="facility-strip" data-g-list="facility_strip" aria-label="Areas at SSV Gym"><li>Main Gym</li><li>CrossFit</li><li>Cardio</li><li>Steam Room</li><li>Pool &amp; Carrom</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK STATS (General tab: stat_1_value, stat_1_label … stat_6). Hidden while empty. -->
+    <section class="stats" id="stats" aria-label="SSV Gym at a glance" hidden>
+      <div class="container"><dl class="stats__grid" id="stats-grid"></dl></div>
+    </section>
+
+    <!-- ANNOUNCEMENTS WITHOUT A PHOTO: short notices in a strip. Hidden when there are none. -->
+    <section class="notice" id="announcements" aria-labelledby="notice-title" hidden>
+      <div class="container notice__inner">
+        <h2 class="notice__label" id="notice-title">Announcements</h2>
+        <ul class="notice__list" id="notice-list"></ul>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="section about" id="about" aria-labelledby="about-title">
+      <div class="container about__grid">
+        <div class="about__media reveal">
+          <div class="media media--portrait" id="about-media" data-label="About photo"></div>
+          <p class="about__tag" hidden><strong id="zone-count">3</strong> dedicated areas</p>
+        </div>
+        <div class="about__body reveal">
+          <p class="section-label">About SSV</p>
+          <h2 id="about-title" data-g="about_heading">Shree Siddhi Vinayak Gym</h2>
+          <div class="about__text" id="about-text">
+            <p>SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal.</p>
+            <p>Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.</p>
+          </div>
+          <ul class="highlights" id="about-highlights"><li>Personal training</li><li>Weight loss and weight gain programmes</li><li>CrossFit and functional training</li><li>Complimentary lockers</li></ul>
+          <div class="about__actions">
+            <a class="btn btn--primary" href="#contact">Contact SSV</a>
+            <a class="text-link" href="#facilities" data-requires="facilities">Explore facilities</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EVENTS: announcements with a photo (tournaments, competitions). Hidden when there are none. -->
+    <section class="section events" id="events" aria-labelledby="events-title" hidden>
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Events</p>
+            <h2 id="events-title">What's on at SSV</h2>
+          </div>
+          <p class="section-head__lead">Tournaments, competitions and special sessions at the gym. Tap Ask about this to register your interest.</p>
+        </header>
+        <div class="event-grid reveal" id="event-grid"></div>
+      </div>
+    </section>
+
+    <!-- FACILITIES: main areas as photo cards, the rest as a short list -->
+    <section class="section facilities" id="facilities" aria-labelledby="facilities-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Facilities</p>
+            <h2 id="facilities-title">Train &amp; recover</h2>
+          </div>
+          <p class="section-head__lead" data-g="facilities_intro" data-optional>A full gym floor, a CrossFit and functional training zone, cardio equipment, a steam room for recovery, and pool and carrom to unwind.</p>
+        </header>
+        <div class="facility-grid reveal" id="facility-grid"></div>
+        <div class="facility-extra" id="facility-extra" hidden>
+          <h3 class="facility-extra__title">Also at SSV</h3>
+          <ul class="facility-extra__list" id="facility-extra-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEMBERSHIP, then personal training and diet plans (Services tab) -->
+    <section class="section plans" id="membership" aria-labelledby="plans-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Membership</p>
+            <h2 id="plans-title">Membership plans</h2>
+          </div>
+          <p class="section-head__lead">Pick the duration that suits your routine, then tap Enquire to ask about joining.</p>
+        </header>
+        <div class="plan-board reveal" id="plan-grid"></div>
+        <p class="plans__note" id="plans-note">Call or WhatsApp the gym to confirm current fees and offers.</p>
+        <div class="services reveal" id="services" hidden>
+          <h3 class="services__title" data-g="services_heading">Personal training and diet plans</h3>
+          <div class="service-grid" id="service-grid"></div>
+          <p class="services__call" data-row="call">Call for assistance <a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRAINERS (hidden until trainers are added) -->
+    <section class="section trainers" id="trainers" aria-labelledby="trainers-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="section-label">Trainers</p>
+          <h2 id="trainers-title">Coaches on the floor</h2>
+        </header>
+        <div class="trainer-grid reveal" id="trainer-grid"></div>
+      </div>
+    </section>
+
+    <!-- GALLERY: the first six items here, everything on gallery.html -->
+    <section class="section gallery" id="gallery" aria-labelledby="gallery-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h2 id="gallery-title">Inside SSV</h2>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events.</p>
+        </header>
+        <div class="gallery-grid" id="gallery-grid"></div>
+        <div class="gallery__more">
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+          <a class="btn btn--ghost" id="gallery-all" href="gallery.html" hidden>See the full gallery <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- REVIEWS: the Google rating and Google reviews, and reviews written on this website -->
+    <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Reviews</p>
+            <h2 id="reviews-title">What members say</h2>
+          </div>
+          <div class="reviews__aside">
+            <div class="reviews__summary" id="reviews-summary" hidden>
+              <strong class="reviews__avg" id="reviews-avg">0.0</strong>
+              <div><div id="reviews-avg-stars"></div><span class="reviews__count" id="reviews-count"></span></div>
+            </div>
+            <div class="reviews__actions">
+              <a class="btn btn--primary btn--sm" id="google-reviews" href="#reviews" target="_blank" rel="noopener" hidden>See all reviews on Google</a>
+              <button class="btn btn--ghost btn--sm" type="button" id="write-review" hidden>Write a review</button>
+            </div>
+          </div>
+        </header>
+        <div class="chips reviews__tabs" id="review-tabs" role="tablist" aria-label="Choose reviews" hidden>
+          <button class="chip" type="button" role="tab" data-tab="google" aria-selected="true">Google reviews</button>
+          <button class="chip" type="button" role="tab" data-tab="site" aria-selected="false">On this website</button>
+        </div>
+        <p class="reviews__note" id="reviews-note" role="status" hidden></p>
+        <div class="review-grid reveal" id="review-grid"></div>
+        <div class="reviews__more" id="reviews-more" hidden>
+          <button class="btn btn--ghost" type="button" id="all-reviews">See all <span id="all-reviews-count"></span> reviews</button>
+          <a class="btn btn--ghost" id="google-more" href="#reviews" target="_blank" rel="noopener" hidden>Read all reviews on Google</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT: heading across the top (the full name on the right), the details on the left, the enquiry form on the right -->
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container">
+        <header class="section-head section-head--split contact__head reveal">
+          <div>
+            <p class="section-label">Contact</p>
+            <h2 id="contact-title">Visit <span data-g="gym_name">SSV Gym</span></h2>
+          </div>
+          <p class="section-head__lead" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        </header>
+        <div class="contact__grid">
+          <div class="contact__info reveal">
+            <dl class="contact__list">
+              <div data-row="address"><dt>Address</dt><dd data-g-lines="address">Shree Siddhi Manora Commercial Complex<br>Datt Mandir Road, above IDBI Bank<br>Doghar Pada, Sheetal Nagar, Virar West<br>Vasai-Virar, Maharashtra 401303</dd></div>
+              <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
+              <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
+              <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
+              <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours><li><span>Monday – Saturday</span><span>6:00 AM – 11:00 PM</span></li><li><span>Sunday</span><span>4:00 PM – 9:00 PM</span></li></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
+              <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
+              <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
+            </dl>
+            <div class="contact__actions">
+              <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
+              <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+              <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
+            </div>
+          </div>
+          <div class="contact__side reveal">
+            <form class="enquiry" id="enquiry-form" novalidate>
+              <h3>Send an enquiry</h3>
+              <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
+              <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
+              <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+              <div class="field field--grow"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
+              <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+              <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
+              <p class="enquiry__status" id="enquiry-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+      </div>
+      <!-- MAP: dark to match the site, normal colours on hover, with the address and a directions button -->
+      <div class="container contact__map reveal" hidden>
+        <figure class="map" id="map-embed"></figure>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <a class="logo" href="#home" aria-label="SSV Gym, back to top"><span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span></a>
+        <p class="footer__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        <p class="footer__tagline" data-g="tagline" data-optional>Train strong. Live strong.</p>
+        <ul class="facility-strip facility-strip--small" data-g-list="facility_strip"><li>Main Gym</li><li>CrossFit</li><li>Cardio</li><li>Steam Room</li><li>Pool &amp; Carrom</li></ul>
+      </div>
+      <nav class="footer__col" aria-label="Footer">
+        <h2 class="footer__title">Explore</h2>
+        <ul class="footer__nav">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#events">Events</a></li>
+          <li><a href="#facilities">Facilities</a></li>
+          <li><a href="#membership">Membership</a></li>
+          <li><a href="#trainers">Trainers</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#reviews">Reviews</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="footer__col" id="footer-connect">
+        <h2 class="footer__title">Connect</h2>
+        <ul class="footer__links">
+          <li><a data-link="phone" href="tel:+917758878588"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Call</a></li>
+          <li><a data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>WhatsApp</a></li>
+          <li><a data-link="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/><path d="M16.5 7.5v.01"/></svg>Instagram</a></li>
+          <li><a data-link="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v4h3v7h4v-7h3l1-4h-4V8a1 1 0 0 1 1-1h3V3h-3a5 5 0 0 0-5 5v2H7"/></svg>Facebook</a></li>
+          <li><a data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Directions</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym. All rights reserved.</p>
+      <a href="#home">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <!-- ALL REVIEWS WRITTEN ON THIS WEBSITE -->
+  <dialog class="sheet" id="reviews-dialog" aria-labelledby="reviews-dialog-title">
+    <div class="sheet__panel">
+      <header class="sheet__head">
+        <h2 id="reviews-dialog-title">All reviews</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__bar">
+        <div class="chips" role="group" aria-label="Sort reviews">
+          <button type="button" class="chip" data-sort="top" aria-pressed="true">Most liked</button>
+          <button type="button" class="chip" data-sort="new" aria-pressed="false">Newest</button>
+        </div>
+      </div>
+      <div class="sheet__body">
+        <div class="review-list" id="review-list"></div>
+        <button class="btn btn--ghost btn--block" type="button" id="review-list-more" hidden>Show more reviews</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- WRITE A REVIEW -->
+  <dialog class="sheet sheet--narrow" id="review-dialog" aria-labelledby="review-dialog-title">
+    <form class="sheet__panel review-form" id="review-form" novalidate>
+      <header class="sheet__head">
+        <h2 id="review-dialog-title">Write a review</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__body">
+        <fieldset class="stars-input">
+          <legend>Your rating</legend>
+          <div class="stars-input__row">
+            <input type="radio" id="rate-5" name="rating" value="5"><label for="rate-5"><span class="sr-only">5 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-4" name="rating" value="4"><label for="rate-4"><span class="sr-only">4 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-3" name="rating" value="3"><label for="rate-3"><span class="sr-only">3 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-2" name="rating" value="2"><label for="rate-2"><span class="sr-only">2 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-1" name="rating" value="1"><label for="rate-1"><span class="sr-only">1 star</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+          </div>
+          <span class="stars-input__text" id="rating-text" aria-hidden="true">Tap a star</span>
+        </fieldset>
+        <div class="field"><label for="rev-name">Your name</label><input id="rev-name" name="name" type="text" autocomplete="name" maxlength="60" required></div>
+        <div class="field"><label for="rev-text">Your review</label><textarea id="rev-text" name="review" rows="5" maxlength="800" required></textarea><small class="field__count"><span id="rev-count">0</span> / 800</small></div>
+        <div class="hp" aria-hidden="true"><label for="rev-website">Leave this empty</label><input id="rev-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <button class="btn btn--primary btn--block" type="submit">Post review</button>
+        <p class="enquiry__status" id="review-status" role="status" aria-live="polite"></p>
+        <p class="review-form__note">Your name and review will be shown on this website.</p>
+        <p class="review-form__alt" id="google-write-row" hidden>Prefer Google? <a id="google-write" href="#reviews" target="_blank" rel="noopener">Review SSV Gym on Google</a></p>
+      </div>
+    </form>
+  </dialog>
+
+  <noscript><p class="noscript">JavaScript is turned off, so some content can't load. Call the gym on +91 77588 78588.</p></noscript>
+
+  <script src="js/config.js?v=1.6.1"><\/script>
+  <script src="js/utils.js?v=1.6.1"><\/script>
+  <script src="js/api.js?v=1.6.1"><\/script>
+  <script src="js/gallery.js?v=1.6.1"><\/script>
+  <script src="js/main.js?v=1.6.1"><\/script>
+</body>
+</html>
+</script>
+
+<script type="text/plain" data-path="gallery.html" data-note="new">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gallery | SSV Gym, Virar West</title>
+  <meta name="description" content="Photos and videos from SSV Gym (Shree Siddhi Vinayak Gym), Virar West: the gym floor, the CrossFit zone, training sessions, equipment and events.">
+  <meta name="theme-color" content="#0D0F0E">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SSV Gym">
+  <meta property="og:title" content="Gallery | SSV Gym, Virar West">
+  <meta property="og:url" content="https://ssvgym.github.io/ssv-gym/gallery.html">
+  <meta property="og:image" content="https://ssvgym.github.io/ssv-gym/assets/favicon.jpg">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=1.6.1">
+  <script>document.documentElement.classList.add('js');<\/script>
+</head>
+<body class="page-gallery has-mobile-bar">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header is-scrolled">
+    <div class="container site-header__inner">
+      <a class="logo" href="index.html" aria-label="SSV Gym home">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <a class="btn btn--ghost btn--sm" href="index.html"><span aria-hidden="true">←</span> Back to home</a>
+    </div>
+  </header>
+
+  <main id="main" class="gpage">
+    <section class="section" aria-labelledby="gallery-title">
+      <!-- The heading and filters stay in the page width. -->
+      <div class="container">
+        <header class="section-head section-head--split">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h1 class="gpage__title" id="gallery-title">Inside SSV</h1>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events. Tap a photo to see it larger.</p>
+        </header>
+        <div class="gallery__bar">
+          <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+        </div>
+      </div>
+      <!-- The photos use the whole width of the screen: more columns on wider screens. -->
+      <div class="gpage__wall">
+        <div class="masonry" id="gallery-grid"></div>
+      </div>
+      <div class="container">
+        <p class="gpage__empty" id="gallery-empty" hidden>No photos yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer site-footer--slim">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym · Shree Siddhi Vinayak Gym, Virar West</p>
+      <a href="index.html">Back to home</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <noscript><p class="noscript">JavaScript is turned off, so the gallery can't load. Call the gym on +91 77588 78588.</p></noscript>
+
+  <script src="js/config.js?v=1.6.1"><\/script>
+  <script src="js/utils.js?v=1.6.1"><\/script>
+  <script src="js/api.js?v=1.6.1"><\/script>
+  <script src="js/gallery.js?v=1.6.1"><\/script>
+  <script src="js/gallery-page.js?v=1.6.1"><\/script>
+</body>
+</html>
+</script>
+
+<script type="text/plain" data-path="demo/index.html" data-note="updated">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Demo · SSV Gym | Shree Siddhi Vinayak Gym, Virar West</title>
+  <meta name="description" content="Demo of the SSV Gym website with sample content.">
+  <meta name="theme-color" content="#0D0F0E">
+  <link rel="icon" href="../assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=1.6.1">
+  <link rel="stylesheet" href="demo.css?v=1.6.1">
+  <script>document.documentElement.classList.add('js');<\/script>
+  <script type="application/json" id="fallback-general">
+  { "gym_name": "SSV Gym", "full_name": "Shree Siddhi Vinayak Gym", "review_form": false }
+  <\/script>
+</head>
+<body class="has-mobile-bar">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="logo" href="#home" aria-label="SSV Gym, back to top">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <nav class="nav" id="site-nav" aria-label="Main">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="#home">Home</a></li>
+          <li><a class="nav__link" href="#about">About</a></li>
+          <li><a class="nav__link" href="#facilities">Facilities</a></li>
+          <li><a class="nav__link" href="#membership">Membership</a></li>
+          <li><a class="nav__link" href="#trainers">Trainers</a></li>
+          <li><a class="nav__link" href="#gallery">Gallery</a></li>
+          <li><a class="nav__link" href="#contact">Contact</a></li>
+        </ul>
+        <a class="btn btn--primary btn--sm nav__cta" href="#membership" data-requires="membership">View membership plans</a>
+      </nav>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero__media media" id="hero-media" data-label="Hero photo"></div>
+      <div class="hero__shade" aria-hidden="true"></div>
+      <div class="container hero__inner">
+        <h1 class="hero__title" id="hero-title">
+          <span class="hero__brand"><b data-g="gym_name">SSV Gym</b><span data-g="full_name">Shree Siddhi Vinayak Gym</span></span>
+          <span class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></span>
+        </h1>
+        <p class="hero__sub" data-g="hero_subtitle" data-optional hidden></p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#facilities" data-requires="facilities">View facilities</a>
+          <a class="btn btn--ghost" href="#membership" data-requires="membership">Membership plans</a>
+        </div>
+      </div>
+      <div class="hero__strip">
+        <div class="container">
+          <ul class="facility-strip" data-g-list="facility_strip" aria-label="Areas at SSV Gym"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" id="stats" aria-label="SSV Gym at a glance" hidden>
+      <div class="container"><dl class="stats__grid" id="stats-grid"></dl></div>
+    </section>
+
+    <section class="notice" id="announcements" aria-labelledby="notice-title" hidden>
+      <div class="container notice__inner">
+        <h2 class="notice__label" id="notice-title">Announcements</h2>
+        <ul class="notice__list" id="notice-list"></ul>
+      </div>
+    </section>
+
+    <section class="section about" id="about" aria-labelledby="about-title">
+      <div class="container about__grid">
+        <div class="about__media reveal">
+          <div class="media media--portrait" id="about-media" data-label="About photo"></div>
+          <p class="about__tag" hidden><strong id="zone-count">3</strong> dedicated areas</p>
+        </div>
+        <div class="about__body reveal">
+          <p class="section-label">About SSV</p>
+          <h2 id="about-title" data-g="about_heading">Shree Siddhi Vinayak Gym</h2>
+          <div class="about__text" id="about-text"></div>
+          <ul class="highlights" id="about-highlights" hidden></ul>
+          <div class="about__actions">
+            <a class="btn btn--primary" href="#contact">Contact SSV</a>
+            <a class="text-link" href="#facilities" data-requires="facilities">Explore facilities</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section events" id="events" aria-labelledby="events-title" hidden>
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Events</p>
+            <h2 id="events-title">What's on at SSV</h2>
+          </div>
+          <p class="section-head__lead">Tournaments, competitions and special sessions at the gym. Tap Ask about this to register your interest.</p>
+        </header>
+        <div class="event-grid reveal" id="event-grid"></div>
+      </div>
+    </section>
+
+    <section class="section facilities" id="facilities" aria-labelledby="facilities-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Facilities</p>
+            <h2 id="facilities-title">Train &amp; recover</h2>
+          </div>
+          <p class="section-head__lead" data-g="facilities_intro" data-optional hidden></p>
+        </header>
+        <div class="facility-grid reveal" id="facility-grid"></div>
+        <div class="facility-extra" id="facility-extra" hidden>
+          <h3 class="facility-extra__title">Also at SSV</h3>
+          <ul class="facility-extra__list" id="facility-extra-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section plans" id="membership" aria-labelledby="plans-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Membership</p>
+            <h2 id="plans-title">Membership plans</h2>
+          </div>
+          <p class="section-head__lead">Pick the duration that suits your routine, then tap Enquire to ask about joining.</p>
+        </header>
+        <div class="plan-board reveal" id="plan-grid"></div>
+        <p class="plans__note" id="plans-note">Call or WhatsApp the gym to confirm current fees and offers.</p>
+        <div class="services reveal" id="services" hidden>
+          <h3 class="services__title" data-g="services_heading">Personal training and diet plans</h3>
+          <div class="service-grid" id="service-grid"></div>
+          <p class="services__call" data-row="call">Call for assistance <a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section trainers" id="trainers" aria-labelledby="trainers-title">
+      <div class="container">
+        <header class="section-head reveal">
+          <p class="section-label">Trainers</p>
+          <h2 id="trainers-title">Coaches on the floor</h2>
+        </header>
+        <div class="trainer-grid reveal" id="trainer-grid"></div>
+      </div>
+    </section>
+
+    <section class="section gallery" id="gallery" aria-labelledby="gallery-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h2 id="gallery-title">Inside SSV</h2>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events.</p>
+        </header>
+        <div class="gallery-grid" id="gallery-grid"></div>
+        <div class="gallery__more">
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+          <a class="btn btn--ghost" id="gallery-all" href="gallery.html" hidden>See the full gallery <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Reviews</p>
+            <h2 id="reviews-title">What members say</h2>
+          </div>
+          <div class="reviews__aside">
+            <div class="reviews__summary" id="reviews-summary" hidden>
+              <strong class="reviews__avg" id="reviews-avg">0.0</strong>
+              <div><div id="reviews-avg-stars"></div><span class="reviews__count" id="reviews-count"></span></div>
+            </div>
+            <div class="reviews__actions">
+              <a class="btn btn--primary btn--sm" id="google-reviews" href="#reviews" target="_blank" rel="noopener" hidden>See all reviews on Google</a>
+              <button class="btn btn--ghost btn--sm" type="button" id="write-review" hidden>Write a review</button>
+            </div>
+          </div>
+        </header>
+        <div class="chips reviews__tabs" id="review-tabs" role="tablist" aria-label="Choose reviews" hidden>
+          <button class="chip" type="button" role="tab" data-tab="google" aria-selected="true">Google reviews</button>
+          <button class="chip" type="button" role="tab" data-tab="site" aria-selected="false">On this website</button>
+        </div>
+        <p class="reviews__note" id="reviews-note" role="status" hidden></p>
+        <div class="review-grid reveal" id="review-grid"></div>
+        <div class="reviews__more" id="reviews-more" hidden>
+          <button class="btn btn--ghost" type="button" id="all-reviews">See all <span id="all-reviews-count"></span> reviews</button>
+          <a class="btn btn--ghost" id="google-more" href="#reviews" target="_blank" rel="noopener" hidden>Read all reviews on Google</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container">
+        <header class="section-head section-head--split contact__head reveal">
+          <div>
+            <p class="section-label">Contact</p>
+            <h2 id="contact-title">Visit <span data-g="gym_name">SSV Gym</span></h2>
+          </div>
+          <p class="section-head__lead" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        </header>
+        <div class="contact__grid">
+          <div class="contact__info reveal">
+            <dl class="contact__list">
+              <div data-row="address"><dt>Address</dt><dd data-g-lines="address"></dd></div>
+              <div data-row="phone"><dt>Gym phone</dt><dd><a data-link="phone" data-show="phone" href="tel:+917758878588">+91 77588 78588</a></dd></div>
+              <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
+              <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
+              <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
+              <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
+              <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
+            </dl>
+            <div class="contact__actions">
+              <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
+              <a class="btn btn--ghost" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+              <a class="btn btn--ghost" data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener">Get directions</a>
+            </div>
+          </div>
+          <div class="contact__side reveal">
+            <form class="enquiry" id="enquiry-form" novalidate>
+              <h3>Send an enquiry</h3>
+              <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
+              <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
+              <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+              <div class="field field--grow"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
+              <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+              <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
+              <p class="enquiry__status" id="enquiry-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="container contact__map reveal" hidden>
+        <figure class="map" id="map-embed"></figure>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <a class="logo" href="#home" aria-label="SSV Gym, back to top"><span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span></a>
+        <p class="footer__full" data-g="full_name">Shree Siddhi Vinayak Gym</p>
+        <p class="footer__tagline" data-g="tagline" data-optional hidden></p>
+        <ul class="facility-strip facility-strip--small" data-g-list="facility_strip"></ul>
+      </div>
+      <nav class="footer__col" aria-label="Footer">
+        <h2 class="footer__title">Explore</h2>
+        <ul class="footer__nav">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#events">Events</a></li>
+          <li><a href="#facilities">Facilities</a></li>
+          <li><a href="#membership">Membership</a></li>
+          <li><a href="#trainers">Trainers</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#reviews">Reviews</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="footer__col" id="footer-connect">
+        <h2 class="footer__title">Connect</h2>
+        <ul class="footer__links">
+          <li><a data-link="phone" href="tel:+917758878588"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Call</a></li>
+          <li><a data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>WhatsApp</a></li>
+          <li><a data-link="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/><path d="M16.5 7.5v.01"/></svg>Instagram</a></li>
+          <li><a data-link="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v4h3v7h4v-7h3l1-4h-4V8a1 1 0 0 1 1-1h3V3h-3a5 5 0 0 0-5 5v2H7"/></svg>Facebook</a></li>
+          <li><a data-link="maps" href="https://maps.app.goo.gl/EX4aAEYxKCztUjqv6" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Directions</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym. Demo with sample content.</p>
+      <a href="#home">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <dialog class="sheet" id="reviews-dialog" aria-labelledby="reviews-dialog-title">
+    <div class="sheet__panel">
+      <header class="sheet__head">
+        <h2 id="reviews-dialog-title">All reviews</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__bar">
+        <div class="chips" role="group" aria-label="Sort reviews">
+          <button type="button" class="chip" data-sort="top" aria-pressed="true">Most liked</button>
+          <button type="button" class="chip" data-sort="new" aria-pressed="false">Newest</button>
+        </div>
+      </div>
+      <div class="sheet__body">
+        <div class="review-list" id="review-list"></div>
+        <button class="btn btn--ghost btn--block" type="button" id="review-list-more" hidden>Show more reviews</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="sheet sheet--narrow" id="review-dialog" aria-labelledby="review-dialog-title">
+    <form class="sheet__panel review-form" id="review-form" novalidate>
+      <header class="sheet__head">
+        <h2 id="review-dialog-title">Write a review</h2>
+        <button class="lb-btn sheet__close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <div class="sheet__body">
+        <fieldset class="stars-input">
+          <legend>Your rating</legend>
+          <div class="stars-input__row">
+            <input type="radio" id="rate-5" name="rating" value="5"><label for="rate-5"><span class="sr-only">5 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-4" name="rating" value="4"><label for="rate-4"><span class="sr-only">4 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-3" name="rating" value="3"><label for="rate-3"><span class="sr-only">3 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-2" name="rating" value="2"><label for="rate-2"><span class="sr-only">2 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+            <input type="radio" id="rate-1" name="rating" value="1"><label for="rate-1"><span class="sr-only">1 star</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.1l-5.62 2.99 1.07-6.27L2.9 9.4l6.3-.9z"/></svg></label>
+          </div>
+          <span class="stars-input__text" id="rating-text" aria-hidden="true">Tap a star</span>
+        </fieldset>
+        <div class="field"><label for="rev-name">Your name</label><input id="rev-name" name="name" type="text" autocomplete="name" maxlength="60" required></div>
+        <div class="field"><label for="rev-text">Your review</label><textarea id="rev-text" name="review" rows="5" maxlength="800" required></textarea><small class="field__count"><span id="rev-count">0</span> / 800</small></div>
+        <div class="hp" aria-hidden="true"><label for="rev-website">Leave this empty</label><input id="rev-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <button class="btn btn--primary btn--block" type="submit">Post review</button>
+        <p class="enquiry__status" id="review-status" role="status" aria-live="polite"></p>
+        <p class="review-form__note">Demo: your review shows here, on this device only, until you refresh.</p>
+        <p class="review-form__alt" id="google-write-row" hidden><a id="google-write" href="#reviews" target="_blank" rel="noopener">Review on Google</a></p>
+      </div>
+    </form>
+  </dialog>
+
+  <aside class="demo-note" id="demo-note" aria-label="About this demo">
+    <span class="demo-note__tag">Demo</span>
+    <button class="demo-note__toggle" type="button" data-demo-toggle aria-expanded="true" aria-controls="demo-note-text" aria-label="Show less">–</button>
+    <p class="demo-note__text" id="demo-note-text">Sample content. What you change in the demo admin shows here, on this device only, and is gone after a refresh. Nothing is saved anywhere.</p>
+    <a class="demo-note__link" href="admin.html">Try the admin panel</a>
+  </aside>
+
+  <script src="../js/utils.js?v=1.6.1"><\/script>
+  <script src="data.js?v=1.6.1"><\/script>
+  <script src="api.js?v=1.6.1"><\/script>
+  <script src="../js/gallery.js?v=1.6.1"><\/script>
+  <script src="../js/main.js?v=1.6.1"><\/script>
+  <script src="demo.js?v=1.6.1"><\/script>
+</body>
+</html>
+</script>
+
+<script type="text/plain" data-path="demo/gallery.html" data-note="new">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Demo · Gallery | SSV Gym, Virar West</title>
+  <meta name="theme-color" content="#0D0F0E">
+  <link rel="icon" href="../assets/favicon.jpg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=1.6.1">
+  <link rel="stylesheet" href="demo.css?v=1.6.1">
+  <script>document.documentElement.classList.add('js');<\/script>
+</head>
+<body class="page-gallery has-mobile-bar">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header is-scrolled">
+    <div class="container site-header__inner">
+      <a class="logo" href="index.html" aria-label="SSV Gym home">
+        <span class="logo__bar" aria-hidden="true"></span><span class="logo__word">SSV</span><span class="logo__gym">Gym</span>
+      </a>
+      <a class="btn btn--ghost btn--sm" href="index.html"><span aria-hidden="true">←</span> Back to home</a>
+    </div>
+  </header>
+
+  <main id="main" class="gpage">
+    <section class="section" aria-labelledby="gallery-title">
+      <div class="container">
+        <header class="section-head section-head--split">
+          <div>
+            <p class="section-label">Gallery</p>
+            <h1 class="gpage__title" id="gallery-title">Inside SSV</h1>
+          </div>
+          <p class="section-head__lead">The gym floor, the CrossFit zone, training sessions, equipment and events. Tap a photo to see it larger.</p>
+        </header>
+        <div class="gallery__bar">
+          <div class="chips" id="gallery-filters" role="group" aria-label="Filter the gallery by category"></div>
+          <p class="gallery__count" id="gallery-count" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="gpage__wall">
+        <div class="masonry" id="gallery-grid"></div>
+      </div>
+      <div class="container">
+        <p class="gpage__empty" id="gallery-empty" hidden>No photos yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer site-footer--slim">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year">2026</span> SSV Gym · Demo with sample content</p>
+      <a href="index.html">Back to home</a>
+    </div>
+  </footer>
+
+  <nav class="mobile-bar" id="mobile-bar" aria-label="Quick contact">
+    <a class="btn btn--ghost" data-link="phone" href="tel:+917758878588">Call</a>
+    <a class="btn btn--primary" data-link="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">WhatsApp</a>
+  </nav>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Photo and video viewer">
+    <div class="lightbox__inner">
+      <button class="lb-btn lightbox__close" type="button" data-lb="close" aria-label="Close the viewer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="lb-btn lightbox__prev" type="button" data-lb="prev" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <figure class="lightbox__figure">
+        <div id="lb-media"></div>
+        <figcaption><span class="lightbox__count" id="lb-count"></span><strong id="lb-title"></strong></figcaption>
+      </figure>
+      <button class="lb-btn lightbox__next" type="button" data-lb="next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </dialog>
+
+  <aside class="demo-note" id="demo-note" aria-label="About this demo">
+    <span class="demo-note__tag">Demo</span>
+    <button class="demo-note__toggle" type="button" data-demo-toggle aria-expanded="true" aria-controls="demo-note-text" aria-label="Show less">–</button>
+    <p class="demo-note__text" id="demo-note-text">Sample content. Photos you add in the demo admin show here, on this device only, and are gone after a refresh. Nothing is saved anywhere.</p>
+    <a class="demo-note__link" href="admin.html">Try the admin panel</a>
+  </aside>
+
+  <script src="../js/utils.js?v=1.6.1"><\/script>
+  <script src="data.js?v=1.6.1"><\/script>
+  <script src="api.js?v=1.6.1"><\/script>
+  <script src="../js/gallery.js?v=1.6.1"><\/script>
+  <script src="../js/gallery-page.js?v=1.6.1"><\/script>
+  <script src="demo.js?v=1.6.1"><\/script>
+</body>
+</html>
+</script>
+
+<script>
+/* An updated file comes after its earlier copy in this page: only the newest copy of each file is kept. */
+(() => {
+  const seen = new Set();
+  Array.from(document.querySelectorAll('script[type="text/plain"][data-path]')).reverse().forEach(s => {
+    if (seen.has(s.dataset.path)) s.remove(); else seen.add(s.dataset.path);
+  });
+})();
+</script>
+
 <script>
 (() => {
   'use strict';
 
-  const VERSION = '1.6.0';
+  const VERSION = '1.6.1';
   const ROOT = 'ssv-gym';
   const $ = sel => document.querySelector(sel);
   const enc = new TextEncoder();
