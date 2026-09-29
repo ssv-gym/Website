@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <title>Demo · SSV Gym | Shree Siddhi Vinayak Gym, Virar West</title>
+  <title>Demo · SSV Gym, Virar West</title>
   <meta name="description" content="Demo of the SSV Gym website with sample content.">
   <meta name="theme-color" content="#0D0F0E">
   <link rel="icon" href="../assets/favicon.jpg" type="image/jpeg">
@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://images.unsplash.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
-  <link rel="stylesheet" href="../css/style.css?v=1.6.1">
-  <link rel="stylesheet" href="demo.css?v=1.6.1">
+  <link rel="stylesheet" href="../css/style.css?v=1.6.2">
+  <link rel="stylesheet" href="demo.css?v=1.6.2">
   <script>document.documentElement.classList.add('js');</script>
   <script type="application/json" id="fallback-general">
   { "gym_name": "SSV Gym", "full_name": "Shree Siddhi Vinayak Gym", "review_form": false }
@@ -48,10 +48,10 @@
       <div class="hero__media media" id="hero-media" data-label="Hero photo"></div>
       <div class="hero__shade" aria-hidden="true"></div>
       <div class="container hero__inner">
-        <h1 class="hero__title" id="hero-title">
-          <span class="hero__brand"><b data-g="gym_name">SSV Gym</b><span data-g="full_name">Shree Siddhi Vinayak Gym</span></span>
-          <span class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></span>
-        </h1>
+        <div class="hero__title">
+          <h1 class="hero__brand" id="hero-title"><b data-g="gym_name">SSV Gym</b><span><span data-g="full_name">Shree Siddhi Vinayak Gym</span>, Virar West</span></h1>
+          <p class="hero__heading" id="hero-heading"><span class="hero__line">Train strong.</span><span class="hero__line">Live strong.</span></p>
+        </div>
         <p class="hero__sub" data-g="hero_subtitle" data-optional hidden></p>
         <div class="hero__actions">
           <a class="btn btn--primary" href="#facilities" data-requires="facilities">View facilities</a>
@@ -171,6 +171,38 @@
       </div>
     </section>
 
+    <section class="section social" id="social" aria-labelledby="social-title">
+      <div class="container">
+        <header class="section-head section-head--split reveal">
+          <div>
+            <p class="section-label">Social</p>
+            <h2 id="social-title">Follow SSV</h2>
+          </div>
+          <p class="section-head__lead">Workouts, events and life at the gym, on Instagram and Facebook.</p>
+        </header>
+        <div class="social__grid reveal" id="social-grid">
+          <a class="social-card social-card--instagram" id="social-instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">
+            <span class="social-card__avatar" aria-hidden="true"><span>SSV</span><img src="../assets/favicon.jpg" alt="" width="108" height="108" loading="lazy" decoding="async"></span>
+            <span class="social-card__body">
+              <span class="social-card__network"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5v.01"/></svg>Instagram</span>
+              <strong class="social-card__handle" id="social-instagram-handle">@ssvgym2021</strong>
+              <span class="social-card__text">Training clips, events and member moments from SSV Gym.</span>
+            </span>
+            <span class="social-card__cta">Follow on Instagram <span aria-hidden="true">→</span></span>
+          </a>
+          <a class="social-card social-card--facebook" id="social-facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">
+            <span class="social-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V8z"/></svg></span>
+            <span class="social-card__body">
+              <span class="social-card__network">Facebook</span>
+              <strong class="social-card__handle">SSV Gym</strong>
+              <span class="social-card__text">News, events and photos from the gym.</span>
+            </span>
+            <span class="social-card__cta">Visit the page <span aria-hidden="true">→</span></span>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
       <div class="container">
         <header class="section-head section-head--split reveal">
@@ -179,9 +211,17 @@
             <h2 id="reviews-title">What members say</h2>
           </div>
           <div class="reviews__aside">
-            <div class="reviews__summary" id="reviews-summary" hidden>
-              <strong class="reviews__avg" id="reviews-avg">0.0</strong>
-              <div><div id="reviews-avg-stars"></div><span class="reviews__count" id="reviews-count"></span></div>
+            <div class="scores" id="review-scores" role="tablist" aria-label="Choose reviews" hidden>
+              <button class="score" type="button" role="tab" data-tab="google" aria-selected="false" hidden>
+                <span class="score__source">Google</span>
+                <span class="score__row"><strong class="score__value" id="score-google">–</strong><span id="score-google-stars"></span></span>
+                <span class="score__count" id="score-google-count"></span>
+              </button>
+              <button class="score" type="button" role="tab" data-tab="site" aria-selected="false" hidden>
+                <span class="score__source">On this website</span>
+                <span class="score__row"><strong class="score__value" id="score-site">–</strong><span id="score-site-stars"></span></span>
+                <span class="score__count" id="score-site-count"></span>
+              </button>
             </div>
             <div class="reviews__actions">
               <a class="btn btn--primary btn--sm" id="google-reviews" href="#reviews" target="_blank" rel="noopener" hidden>See all reviews on Google</a>
@@ -189,10 +229,6 @@
             </div>
           </div>
         </header>
-        <div class="chips reviews__tabs" id="review-tabs" role="tablist" aria-label="Choose reviews" hidden>
-          <button class="chip" type="button" role="tab" data-tab="google" aria-selected="true">Google reviews</button>
-          <button class="chip" type="button" role="tab" data-tab="site" aria-selected="false">On this website</button>
-        </div>
         <p class="reviews__note" id="reviews-note" role="status" hidden></p>
         <div class="review-grid reveal" id="review-grid"></div>
         <div class="reviews__more" id="reviews-more" hidden>
@@ -219,8 +255,6 @@
               <div data-row="phone2"><dt>Owner's phone</dt><dd><a data-link="phone2" data-show="phone2" href="tel:+917558608585">+91 75586 08585</a></dd></div>
               <div data-row="whatsapp"><dt>WhatsApp</dt><dd><a data-link="whatsapp" data-show="whatsapp" href="https://wa.me/917558608585" target="_blank" rel="noopener">+91 75586 08585</a></dd></div>
               <div data-row="hours"><dt>Opening hours</dt><dd><ul class="hours" data-hours></ul><p class="hours__status" data-hours-status hidden></p></dd></div>
-              <div data-row="instagram"><dt>Instagram</dt><dd><a data-link="instagram" data-show="instagram" href="https://www.instagram.com/ssvgym2021/" target="_blank" rel="noopener">@ssvgym2021</a></dd></div>
-              <div data-row="facebook"><dt>Facebook</dt><dd><a data-link="facebook" data-show="facebook" href="https://www.facebook.com/p/SSV-GYM-100069942823280/" target="_blank" rel="noopener">SSV Gym on Facebook</a></dd></div>
             </dl>
             <div class="contact__actions">
               <a class="btn btn--primary" data-link="phone" href="tel:+917758878588">Call now</a>
@@ -232,8 +266,10 @@
             <form class="enquiry" id="enquiry-form" novalidate>
               <h3>Send an enquiry</h3>
               <p class="enquiry__intro">Leave your name and number with a short question and the gym will get back to you.</p>
-              <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
-              <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+              <div class="enquiry__row">
+                <div class="field"><label for="enq-name">Name</label><input id="enq-name" name="name" type="text" autocomplete="name" maxlength="80" required></div>
+                <div class="field"><label for="enq-phone">Phone number</label><input id="enq-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required></div>
+              </div>
               <div class="field field--grow"><label for="enq-message">Message <span>(optional)</span></label><textarea id="enq-message" name="message" rows="4" maxlength="1000"></textarea></div>
               <div class="hp" aria-hidden="true"><label for="enq-website">Leave this empty</label><input id="enq-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
               <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
@@ -265,7 +301,7 @@
           <li><a href="#facilities">Facilities</a></li>
           <li><a href="#membership">Membership</a></li>
           <li><a href="#trainers">Trainers</a></li>
-          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="gallery.html">Gallery</a></li>
           <li><a href="#reviews">Reviews</a></li>
           <li><a href="#contact">Contact</a></li>
         </ul>
@@ -359,11 +395,11 @@
     <a class="demo-note__link" href="admin.html">Try the admin panel</a>
   </aside>
 
-  <script src="../js/utils.js?v=1.6.1"></script>
-  <script src="data.js?v=1.6.1"></script>
-  <script src="api.js?v=1.6.1"></script>
-  <script src="../js/gallery.js?v=1.6.1"></script>
-  <script src="../js/main.js?v=1.6.1"></script>
-  <script src="demo.js?v=1.6.1"></script>
+  <script src="../js/utils.js?v=1.6.2"></script>
+  <script src="data.js?v=1.6.2"></script>
+  <script src="api.js?v=1.6.2"></script>
+  <script src="../js/gallery.js?v=1.6.2"></script>
+  <script src="../js/main.js?v=1.6.2"></script>
+  <script src="demo.js?v=1.6.2"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-# Apps Script backend (v1.6.0)
+# Apps Script backend (v1.6.2)
 
 `Code.gs` turns the Google Sheet into the website's backend: it serves content to
 visitors, saves enquiries and reviews, fetches the Google rating and reviews, and lets the
@@ -28,19 +28,39 @@ Deploy**. The web app URL stays the same.
 
 | Item | What it does |
 |---|---|
-| Set up / repair sheets | Creates missing tabs and columns, removes old ones, gives rows an ID, runs one-time upgrades, updates the key list in the Config tab and styles every tab |
+| Set up / repair sheets | Creates missing tabs and columns, removes old ones, puts the General tab in order, gives rows an ID, runs one-time upgrades, updates the key list in the Config tab and styles every tab |
 | Set admin password | Sets the admin panel password and signs everyone out |
 | Set Cloudinary keys | Tests and saves the Cloudinary API key and secret |
 | Set Google Places key | Tests and saves the Google Places API key |
+| Update Google rating now | Asks Google for the rating, the number of reviews and recent reviews now. It also happens by itself every 6 hours |
 | Clear website cache | Makes the website read the sheet, and Google, again now |
 | Unlock admin sign-in | Clears the 15-minute lock after 5 wrong passwords |
 | Sign out all admin sessions | Signs out every browser signed in to the admin panel |
+
+If the menu doesn't show all of these, the old `Code.gs` is still in the project: paste the
+new one, save, and reload the sheet.
 
 ## Tabs
 
 General, Facilities, Membership Plans, Services (personal training, diet plans),
 Trainers, Gallery, Reviews, Announcements (an Image URL turns an announcement into an
 event card), Enquiries, Config.
+
+### General tab
+
+Three columns: **Category | Key | Value**. Rows are grouped in the order of the website:
+Basic, Top of page, Statistics, About, Facilities, Membership, Gallery, Reviews, Contact,
+Map & social. The category name is on the first row of each group. Set up / repair sheets
+puts the rows back in this order, keeping every value; keys it doesn't know go last, under
+Other. What each key does is explained next to its field in the admin panel.
+
+### Status dropdowns as chips
+
+Google doesn't let scripts choose how a dropdown looks, so turn on the rounded "chip" style
+once, by hand: select the Status column of the Enquiries tab (from row 2 down) › **Data ›
+Data validation** › click the rule › **Advanced options › Display style: Chip** (you can
+also give New, Contacted and Closed a colour) › **Done**. Do the same in the Reviews tab.
+Set up / repair sheets keeps that style and copies it to rows added later.
 
 ## Config tab
 

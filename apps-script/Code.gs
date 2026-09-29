@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.6.0
+ *  SSV GYM — Google Apps Script backend (Google Sheets CMS API)       v1.6.2
  * ===========================================================================
  *  First time
  *    1. Open the "SSV Gym CMS" spreadsheet > Extensions > Apps Script.
@@ -26,10 +26,11 @@
  * ===========================================================================
  */
 
-const VERSION = '1.6.0';
-const SEED_LEVEL = '1.6.0';            // level of the starting content (see setupSheets)
+const VERSION = '1.6.2';
+const SEED_LEVEL = '1.6.2';            // level of the starting content (see setupSheets)
 const NOTIFY_DEFAULT = 'ssvgym2021@gmail.com, laxman19.sawant@gmail.com';
 const PLACE_ID_DEFAULT = 'ChIJD77n3Dup5zsROuYZWtEYmmQ';   // SSV Gym on Google Maps
+const DESCRIPTION_DEFAULT = 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit, cardio, personal training, diet plans, a steam room, and pool and carrom.';
 const SESSION_SECONDS = 6 * 60 * 60;   // admin session, extended on each use (CacheService maximum)
 const CONTENT_CACHE_SECONDS = 300;     // public content cache
 const CONTENT_CACHE_KEY = 'public_content_v2';
@@ -49,6 +50,22 @@ const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz
 /** Uploads are filed as <CLOUDINARY_FOLDER>/<section>, e.g. SSV-Gym/Trainers. */
 const MEDIA_SECTIONS = { general: 'Home', facilities: 'Facilities', trainers: 'Trainers', gallery: 'Gallery', announcements: 'Events' };
 
+/** The General tab, in the order of the website. The category shows on the first row of each group. */
+const GENERAL_LAYOUT = [
+  ['Basic', ['gym_name', 'full_name', 'tagline', 'description']],
+  ['Top of page', ['hero_heading', 'hero_subtitle', 'hero_image', 'facility_strip']],
+  ['Statistics', ['stat_1_value', 'stat_1_label', 'stat_2_value', 'stat_2_label', 'stat_3_value', 'stat_3_label', 'stat_4_value', 'stat_4_label', 'stat_5_value', 'stat_5_label', 'stat_6_value', 'stat_6_label']],
+  ['About', ['about_heading', 'about_text', 'about_image', 'about_highlights']],
+  ['Facilities', ['facilities_intro']],
+  ['Membership', ['featured_badge_text', 'services_heading']],
+  ['Gallery', ['gallery_categories']],
+  ['Reviews', ['review_form', 'review_approval']],
+  ['Contact', ['phone', 'phone_2', 'whatsapp', 'address', 'opening_hours']],
+  ['Map & social', ['maps_url', 'maps_embed_url', 'instagram_url', 'facebook_url']]
+];
+const GENERAL_CATEGORY = {};
+GENERAL_LAYOUT.forEach(group => group[1].forEach(key => { GENERAL_CATEGORY[key] = group[0]; }));
+
 /** Keys kept in Script Properties. The Config tab has one row for each, showing only its status. */
 const SECRETS = {
   ADMIN_PASSWORD: { props: ['ADMIN_PASSWORD_HASH', 'ADMIN_PASSWORD_SALT'], menu: 'Set admin password' },
@@ -66,7 +83,7 @@ const KEY_FORMATS = {
 
 /** Sheet tab -> columns (internal names). Headers are matched by name, so columns may be reordered. */
 const SCHEMA = {
-  General:            ['key', 'value', 'notes'],
+  General:            ['category', 'key', 'value'],
   Facilities:         ['id', 'name', 'tags', 'description', 'image_url', 'category', 'active', 'display_order'],
   'Membership Plans': ['id', 'name', 'duration', 'price', 'description', 'features', 'featured', 'active', 'display_order'],
   Services:           ['id', 'name', 'price', 'price_note', 'description', 'active', 'display_order'],
@@ -78,7 +95,7 @@ const SCHEMA = {
   Config:             ['key', 'value', 'notes']
 };
 /** Columns earlier versions had. Set up / repair sheets deletes them. */
-const DROPPED_COLUMNS = { Gallery: ['caption'] };
+const DROPPED_COLUMNS = { Gallery: ['caption'], General: ['notes'] };
 /** How each column is titled in the sheet. */
 const LABELS = {
   id: 'ID', key: 'Key', value: 'Value', notes: 'Notes', name: 'Name', tags: 'Tags', description: 'Description',
@@ -287,6 +304,18 @@ function deleteRowSafe_(sh, row) {
   else sh.getRange(row, 1, 1, Math.max(sh.getLastColumn(), 1)).clearContent();
 }
 
+/**
+ * Makes sure row n exists, adding rows at the bottom when the tab is full. With copyRules,
+ * the new rows get the dropdowns and tick boxes of the last row (lists such as Enquiries).
+ */
+function ensureRow_(sh, n, copyRules) {
+  const max = sh.getMaxRows();
+  if (n <= max) return;
+  sh.insertRowsAfter(max, Math.max(50, n - max));
+  const cols = Math.max(sh.getLastColumn(), 1);
+  if (copyRules && max >= 2) sh.getRange(max, 1, 1, cols).copyTo(sh.getRange(max + 1, 1, sh.getMaxRows() - max, cols), SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+}
+
 /** Lower display_order first; rows without one go last. */
 function orderOf_(v) { const n = Number(v); return v === '' || v === null || v === undefined || isNaN(n) ? Infinity : n; }
 function cmp_(a, b) { return a === b ? 0 : (a < b ? -1 : 1); }
@@ -420,11 +449,15 @@ function readTable_(name) {
     .map(row => { const o = {}; head.forEach((h, i) => { if (h) o[h] = cellOut_(row[i]); }); return o; });
 }
 
+/** Key/value tabs as an object. If a key appears twice, the first row counts (as when saving). */
 function readKeyValues_(name) {
   const rows = readTable_(name);
   if (!rows) return null;
   const out = {};
-  rows.forEach(r => { out[String(r.key).trim()] = r.value === undefined ? '' : r.value; });
+  rows.forEach(r => {
+    const key = String(r.key).trim();
+    if (!(key in out)) out[key] = r.value === undefined ? '' : r.value;
+  });
   return out;
 }
 
@@ -647,6 +680,7 @@ function saveKeyValues_(name, data) {
       if (isCloudinaryUrl_(old)) replaced.push(String(old).trim());
       sh.getRange(rowOf[key] + 1, valCol + 1).setValue(cellIn_(value));
     } else {
+      ensureRow_(sh, next, false);
       sh.getRange(next, keyCol + 1).setValue(key);
       const cell = sh.getRange(next, valCol + 1);
       if (BOOLEAN_KEYS.indexOf(key) >= 0) cell.insertCheckboxes();
@@ -746,6 +780,7 @@ function saveRecord_(name, input) {
 
   const rowNumber = existing ? rowIndex + 1 : sh.getLastRow() + 1;
   if (!existing) {
+    ensureRow_(sh, rowNumber, true);
     // Add tick boxes first: insertCheckboxes() resets cells to FALSE.
     BOOLEAN_COLUMNS.forEach(c => { const i = head.indexOf(c); if (i >= 0) sh.getRange(rowNumber, i + 1).insertCheckboxes(); });
   }
@@ -818,6 +853,7 @@ function updateEnquiryStatus_(id, status) {
 function appendRecord_(sh, obj) {
   const head = headerRow_(sh);
   const row = sh.getLastRow() + 1;
+  ensureRow_(sh, row, true);
   BOOLEAN_COLUMNS.forEach(c => { const i = head.indexOf(c); if (i >= 0) sh.getRange(row, i + 1).insertCheckboxes(); });
   sh.getRange(row, 1, 1, head.length).setValues([head.map(c => (c && c in obj ? cellIn_(obj[c]) : (BOOLEAN_COLUMNS.indexOf(c) >= 0 ? false : '')))]);
 }
@@ -1249,6 +1285,7 @@ function onOpen() {
     .addItem('Set admin password', 'setAdminPassword')
     .addItem('Set Cloudinary keys', 'setCloudinaryKeys')
     .addItem('Set Google Places key', 'setGooglePlacesKey')
+    .addItem('Update Google rating now', 'updateGoogleNow')
     .addSeparator()
     .addItem('Clear website cache', 'clearWebsiteCache')
     .addItem('Unlock admin sign-in', 'unlockSignIn')
@@ -1273,8 +1310,8 @@ function onEdit(e) {
 
 /**
  * Creates, repairs and styles every tab. Safe to run any time: creates missing
- * tabs and columns, deletes columns no longer used (Gallery › Caption), keeps
- * the notes and the key list in the Config tab up to date, and runs one-time
+ * tabs and columns, deletes columns no longer used, puts the General tab in
+ * order, keeps the key list in the Config tab up to date, and runs one-time
  * upgrades. Values you changed are kept.
  */
 function setupSheets() {
@@ -1295,14 +1332,16 @@ function setupSheets() {
       writeRows_(sh, cols, seeds[name] || []);
     } else {
       if (DROPPED_COLUMNS[name]) dropColumns_(sh, DROPPED_COLUMNS[name]);
+      if (name === 'General') ensureFirstColumn_(sh, 'category');
       relabelHeaders_(sh, cols);
       if (ID_PREFIX[name]) repaired += withLock_(() => repairTab_(sh, name));
     }
   });
   if (olderThan_(level, '1.6.0')) upgradeTo160_(ss, seeds);
+  if (olderThan_(level, '1.6.2')) upgradeTo162_(ss);
   props.setProperty('SEED_VERSION', SEED_LEVEL);
+  withLock_(() => arrangeGeneral_(ss.getSheetByName('General')));
   refreshSecretRows_();
-  fillNotes_(ss.getSheetByName('General'), noteFor_);
   fillNotes_(ss.getSheetByName('Config'), configNoteFor_);
   BOOLEAN_KEYS.forEach(k => makeCheckbox_(ss.getSheetByName('General'), k));
   statusDropdown_(ss.getSheetByName('Enquiries'), ENQUIRY_STATUSES);
@@ -1310,6 +1349,7 @@ function setupSheets() {
   const blank = ss.getSheetByName('Sheet1');
   if (blank && blank.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(blank);
   Object.keys(SCHEMA).forEach(name => { const sh = ss.getSheetByName(name); if (sh) styleTab_(sh); });
+  styleGeneral_(ss.getSheetByName('General'));
   orderTabs_(ss);
   CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
   clearGoogleCache_();
@@ -1338,15 +1378,85 @@ function upgradeTo160_(ss, seeds) {
       .filter(r => ['fac-changing-room', 'fac-gaming-area'].indexOf(r.id) >= 0 && names.indexOf(r.name.toLowerCase()) < 0)
       .forEach(r => appendRecord_(fac, Object.assign({}, r, { display_order: ++order })));
   }
-  const fresh = {};
-  seeds.General.forEach(r => { fresh[r[0]] = r[1]; });
+  const fresh = generalDefaults_();
   const before = {
-    description: 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.',
     facility_strip: 'Main Gym | CrossFit | Cardio | Steam Room',
     facilities_intro: 'A full gym floor, a CrossFit and functional training zone, cardio equipment and a steam room for recovery.'
   };
   updateKeyValues_(ss.getSheetByName('General'), (key, value) => (key in before && sameText_(value, before[key]) ? fresh[key] : undefined));
   appendMissingKeys_(ss.getSheetByName('Config'), seeds.Config.filter(r => r[0] === 'GOOGLE_PLACE_ID'));
+}
+
+/** One-time step (1.6.2): the summary for Google search becomes short enough to show in full (only if it still reads as before). */
+function upgradeTo162_(ss) {
+  const old = [
+    'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, and a steam room.',
+    'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, a steam room, and pool and carrom.'
+  ];
+  updateKeyValues_(ss.getSheetByName('General'), (key, value) => (key === 'description' && old.some(o => sameText_(value, o)) ? DESCRIPTION_DEFAULT : undefined));
+}
+
+/** Adds a column at the start of the tab (the General tab's Category) when it is missing. */
+function ensureFirstColumn_(sh, col) {
+  if (headerRow_(sh).indexOf(col) >= 0) return;
+  sh.insertColumnBefore(1);
+  styleHeader_(sh.getRange(1, 1).setValue(LABELS[col] || col));
+}
+
+/**
+ * Puts the General tab in website order: Category | Key | Value, the category on
+ * the first row of each group. Every value stays exactly as it is; keys the layout
+ * doesn't know go last, under "Other"; rows without a key but with content stay too.
+ */
+function arrangeGeneral_(sh) {
+  if (!sh || sh.getLastRow() < 2) return;
+  const values = sh.getDataRange().getValues();
+  const head = headers_(values);
+  const c = head.indexOf('category'), k = head.indexOf('key'), v = head.indexOf('value');
+  if (c < 0 || k < 0 || v < 0) return;
+  const byKey = {}, extra = [], loose = [];
+  values.slice(1).forEach(r => {
+    const key = String(r[k]).trim();
+    if (!key) { if (r.some(cell => !isBlank_(cell))) loose.push(r.slice()); return; }
+    if (byKey[key]) return;   // a repeated key: the first row counts, as everywhere else
+    byKey[key] = r;
+    if (!GENERAL_CATEGORY[key]) extra.push(key);
+  });
+  const out = [];
+  const add = (cat, keys) => keys.filter(key => byKey[key]).forEach((key, i) => {
+    const row = byKey[key].slice();
+    row[c] = i === 0 ? cat : '';
+    out.push(row);
+  });
+  GENERAL_LAYOUT.forEach(group => add(group[0], group[1]));
+  add('Other', extra);
+  loose.forEach(r => out.push(r));
+  const sig = rows => rows.map(r => String(r[c]).trim() + '|' + String(r[k]).trim()).join('\n');
+  if (sig(values.slice(1)) === sig(out)) return;   // already in order
+  const old = sh.getRange(2, 1, values.length - 1, head.length);
+  old.clearDataValidations();
+  old.clearContent();
+  sh.getRange(2, 1, out.length, head.length).setValues(out.map(r => r.map(cellIn_)));
+  out.forEach((r, i) => {   // tick boxes follow their rows
+    if (BOOLEAN_KEYS.indexOf(String(r[k]).trim()) < 0) return;
+    const cell = sh.getRange(i + 2, v + 1), on = isTrue_(r[v]);
+    cell.insertCheckboxes();
+    if (on) cell.setValue(true);
+  });
+}
+
+/** General tab: category names in bold, a line above each group. */
+function styleGeneral_(sh) {
+  if (!sh || sh.getLastRow() < 2) return;
+  const c = headerRow_(sh).indexOf('category');
+  if (c < 0) return;
+  sh.setColumnWidth(c + 1, 150);
+  sh.getRange(2, c + 1, sh.getMaxRows() - 1, 1).setHorizontalAlignment('left').setFontWeight('bold');
+  const cats = sh.getRange(2, c + 1, sh.getLastRow() - 1, 1).getValues();
+  const width = sh.getLastColumn();
+  cats.forEach((r, i) => {
+    if (i > 0 && String(r[0]).trim()) sh.getRange(i + 2, 1, 1, width).setBorder(true, null, null, null, null, null, '#C9CFCB', SpreadsheetApp.BorderStyle.SOLID);
+  });
 }
 
 /** Deletes columns this version no longer uses. */
@@ -1439,6 +1549,7 @@ function appendMissingKeys_(sh, rows) {
   values.slice(1).forEach(r => { have[String(r[k]).trim()] = true; });
   let row = sh.getLastRow() + 1;
   rows.filter(r => !have[r[0]]).forEach(r => {
+    ensureRow_(sh, row, false);
     sh.getRange(row, k + 1).setValue(r[0]);
     const cell = sh.getRange(row, v + 1);
     if (BOOLEAN_KEYS.indexOf(r[0]) >= 0) cell.insertCheckboxes();
@@ -1474,12 +1585,32 @@ function makeCheckbox_(sh, key) {
   if (on) cell.setValue(true);
 }
 
+/**
+ * A dropdown on every Status cell. Dropdowns already there are left alone, so a style
+ * chosen in the sheet (Data > Data validation > Display style: Chip) is kept, and cells
+ * without one get a copy of it. Scripts can't choose that style themselves.
+ */
 function statusDropdown_(sh, list) {
-  if (!sh) return;
+  if (!sh || sh.getMaxRows() < 2) return;
   const col = headerRow_(sh).indexOf('status') + 1;
   if (col < 1) return;
-  sh.getRange(2, col, Math.max(sh.getMaxRows() - 1, 1), 1)
-    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build());
+  const range = sh.getRange(2, col, sh.getMaxRows() - 1, 1);
+  const rules = range.getDataValidations();
+  const first = rules.findIndex(r => Boolean(r[0]));
+  if (first < 0) {
+    range.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build());
+    return;
+  }
+  const source = sh.getRange(first + 2, col);
+  let start = -1;
+  for (let i = 0; i <= rules.length; i++) {
+    const missing = i < rules.length && !rules[i][0];
+    if (missing && start < 0) start = i;
+    if (!missing && start >= 0) {
+      source.copyTo(sh.getRange(start + 2, col, i - start, 1), SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+      start = -1;
+    }
+  }
 }
 
 /** Puts the tabs in the same order as the admin panel. */
@@ -1575,6 +1706,19 @@ function setGooglePlacesKey() {
     : 'Google Places key saved.');
 }
 
+/** Asks Google for the rating, the number of reviews and the latest reviews straight away (it also happens by itself every 6 hours). */
+function updateGoogleNow() {
+  const ui = SpreadsheetApp.getUi();
+  if (!googlePlaceId_()) { ui.alert('Put the gym\'s Google Place ID next to GOOGLE_PLACE_ID in the Config tab first.'); return; }
+  if (!PropertiesService.getScriptProperties().getProperty('GOOGLE_PLACES_API_KEY')) { ui.alert('Set the Google Places key first: SSV Admin > Set Google Places key.'); return; }
+  clearGoogleCache_();
+  CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
+  const g = googleStatus_();
+  ui.alert(g.error
+    ? 'Google says: ' + g.error
+    : 'Updated: ' + g.rating + ' from ' + g.count + ' Google reviews' + (g.reviews ? ', with ' + g.reviews + ' recent reviews' : '') + '. The website shows it now; it also updates by itself every 6 hours.');
+}
+
 function clearWebsiteCache() {
   CacheService.getScriptCache().remove(CONTENT_CACHE_KEY);
   clearGoogleCache_();
@@ -1598,47 +1742,60 @@ function toast_(message) { try { ss_().toast(message, 'SSV Admin', 8); } catch (
    hours, facilities, plans, services and links are the gym's own; the hero,
    About and facility photos are stand-ins until photos of SSV are uploaded. */
 
+function stockPhoto_(id) { return 'https://images.unsplash.com/' + id; }
+
+/** The General tab's starting values, by key. */
+function generalDefaults_() {
+  return {
+    gym_name: 'SSV Gym',
+    full_name: 'Shree Siddhi Vinayak Gym',
+    tagline: 'Train strong. Live strong.',
+    description: DESCRIPTION_DEFAULT,
+    hero_heading: 'Train strong. | Live strong.',
+    hero_subtitle: 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.',
+    hero_image: stockPhoto_('photo-1623874514711-0f321325f318'),
+    facility_strip: 'Main Gym | CrossFit | Cardio | Steam Room | Pool & Carrom',
+    stat_1_value: '5+', stat_1_label: 'Years in Virar',
+    stat_2_value: '40+', stat_2_label: 'Machines and stations',
+    stat_3_value: '3', stat_3_label: 'Expert trainers',
+    stat_4_value: '7', stat_4_label: 'Days a week',
+    about_heading: 'Shree Siddhi Vinayak Gym',
+    about_text: 'SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal. | Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.',
+    about_image: stockPhoto_('photo-1534438327276-14e5300c3a48'),
+    about_highlights: 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers',
+    facilities_intro: 'A full gym floor, a CrossFit and functional training zone, cardio equipment, a steam room for recovery, and pool and carrom to unwind.',
+    featured_badge_text: 'Best value',
+    services_heading: 'Personal training and diet plans',
+    gallery_categories: 'Gym | CrossFit | Training | Equipment | Events',
+    review_form: true,
+    review_approval: false,
+    phone: '+91 77588 78588',
+    phone_2: '+91 75586 08585',
+    whatsapp: '+91 75586 08585',
+    address: 'Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303',
+    opening_hours: 'Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM',
+    maps_url: 'https://maps.app.goo.gl/EX4aAEYxKCztUjqv6',
+    maps_embed_url: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin',
+    instagram_url: 'https://www.instagram.com/ssvgym2021/',
+    facebook_url: 'https://www.facebook.com/p/SSV-GYM-100069942823280/'
+  };
+}
+
+/** [category, key, value] rows in the General tab's order, the category on the first row of each group. */
+function generalRows_(values) {
+  const out = [];
+  GENERAL_LAYOUT.forEach(group => group[1].filter(key => key in values).forEach((key, i) => out.push([i === 0 ? group[0] : '', key, values[key]])));
+  return out;
+}
+
 function seedRows_() {
-  const stock = id => 'https://images.unsplash.com/' + id;
   const features = 'Full gym access | Cardio equipment | Complimentary locker';
   return {
-    General: [
-      ['gym_name', 'SSV Gym'],
-      ['full_name', 'Shree Siddhi Vinayak Gym'],
-      ['tagline', 'Train strong. Live strong.'],
-      ['description', 'SSV Gym (Shree Siddhi Vinayak Gym) in Virar West: gym floor, CrossFit and functional training, cardio, personal training, diet plans, weight loss and weight gain programmes, a steam room, and pool and carrom.'],
-      ['hero_heading', 'Train strong. | Live strong.'],
-      ['hero_subtitle', 'Strength, CrossFit and cardio under one roof in Virar West, with personal training and a steam room for recovery.'],
-      ['hero_image', stock('photo-1623874514711-0f321325f318')],
-      ['facility_strip', 'Main Gym | CrossFit | Cardio | Steam Room | Pool & Carrom'],
-      ['stat_1_value', '5+'], ['stat_1_label', 'Years in Virar'],
-      ['stat_2_value', '40+'], ['stat_2_label', 'Machines and stations'],
-      ['stat_3_value', '3'], ['stat_3_label', 'Expert trainers'],
-      ['stat_4_value', '7'], ['stat_4_label', 'Days a week'],
-      ['about_heading', 'Shree Siddhi Vinayak Gym'],
-      ['about_text', 'SSV Gym is a Virar West gym for strength training, CrossFit, cardio and functional fitness, whether you are just starting out or training for a goal. | Train with a personal trainer, follow a weight loss or weight gain programme, and recover in the steam room after your session.'],
-      ['about_image', stock('photo-1534438327276-14e5300c3a48')],
-      ['about_highlights', 'Personal training | Weight loss and weight gain programmes | CrossFit and functional training | Complimentary lockers'],
-      ['facilities_intro', 'A full gym floor, a CrossFit and functional training zone, cardio equipment, a steam room for recovery, and pool and carrom to unwind.'],
-      ['services_heading', 'Personal training and diet plans'],
-      ['phone', '+91 77588 78588'],
-      ['phone_2', '+91 75586 08585'],
-      ['whatsapp', '+91 75586 08585'],
-      ['address', 'Shree Siddhi Manora Commercial Complex | Datt Mandir Road, above IDBI Bank | Doghar Pada, Sheetal Nagar, Virar West | Vasai-Virar, Maharashtra 401303'],
-      ['opening_hours', 'Monday – Saturday: 6:00 AM – 11:00 PM | Sunday: 4:00 PM – 9:00 PM'],
-      ['maps_url', 'https://maps.app.goo.gl/EX4aAEYxKCztUjqv6'],
-      ['maps_embed_url', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.0924582644457!2d72.80667559999999!3d19.451580099999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7a93bdce7be0f%3A0x649a18d15a19e63a!2sSSV%20Gym!5e0!3m2!1sen!2sin!4v1790316802069!5m2!1sen!2sin'],
-      ['instagram_url', 'https://www.instagram.com/ssvgym2021/'],
-      ['facebook_url', 'https://www.facebook.com/p/SSV-GYM-100069942823280/'],
-      ['featured_badge_text', 'Best value'],
-      ['gallery_categories', 'Gym | CrossFit | Training | Equipment | Events'],
-      ['review_form', true],
-      ['review_approval', false]
-    ].map(r => [r[0], r[1], noteFor_(r[0])]),
+    General: generalRows_(generalDefaults_()),
     Facilities: [
-      { id: 'fac-main', name: 'Main Gym', tags: 'Strength | Bodybuilding | Machines', description: 'The main floor for strength training, bodybuilding and machine work.', image_url: stock('photo-1637430308606-86576d8fef3c'), category: 'major', active: true, display_order: 1 },
-      { id: 'fac-crossfit', name: 'CrossFit', tags: 'Functional Training | Conditioning', description: 'A dedicated zone for CrossFit, functional movements and conditioning circuits.', image_url: stock('photo-1536922246289-88c42f957773'), category: 'major', active: true, display_order: 2 },
-      { id: 'fac-steam', name: 'Steam Room', tags: 'Recovery | Relaxation', description: 'Unwind and recover in the steam room after your workout.', image_url: stock('photo-1759216852954-88e547b8e01f'), category: 'major', active: true, display_order: 3 },
+      { id: 'fac-main', name: 'Main Gym', tags: 'Strength | Bodybuilding | Machines', description: 'The main floor for strength training, bodybuilding and machine work.', image_url: stockPhoto_('photo-1637430308606-86576d8fef3c'), category: 'major', active: true, display_order: 1 },
+      { id: 'fac-crossfit', name: 'CrossFit', tags: 'Functional Training | Conditioning', description: 'A dedicated zone for CrossFit, functional movements and conditioning circuits.', image_url: stockPhoto_('photo-1536922246289-88c42f957773'), category: 'major', active: true, display_order: 2 },
+      { id: 'fac-steam', name: 'Steam Room', tags: 'Recovery | Relaxation', description: 'Unwind and recover in the steam room after your workout.', image_url: stockPhoto_('photo-1759216852954-88e547b8e01f'), category: 'major', active: true, display_order: 3 },
       { id: 'fac-cardio', name: 'Cardio', tags: '', description: 'Cardio equipment for warm-ups, endurance and fat loss.', image_url: '', category: 'additional', active: true, display_order: 4 },
       { id: 'fac-personal-training', name: 'Personal Training', tags: '', description: 'One-to-one coaching built around your goal.', image_url: '', category: 'additional', active: true, display_order: 5 },
       { id: 'fac-weight-loss', name: 'Weight Loss Programme', tags: '', description: 'Training and guidance to lose fat.', image_url: '', category: 'additional', active: true, display_order: 6 },
@@ -1670,42 +1827,6 @@ function seedRows_() {
       ['NOTIFY_EMAIL', NOTIFY_DEFAULT]
     ].map(r => [r[0], r[1], configNoteFor_(r[0])])
   };
-}
-
-function noteFor_(key) {
-  const notes = {
-    gym_name: 'Short name, used at the top of the page and in the contact section.',
-    full_name: 'Full name of the gym.',
-    tagline: 'Line in the footer. Empty = hidden.',
-    description: 'Summary shown in Google search results.',
-    hero_heading: 'Big heading at the top of the page. A | starts a new line.',
-    hero_subtitle: 'Text under the big heading. Empty = hidden.',
-    hero_image: 'Top photo. Upload it in the admin panel (General information).',
-    facility_strip: 'Words in the strip under the top photo, separated by |. Empty = hidden.',
-    about_heading: 'Heading of the About section.',
-    about_text: 'About section text. A | starts a new paragraph.',
-    about_image: 'About section photo. Upload it in the admin panel (General information).',
-    about_highlights: 'Short points in the About section, separated by |.',
-    facilities_intro: 'Text next to the Facilities heading. Empty = hidden.',
-    services_heading: 'Heading above personal training and diet plans (Services tab).',
-    phone: 'Gym phone number with country code. Used for the Call buttons.',
-    phone_2: "Owner's phone number, shown as a second number. Empty = hidden.",
-    whatsapp: 'WhatsApp number with country code. Empty = the gym phone is used.',
-    address: 'Address. A | starts a new line.',
-    opening_hours: 'One line per group of days, e.g. "Monday – Saturday: 6:00 AM – 11:00 PM". A | starts a new line.',
-    maps_url: 'Google Maps link to the gym (Share > Copy link).',
-    maps_embed_url: 'Map on the website (Google Maps > Share > Embed a map).',
-    instagram_url: 'Instagram profile link or @handle. Empty = hidden.',
-    facebook_url: 'Facebook page link. Empty = hidden.',
-    featured_badge_text: 'Label on highlighted membership plans.',
-    gallery_categories: 'Gallery categories in filter order, separated by |. Also editable in the admin panel (Gallery > Categories).',
-    review_form: 'Ticked: visitors can write reviews on the website.',
-    review_approval: 'Ticked: new reviews wait for your approval before they appear.'
-  };
-  if (notes[key]) return notes[key];
-  const m = String(key).match(/^stat_(\d)_(value|label)$/);
-  if (m) return m[2] === 'value' ? 'Figure for statistic ' + m[1] + ', e.g. 10+. Empty = hidden.' : 'Label for statistic ' + m[1] + ', e.g. Years in Virar.';
-  return '';
 }
 
 function configNoteFor_(key) {

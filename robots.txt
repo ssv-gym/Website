@@ -1,0 +1,8 @@
+# SSV Gym website. Everything may be crawled; the admin panel and the demo pages
+# carry their own "noindex" tag, so they stay out of search results.
+# Search engines only read robots.txt at the root of a domain. While the site lives at
+# https://ssvgym.github.io/ssv-gym/, submit sitemap.xml in Google Search Console instead.
+User-agent: *
+Allow: /
+
+Sitemap: https://ssvgym.github.io/ssv-gym/sitemap.xml

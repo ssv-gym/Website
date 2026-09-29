@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SSV GYM — WEBSITE LOGIC                                            v1.6.0
+   SSV GYM — WEBSITE LOGIC                                            v1.6.2
    Renders every section from the Google Sheet via API.getContent(). Saved
    content shows at once and is refreshed in the background. If the sheet
    can't be reached on a first visit, the details built into index.html stay.
@@ -20,7 +20,8 @@
   const TOP_REVIEWS = 3, PAGE_SIZE = 10, CLAMP_CHARS = 280, HOME_GALLERY = 6;
   const LINK_PATTERN = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|info|biz|xyz|ru|top|shop|site|online|click|link)\b)/i;
 
-  const state = { general: {}, gymName: 'SSV Gym', links: {}, reviews: [], google: { reviews: [] }, tab: 'google', reviewForm: false, sort: 'top', listCount: PAGE_SIZE, openedFrom: null };
+  /* tab: which reviews are listed ('google' or 'site'); chosen on first render. */
+  const state = { general: {}, gymName: 'SSV Gym', links: {}, reviews: [], google: { reviews: [] }, tab: '', reviewForm: false, sort: 'top', listCount: PAGE_SIZE, openedFrom: null };
 
   /* ---------- small DOM helpers ---------- */
   function setText(key, value) {
@@ -72,9 +73,10 @@
     });
     $$(`[data-requires="${key}"], [data-requires="${id}"]`).forEach(el => { el.hidden = !show; });
   }
-  const starRow = (n, label) => {
+  /* Stars for a rating. tag: 'span' inside buttons and other inline places. */
+  const starRow = (n, label, tag = 'div') => {
     const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
-    return `<div class="review__stars" role="img" aria-label="${esc(label || `Rated ${r} out of 5`)}">${[1, 2, 3, 4, 5].map(i => `<span${i <= r ? ' class="is-on"' : ''}>${STAR}</span>`).join('')}</div>`;
+    return `<${tag} class="review__stars" role="img" aria-label="${esc(label || `Rated ${r} out of 5`)}">${[1, 2, 3, 4, 5].map(i => `<span${i <= r ? ' class="is-on"' : ''}>${STAR}</span>`).join('')}</${tag}>`;
   };
   const liked = () => { try { return JSON.parse(localStorage.getItem(LIKED_KEY)) || []; } catch { return []; } };
   const setLiked = (id, on) => {
@@ -199,6 +201,7 @@
     renderStats(g);
     const hours = renderHours(g);
     setupLinks(g);
+    renderSocial();
     setupMap(g);
     updateStructuredData(g, hours);
   }
@@ -244,9 +247,7 @@
     const shown = {
       phone: call ? text(g.phone) : '',
       phone2: call2 ? text(g.phone_2) : '',
-      whatsapp: wa ? text(g.whatsapp) || text(g.phone) : '',
-      instagram: L.instagram ? '@' + (L.instagram.match(/instagram\.com\/([^/?#]+)/i) || [])[1] : '',
-      facebook: L.facebook ? `${state.gymName} on Facebook` : ''
+      whatsapp: wa ? text(g.whatsapp) || text(g.phone) : ''
     };
     $$('[data-show]').forEach(el => {
       const key = el.dataset.show;
@@ -259,6 +260,22 @@
     // The quick-contact bar only appears on phones when there is a real number to call.
     $('#mobile-bar').hidden = !L.phone && !L.whatsapp;
     document.body.classList.toggle('has-mobile-bar', Boolean(L.phone || L.whatsapp));
+  }
+
+  /* Social: Instagram highlighted, Facebook beside it. Hidden when neither link is set. */
+  function renderSocial() {
+    const ig = state.links.instagram, fb = state.links.facebook;
+    const igCard = $('#social-instagram'), fbCard = $('#social-facebook');
+    igCard.hidden = !ig;
+    fbCard.hidden = !fb;
+    if (ig) {
+      const handle = (ig.match(/instagram\.com\/([^/?#]+)/i) || [])[1];
+      igCard.href = ig;
+      $('#social-instagram-handle').textContent = handle ? `@${handle}` : state.gymName;
+    }
+    if (fb) fbCard.href = fb;
+    $('#social-grid').classList.toggle('is-single', !(ig && fb));
+    toggleSection('social', Boolean(ig || fb));
   }
 
   /* Map card: the embedded Google map (dark to match the site, normal colours on hover),
@@ -283,7 +300,8 @@
     wrap.hidden = false;
   }
 
-  /* Keeps the business details for search engines in step with the sheet. */
+  /* Keeps the business details for search engines in step with the sheet. No ratings are
+     added: Google doesn't show self-published ratings for a business. */
   function updateStructuredData(g, hours) {
     const el = $('#ld-business');
     if (!el) return;
@@ -296,7 +314,7 @@
     set('description', text(g.description));
     set('telephone', call ? '+' + call : '');
     set('hasMap', state.links.maps);
-    set('image', text(g.hero_image) && !isPlaceholder(g.hero_image) ? text(g.hero_image) : '');
+    set('image', (text(g.hero_image) && !isPlaceholder(g.hero_image) ? text(g.hero_image) : '') || data.logo);
     const lines = splitList(g.address);
     if (lines.length) {
       const last = lines[lines.length - 1];
@@ -482,6 +500,8 @@
     </article>`;
   }
 
+  /* Two scores: the Google rating (with the number of Google reviews) and the average of the
+     reviews written on this website. With both, each score switches the list below it. */
   function renderReviews(list, general, google) {
     state.reviews = (Array.isArray(list) ? list : []).filter(r => text(r.review));
     state.reviewForm = !isFalse(general.review_form);
@@ -489,25 +509,28 @@
     g.reviews = (Array.isArray(g.reviews) ? g.reviews : []).filter(r => r && text(r.text));
     state.google = g;
     const rating = Number(g.rating) || 0;
-    const tabs = [];
-    if (g.reviews.length) tabs.push('google');
-    if (state.reviews.length || state.reviewForm) tabs.push('site');
-    if (!tabs.includes(state.tab)) state.tab = tabs[0] || 'site';
-    toggleSection('reviews', tabs.length > 0 || rating > 0);
-    $('#write-review').hidden = !state.reviewForm;
-    $('#review-tabs').hidden = tabs.length < 2;
-
-    // Summary: the Google rating when there is one, else the average of reviews on this site.
     const rated = state.reviews.filter(r => Number(r.rating) > 0);
-    const avg = rating || (rated.length ? rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length : 0);
-    $('#reviews-summary').hidden = !avg;
-    if (avg) {
-      $('#reviews-avg').textContent = avg.toFixed(1);
-      $('#reviews-avg-stars').innerHTML = starRow(avg, `Average rating ${avg.toFixed(1)} out of 5`);
-      $('#reviews-count').textContent = rating
-        ? `${(Number(g.count) || 0).toLocaleString('en-IN')} reviews on Google`
-        : `${rated.length} review${rated.length === 1 ? '' : 's'}`;
-    }
+    const average = rated.length ? rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length : 0;
+    const tabs = [];
+    if (rating || g.reviews.length) tabs.push('google');
+    if (state.reviews.length || state.reviewForm) tabs.push('site');
+    // First choice: Google when it has reviews to show, otherwise the reviews written here.
+    if (!tabs.includes(state.tab)) state.tab = g.reviews.length || !tabs.includes('site') ? (tabs[0] || 'site') : 'site';
+    toggleSection('reviews', tabs.length > 0);
+    $('#write-review').hidden = !state.reviewForm;
+
+    const score = (key, value, count) => {
+      $(`#review-scores [data-tab="${key}"]`).hidden = !tabs.includes(key);
+      $(`#score-${key}`).textContent = value ? value.toFixed(1) : '–';
+      $(`#score-${key}-stars`).innerHTML = value ? starRow(value, `Rated ${value.toFixed(1)} out of 5`, 'span') : '';
+      $(`#score-${key}-count`).textContent = count;
+    };
+    score('google', rating, rating ? `${(Number(g.count) || 0).toLocaleString('en-IN')} reviews` : 'Reviews on Google');
+    score('site', average, rated.length ? `${rated.length} review${rated.length === 1 ? '' : 's'}` : 'No reviews yet');
+    const scores = $('#review-scores');
+    scores.hidden = !tabs.length;
+    scores.classList.toggle('is-single', tabs.length < 2);
+
     const googleUrl = safeUrl(g.reviewsUrl) || safeUrl(g.mapsUrl);
     const link = $('#google-reviews');
     const url = googleUrl || state.links.maps;
@@ -522,22 +545,22 @@
 
   function renderReviewPanel() {
     const g = state.google;
-    const onGoogle = state.tab === 'google' && g.reviews.length > 0;
+    const onGoogle = state.tab === 'google';
     const site = state.reviews.slice().sort(byTop);
-    $$('#review-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+    const url = safeUrl(g.reviewsUrl) || safeUrl(g.mapsUrl);
+    $$('#review-scores [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
     let html = '';
-    if (onGoogle) html = g.reviews.slice(0, TOP_REVIEWS).map(googleReviewHtml).join('');
+    if (onGoogle) html = g.reviews.length ? g.reviews.slice(0, TOP_REVIEWS).map(googleReviewHtml).join('') : '<p class="reviews__empty">Read what members say about SSV Gym on Google.</p>';
     else if (site.length) html = site.slice(0, TOP_REVIEWS).map(reviewHtml).join('');
     else if (state.reviewForm) html = '<p class="reviews__empty">No reviews on this website yet. Trained at SSV? Be the first to share your experience.</p>';
     $('#review-grid').innerHTML = html;
     const all = $('#all-reviews'), more = $('#google-more');
     all.hidden = onGoogle || site.length <= TOP_REVIEWS;
     $('#all-reviews-count').textContent = site.length;
-    const url = safeUrl(g.reviewsUrl) || safeUrl(g.mapsUrl);
     more.hidden = !onGoogle || !url;
     if (!more.hidden) {
       more.href = url;
-      more.textContent = Number(g.count) > 0 ? `Read all ${Number(g.count).toLocaleString('en-IN')} reviews on Google` : 'Read more reviews on Google';
+      more.textContent = Number(g.count) > 0 ? `Read all ${Number(g.count).toLocaleString('en-IN')} reviews on Google` : 'Read the reviews on Google';
     }
     $('#reviews-more').hidden = all.hidden && more.hidden;
   }
@@ -602,9 +625,9 @@
         more.setAttribute('aria-expanded', String(open));
       }
     });
-    $('#review-tabs').addEventListener('click', e => {
+    $('#review-scores').addEventListener('click', e => {
       const b = e.target.closest('[data-tab]');
-      if (b) { state.tab = b.dataset.tab; renderReviewPanel(); }
+      if (b && b.dataset.tab !== state.tab) { state.tab = b.dataset.tab; renderReviewPanel(); }
     });
     const all = $('#reviews-dialog'), write = $('#review-dialog');
     $('#all-reviews').addEventListener('click', e => { state.listCount = PAGE_SIZE; renderReviewList(); openDialog(all, e.currentTarget); });
@@ -644,15 +667,18 @@
         $('#rev-count').textContent = '0';
         $('#rating-text').textContent = 'Tap a star';
         closeDialog($('#review-dialog'));
+        // Everyone who posts is invited to post on Google too, whatever their rating (Google's rule).
+        const write = safeUrl(state.google.writeUrl);
+        const invite = write ? ` Would you share it on Google too? <a href="${esc(write)}" target="_blank" rel="noopener">Review SSV Gym on Google</a>` : '';
         const msg = $('#reviews-note');
         if (res.review) {
           state.reviews.unshift(res.review);
           API.addReview(res.review);
           state.tab = 'site';
           renderReviews(state.reviews, state.general, state.google);
-          msg.textContent = 'Thank you! Your review is now on the website.';
+          msg.innerHTML = `Thank you! Your review is now on the website.${invite}`;
         } else {
-          msg.textContent = 'Thank you! Your review will appear once the gym approves it.';
+          msg.innerHTML = `Thank you! Your review will appear once the gym approves it.${invite}`;
         }
         msg.hidden = false;
         $('#reviews').scrollIntoView({ block: 'start' });
