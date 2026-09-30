@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SSV GYM — WEBSITE STYLES                                           v1.6.2
+   SSV GYM — WEBSITE STYLES                                           v1.6.4
    Palette taken from the gym itself: rubber floor black, charcoal panels,
    machine-frame green (accent only), chalk white. The 5px green bar used in
    the logo is the one recurring ornament. Grids echo the floor tiles.
@@ -38,8 +38,11 @@
 
 /* ---------- base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scrollbar-color: var(--scroll) var(--bg); scrollbar-width: thin; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scrollbar-color: var(--scroll) var(--bg); scrollbar-width: thin; font-size: 15px; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.65 var(--font); -webkit-font-smoothing: antialiased; }
+@media (max-width: 760px) {
+  html { font-size: 13.25px; }
+}
 img, svg { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
 h1, h2, h3, h4, p, ul, dl, dd, figure, blockquote { margin: 0; }
@@ -604,8 +607,18 @@ html:not(.js) .enquiry { display: none; } /* the form needs JavaScript to send *
   .contact__list > div:not([hidden]) ~ div:not([hidden]) { border-top: 1px solid var(--line); }
   .contact__list dt { flex: none; font-size: .875rem; }
   .contact__list dd { text-align: right; }
-  .contact__list > [data-row="address"], .contact__list > [data-row="hours"] { display: grid; gap: 8px; }
-  .contact__list > [data-row="address"] dd, .contact__list > [data-row="hours"] dd { text-align: left; }
+  /* Long rows: label on its own line so the address/hours can use the full width. */
+  .contact__list > [data-row="address"],
+  .contact__list > [data-row="hours"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: start;
+    align-items: start;
+    gap: 8px;
+  }
+  .contact__list > [data-row="address"] dd,
+  .contact__list > [data-row="hours"] dd { width: 100%; text-align: left; }
+  .contact__list > [data-row="hours"] .hours { max-width: none; }
   .contact__actions { display: grid; grid-template-columns: 1fr 1fr; margin-top: 20px; }
   .contact__actions .btn { padding: 0 12px; }
   .contact__actions .btn:first-child { grid-column: 1 / -1; }
@@ -669,11 +682,22 @@ html:not(.js) .enquiry { display: none; } /* the form needs JavaScript to send *
   .mobile-bar .btn { min-height: 48px; }
   body.has-mobile-bar { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
   .nav-open .mobile-bar, .lb-open .mobile-bar, .dialog-open .mobile-bar { display: none; }
+  .nav__link { font-size: 2rem; }
+  .hero__heading { font-size: clamp(2.45rem, 11.4vw, 9.75rem); }
+  .section-head h2 { font-size: clamp(2.4rem, 5.6vw, 5rem); }
+  .about__body h2 { font-size: clamp(2.2rem, 4.8vw, 4.25rem); }
+  .gpage__title { font-size: clamp(2.6rem, 8vw, 6.5rem); }
+  .stat__value { font-size: clamp(2.4rem, 4.4vw, 4rem); }
+  .facility-card__title { font-size: clamp(2rem, 3.2vw, 3.25rem); }
+  .plan__price { font-size: clamp(2.65rem, 4vw, 3.75rem); }
+  .services__title { font-size: clamp(1.8rem, 3.2vw, 2.75rem); }
+  .service__price { font-size: clamp(2.2rem, 3.2vw, 3.25rem); }
 }
 
 /* ---------- phones: tighter spacing, full-width buttons ---------- */
 @media (max-width: 600px) {
   .hero__inner { padding-top: calc(var(--header-h) + 40px); }
+  .hero__heading { font-size: clamp(2.45rem, 11vw, 9.75rem); }
   .hero__actions .btn { flex: 1 1 100%; }
   .hero__sub { margin-top: 20px; }
   .facility-strip { min-height: 56px; font-size: .9375rem; }
